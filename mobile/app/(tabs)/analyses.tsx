@@ -7,6 +7,7 @@ import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
 import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function AnalysesScreen() {
@@ -39,26 +40,30 @@ export default function AnalysesScreen() {
   }, []);
 
   const renderItem = ({ item }: { item: AnalysisSummary }) => (
-    <Pressable onPress={() => router.push(`/analysis/${item.id}` as any)}>
-      {({ pressed }) => (
-        <AppCard style={{ opacity: pressed ? 0.95 : 1 }}>
-          <AppText variant="h3">{item.title}</AppText>
+    <AppCard style={{ gap: theme.spacing.sm }}>
+      <View>
+        <AppText variant="h3">{item.title}</AppText>
+        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+          {new Date(item.date).toLocaleDateString('ru-RU')} · {item.type || 'Без типа'}
+        </AppText>
+        {item.laboratory ? (
           <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-            {new Date(item.date).toLocaleDateString('ru-RU')} · {item.type || 'Без типа'}
+            {item.laboratory}
           </AppText>
-          {item.laboratory ? (
-            <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-              {item.laboratory}
-            </AppText>
-          ) : null}
-          {item.status ? (
-            <AppText variant="caption" color="primary" style={{ marginTop: theme.spacing.sm }}>
-              Статус: {item.status}
-            </AppText>
-          ) : null}
-        </AppCard>
-      )}
-    </Pressable>
+        ) : null}
+        {item.status ? (
+          <AppText variant="caption" color="primary" style={{ marginTop: theme.spacing.sm }}>
+            Статус: {item.status}
+          </AppText>
+        ) : null}
+      </View>
+      <AppButton
+        title="Подробнее"
+        variant="secondary"
+        size="sm"
+        onPress={() => router.push(`/analysis/${item.id}` as any)}
+      />
+    </AppCard>
   );
 
   if (loading) {
