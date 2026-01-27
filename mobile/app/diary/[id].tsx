@@ -145,6 +145,16 @@ export default function EditDiaryEntryScreen() {
     }
   };
 
+  // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
+  const isWide = bp !== 'phone';
+  const rowStyle = useMemo(
+    () => ({
+      flexDirection: (isWide ? 'row' : 'column') as const,
+      gap: theme.spacing.md,
+    }),
+    [isWide, theme.spacing.md]
+  );
+
   if (loading) {
     return (
       <AppScreen
@@ -170,15 +180,6 @@ export default function EditDiaryEntryScreen() {
       </AppScreen>
     );
   }
-
-  const isWide = bp !== 'phone';
-  const rowStyle = useMemo(
-    () => ({
-      flexDirection: (isWide ? 'row' : 'column') as const,
-      gap: theme.spacing.md,
-    }),
-    [isWide, theme.spacing.md]
-  );
 
   return (
     <AppScreen>

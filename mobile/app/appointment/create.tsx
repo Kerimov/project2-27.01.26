@@ -132,6 +132,9 @@ export default function CreateAppointmentScreen() {
     }
   };
 
+  // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
+  const dateLabel = useMemo(() => selectedDate.toLocaleDateString('ru-RU'), [selectedDate]);
+
   if (loading) {
     return (
       <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -142,8 +145,6 @@ export default function CreateAppointmentScreen() {
       </AppScreen>
     );
   }
-
-  const dateLabel = useMemo(() => selectedDate.toLocaleDateString('ru-RU'), [selectedDate]);
 
   const typeLabel = (type: AppointmentType) =>
     type === 'consultation' ? 'Консультация' : type === 'follow_up' ? 'Повторный' : 'Плановый';

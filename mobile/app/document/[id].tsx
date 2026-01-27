@@ -52,6 +52,16 @@ export default function DocumentDetailScreen() {
     };
   }, [id, token]);
 
+  // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
+  const uploadedAt = useMemo(
+    () => (document?.uploadDate ? new Date(document.uploadDate).toLocaleDateString('ru-RU') : ''),
+    [document?.uploadDate]
+  );
+  const studyAt = useMemo(
+    () => (document?.studyDate ? new Date(document.studyDate).toLocaleDateString('ru-RU') : ''),
+    [document?.studyDate]
+  );
+
   const handleOpenFile = () => {
     if (document?.fileUrl) {
       Linking.openURL(document.fileUrl).catch((err) =>
@@ -98,15 +108,6 @@ export default function DocumentDetailScreen() {
       </AppScreen>
     );
   }
-
-  const uploadedAt = useMemo(
-    () => (document?.uploadDate ? new Date(document.uploadDate).toLocaleDateString('ru-RU') : ''),
-    [document?.uploadDate]
-  );
-  const studyAt = useMemo(
-    () => (document?.studyDate ? new Date(document.studyDate).toLocaleDateString('ru-RU') : ''),
-    [document?.studyDate]
-  );
 
   return (
     <AppScreen>

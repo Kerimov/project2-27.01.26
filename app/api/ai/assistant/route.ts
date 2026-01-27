@@ -895,9 +895,9 @@ async function getDoctors(params: any) {
     let whereClause: any = {}
     
     if (specialization) {
+      // SQLite не поддерживает mode: 'insensitive', используем обычный contains
       whereClause.specialization = {
-        contains: specialization,
-        mode: 'insensitive'
+        contains: specialization
       }
     }
     
@@ -1216,29 +1216,37 @@ async function buildAllUserRagContext(userId: string, message: string) {
     (async () => {
       const toks = queryTokens.slice(0, 6)
       if (toks.length === 0) return []
+      // SQLite не поддерживает mode: 'insensitive', используем обычный contains
+      // В SQLite поиск по умолчанию case-insensitive для большинства операций
       const OR: any[] = []
       for (const t of toks) {
-        OR.push({ name: { contains: t, mode: 'insensitive' } })
-        OR.push({ shortName: { contains: t, mode: 'insensitive' } })
-        OR.push({ description: { contains: t, mode: 'insensitive' } })
-        OR.push({ increasedMeaning: { contains: t, mode: 'insensitive' } })
-        OR.push({ decreasedMeaning: { contains: t, mode: 'insensitive' } })
+        OR.push({ name: { contains: t } })
+        OR.push({ shortName: { contains: t } })
+        OR.push({ description: { contains: t } })
+        OR.push({ increasedMeaning: { contains: t } })
+        OR.push({ decreasedMeaning: { contains: t } })
       }
-      return await prisma.indicator.findMany({
-        where: { OR },
-        take: 18,
-        select: {
-          id: true,
-          name: true,
-          shortName: true,
-          unit: true,
-          description: true,
-          increasedMeaning: true,
-          decreasedMeaning: true,
-          maintenanceRecommendations: true,
-          improvementRecommendations: true
-        }
-      })
+      try {
+        return await prisma.indicator.findMany({
+          where: { OR, isActive: true },
+          take: 18,
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            unit: true,
+            description: true,
+            increasedMeaning: true,
+            decreasedMeaning: true,
+            maintenanceRecommendations: true,
+            improvementRecommendations: true
+          }
+        })
+      } catch (error) {
+        // Если модель Indicator не существует или есть другие проблемы - возвращаем пустой массив
+        console.error('[AI-ASSISTANT] Error fetching indicators:', error)
+        return []
+      }
     })()
   ])
 
@@ -1461,8 +1469,38 @@ async function generateAIResponse(
         temperature: 0.5
       })
       return { response: text, sources: rag.sources }
-    } catch (error) {
+    } catch (error: any) {
       console.error('OpenAI error:', error)
+      
+      // Обрабатываем различные типы ошибок OpenAI
+      const errorMessage = error?.message || String(error)
+      let userMessage = ''
+      
+      if (errorMessage.includes('insufficient_quota') || errorMessage.includes('quota')) {
+        userMessage = '⚠️ У вашего OpenAI API ключа закончилась квота или не настроен биллинг.\n\nПроверьте:\n• Баланс на счету OpenAI\n• Настройки биллинга в https://platform.openai.com/account/billing\n• Лимиты использования API\n\nПосле пополнения баланса AI функции заработают автоматически.'
+      } else if (errorMessage.includes('invalid_api_key') || errorMessage.includes('401')) {
+        userMessage = '⚠️ OpenAI API ключ недействителен или истек.\n\nПроверьте:\n• Правильность ключа в `.env.local`\n• Активность ключа в https://platform.openai.com/api-keys\n• Не был ли ключ отозван\n\nОбновите OPENAI_API_KEY и перезапустите сервер.'
+      } else if (errorMessage.includes('429')) {
+        userMessage = '⚠️ Превышен лимит запросов к OpenAI API.\n\nПопробуйте:\n• Подождать несколько секунд и повторить запрос\n• Проверить лимиты в https://platform.openai.com/account/limits\n• Обновить тарифный план при необходимости'
+      } else {
+        userMessage = `⚠️ Ошибка при обращении к OpenAI API: ${errorMessage}\n\nПопробуйте позже или проверьте настройки API ключа.`
+      }
+      
+      // Если есть источники, показываем их вместе с ошибкой
+      if (rag.sources.length > 0) {
+        return {
+          response: `${userMessage}\n\nЯ нашел ваши данные:\n${rag.sources
+            .slice(0, 3)
+            .map((s, idx) => `- SOURCE ${idx + 1}: ${s.label}${s.url ? ` (${s.url})` : ''}`)
+            .join('\n')}\n\nПосле исправления проблемы с API ключом я смогу сделать полноценный разбор по документам.`,
+          sources: rag.sources
+        }
+      }
+      
+      return {
+        response: userMessage,
+        sources: rag.sources
+      }
     }
   }
 
