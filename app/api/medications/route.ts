@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
+import { parse as parseCookies } from 'cookie'
 
 export const dynamic = 'force-dynamic'
 
 function getToken(req: NextRequest) {
-  return req.headers.get('Authorization')?.replace('Bearer ', '') || null
+  const auth = req.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = req.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
 }
 
 export async function GET(req: NextRequest) {

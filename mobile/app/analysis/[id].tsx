@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 import { getAnalysis, type AnalysisDetail } from '../../api/analyses';
+import { useAppTheme } from '@/design/tokens';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
 
 export default function AnalysisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const theme = useAppTheme();
 
   const [item, setItem] = useState<AnalysisDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,139 +39,121 @@ export default function AnalysisDetailScreen() {
 
   if (!id) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Некорректный идентификатор анализа</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
+        <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+          Некорректный идентификатор анализа
+        </AppText>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем анализ…</Text>
+        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.sm }}>
+          Загружаем анализ…
+        </AppText>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
+        <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+          {error}
+        </AppText>
       </View>
     );
   }
 
   if (!item) {
     return (
-      <View style={styles.center}>
-        <Text>Анализ не найден.</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
+        <AppText variant="body" color="mutedText">
+          Анализ не найден.
+        </AppText>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.meta}>
-        {new Date(item.date).toLocaleDateString()} · {item.type || 'Без типа'}
-      </Text>
-      {item.laboratory ? <Text style={styles.meta}>Лаборатория: {item.laboratory}</Text> : null}
-      {item.doctor ? <Text style={styles.meta}>Врач: {item.doctor}</Text> : null}
-      {item.status ? <Text style={styles.status}>Статус: {item.status}</Text> : null}
-      {item.normalRange ? (
-        <Text style={styles.meta}>Нормальный диапазон: {item.normalRange}</Text>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Показатели</Text>
-        {Array.isArray(item.results) && item.results.length ? (
-          item.results.map((r, idx) => (
-            <View key={idx} style={styles.resultRow}>
-              <View style={styles.resultMain}>
-                <Text style={styles.resultName}>{r.name}</Text>
-                <Text style={styles.resultValue}>
-                  {r.value} {r.unit || ''}
-                </Text>
-              </View>
-              {r.reference ? <Text style={styles.resultRef}>Референс: {r.reference}</Text> : null}
-              {r.flag ? <Text style={styles.resultFlag}>Флаг: {r.flag}</Text> : null}
+    <AppScreen>
+      <AppSection
+        title={item.title}
+        subtitle={`${new Date(item.date).toLocaleDateString('ru-RU')} · ${item.type || 'Без типа'}`}
+      >
+        <View style={{ gap: theme.spacing.lg }}>
+          <AppCard>
+            <View style={{ gap: 6 }}>
+              {item.laboratory ? (
+                <AppText variant="caption" color="mutedText">
+                  Лаборатория: {item.laboratory}
+                </AppText>
+              ) : null}
+              {item.doctor ? (
+                <AppText variant="caption" color="mutedText">
+                  Врач: {item.doctor}
+                </AppText>
+              ) : null}
+              {item.status ? (
+                <AppText variant="caption" color="primary">
+                  Статус: {item.status}
+                </AppText>
+              ) : null}
+              {item.normalRange ? (
+                <AppText variant="caption" color="mutedText">
+                  Нормальный диапазон: {item.normalRange}
+                </AppText>
+              ) : null}
             </View>
-          ))
-        ) : (
-          <Text style={styles.hint}>Нет структурированных показателей.</Text>
-        )}
-      </View>
+          </AppCard>
 
-      {item.notes ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Заметки</Text>
-          <Text>{item.notes}</Text>
+          <AppSection title="Показатели">
+            <AppCard padded={false} style={{ padding: theme.spacing.lg }}>
+              {Array.isArray(item.results) && item.results.length ? (
+                <View style={{ gap: theme.spacing.md }}>
+                  {item.results.map((r, idx) => (
+                    <View key={idx} style={{ paddingBottom: theme.spacing.md, borderBottomWidth: idx === item.results.length - 1 ? 0 : 1, borderColor: theme.colors.border }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                        <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                          {r.name}
+                        </AppText>
+                        <AppText variant="bodyStrong">
+                          {r.value} {r.unit || ''}
+                        </AppText>
+                      </View>
+                      {r.reference ? (
+                        <AppText variant="caption" color="mutedText" style={{ marginTop: 4 }}>
+                          Референс: {r.reference}
+                        </AppText>
+                      ) : null}
+                      {r.flag ? (
+                        <AppText variant="caption" color="danger" style={{ marginTop: 4 }}>
+                          Флаг: {r.flag}
+                        </AppText>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <AppText variant="caption" color="mutedText">
+                  Нет структурированных показателей.
+                </AppText>
+              )}
+            </AppCard>
+          </AppSection>
+
+          {item.notes ? (
+            <AppSection title="Заметки">
+              <AppCard>
+                <AppText variant="body">{item.notes}</AppText>
+              </AppCard>
+            </AppSection>
+          ) : null}
         </View>
-      ) : null}
-    </ScrollView>
+      </AppSection>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 12,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  meta: {
-    fontSize: 12,
-    color: '#666',
-  },
-  status: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#0066cc',
-    fontWeight: '600',
-  },
-  section: {
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  resultRow: {
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
-  },
-  resultMain: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  resultName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  resultValue: {
-    fontSize: 14,
-  },
-  resultRef: {
-    fontSize: 12,
-    color: '#666',
-  },
-  resultFlag: {
-    fontSize: 12,
-    color: '#cc0000',
-  },
-  error: { color: 'red', textAlign: 'center' },
-  hint: { marginTop: 8, textAlign: 'center', color: '#666' },
-});
-

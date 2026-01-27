@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { parse as parseCookies } from 'cookie'
+
+function getToken(req: NextRequest) {
+  const auth = req.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = req.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const token = auth.replace('Bearer ', '')
+  const token = getToken(req)
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

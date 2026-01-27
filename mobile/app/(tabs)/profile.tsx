@@ -1,31 +1,34 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import { useRouter } from 'expo-router';
-
+ 
 import { getProfile, updateProfile, type PatientProfile, type Sex } from '../../api/profile';
 import { me } from '../../api/me';
 import { useAuthStore } from '../../state/authStore';
 import { setAuthToken } from '../../api/client';
-
+ 
+import { useAppTheme } from '@/design/tokens';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppInput } from '@/components/ui/AppInput';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppChip } from '@/components/ui/AppChip';
+import { useBreakpoint } from '@/design/responsive';
+ 
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout, token } = useAuthStore();
-
+  const theme = useAppTheme();
+  const bp = useBreakpoint();
+ 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+ 
   const [form, setForm] = useState({
     sex: '' as Sex | '',
     birthDate: '',
@@ -36,19 +39,11 @@ export default function ProfileScreen() {
     goals: '',
     notes: '',
   });
-
+ 
   useEffect(() => {
-    if (token) {
-      setAuthToken(token);
-    }
+    if (token) setAuthToken(token);
   }, [token]);
-
-  useEffect(() => {
-    if (token) {
-      loadData();
-    }
-  }, [token, loadData]);
-
+ 
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
@@ -66,12 +61,8 @@ export default function ProfileScreen() {
             : '',
           heightCm: profileData.heightCm?.toString() || '',
           weightKg: profileData.weightKg?.toString() || '',
-          conditions: Array.isArray(profileData.conditions)
-            ? profileData.conditions.join(', ')
-            : '',
-          allergies: Array.isArray(profileData.allergies)
-            ? profileData.allergies.join(', ')
-            : '',
+          conditions: Array.isArray(profileData.conditions) ? profileData.conditions.join(', ') : '',
+          allergies: Array.isArray(profileData.allergies) ? profileData.allergies.join(', ') : '',
           goals: Array.isArray(profileData.goals) ? profileData.goals.join(', ') : '',
           notes: profileData.notes || '',
         });
@@ -82,51 +73,69 @@ export default function ProfileScreen() {
       setLoading(false);
     }
   }, [token]);
-
+ 
   useEffect(() => {
-    if (token) {
-      loadData();
-    }
+    if (token) loadData();
   }, [token, loadData]);
-
+ 
+  const toOptionalInt = (v: string): number | null => {
+    const s = (v || '').trim();
+    if (!s) return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    return Math.trunc(n);
+  };
+ 
+  const toOptionalFloat = (v: string): number | null => {
+    const s = (v || '').trim().replace(',', '.');
+    if (!s) return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+ 
+  const toOptionalIsoDate = (v: string): string | null => {
+    const s = (v || '').trim();
+    if (!s) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return null;
+    return s;
+  };
+ 
+  const displayName = useMemo(() => {
+    if (user?.name) return String(user.name);
+    return user?.email ? String(user.email) : 'Пользователь';
+  }, [user?.name, user?.email]);
+ 
   const handleSave = async () => {
     try {
       setSaving(true);
       setError(null);
-
+ 
       if (!token) {
         Alert.alert('Ошибка', 'Необходима авторизация');
         return;
       }
-
+ 
       setAuthToken(token);
-
-      const conditions = form.conditions
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const allergies = form.allergies
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const goals = form.goals
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-
+ 
+      const conditions = form.conditions.split(',').map((s) => s.trim()).filter(Boolean);
+      const allergies = form.allergies.split(',').map((s) => s.trim()).filter(Boolean);
+      const goals = form.goals.split(',').map((s) => s.trim()).filter(Boolean);
+ 
       const profileData = {
         sex: (form.sex as Sex) || null,
-        birthDate: form.birthDate || null,
-        heightCm: form.heightCm ? parseInt(form.heightCm, 10) : null,
-        weightKg: form.weightKg ? parseFloat(form.weightKg) : null,
+        birthDate: toOptionalIsoDate(form.birthDate),
+        heightCm: toOptionalInt(form.heightCm),
+        weightKg: toOptionalFloat(form.weightKg),
         conditions: conditions.length > 0 ? conditions : undefined,
         allergies: allergies.length > 0 ? allergies : undefined,
         goals: goals.length > 0 ? goals : undefined,
         notes: form.notes.trim() || null,
       };
-
+ 
       await updateProfile(profileData);
-
       Alert.alert('Успех', 'Профиль сохранен');
       await loadData();
     } catch (e: any) {
@@ -138,7 +147,7 @@ export default function ProfileScreen() {
       setSaving(false);
     }
   };
-
+ 
   const handleLogout = () => {
     Alert.alert('Выход', 'Вы уверены, что хотите выйти?', [
       { text: 'Отмена', style: 'cancel' },
@@ -152,309 +161,138 @@ export default function ProfileScreen() {
       },
     ]);
   };
-
+ 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем профиль…</Text>
+        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.sm }}>
+          Загружаем профиль…
+        </AppText>
       </View>
     );
   }
-
+ 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Профиль</Text>
-        {user && (
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
+    <AppScreen>
+      <AppSection title="Профиль" subtitle={displayName}>
+        <View style={{ gap: theme.spacing.lg }}>
+          <AppCard>
+            <AppSection title="Основное" subtitle="Заполните минимум — это усилит рекомендации и ИИ‑функции">
+              <View style={{ gap: theme.spacing.md }}>
+                <AppText variant="caption" color="mutedText">
+                  Пол
+                </AppText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <AppChip
+                    label="Мужской"
+                    tone={form.sex === 'MALE' ? 'primary' : 'neutral'}
+                    onPress={() => setForm({ ...form, sex: 'MALE' })}
+                  />
+                  <AppChip
+                    label="Женский"
+                    tone={form.sex === 'FEMALE' ? 'primary' : 'neutral'}
+                    onPress={() => setForm({ ...form, sex: 'FEMALE' })}
+                  />
+                  <AppChip
+                    label="Не указывать"
+                    tone={form.sex === '' ? 'primary' : 'neutral'}
+                    onPress={() => setForm({ ...form, sex: '' })}
+                  />
+                </View>
+ 
+                <AppInput
+                  label="Дата рождения"
+                  placeholder="ГГГГ-ММ-ДД"
+                  value={form.birthDate}
+                  onChangeText={(text) => setForm({ ...form, birthDate: text })}
+                />
+ 
+                <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
+                  <AppInput
+                    label="Рост (см)"
+                    placeholder="170"
+                    keyboardType="numeric"
+                    value={form.heightCm}
+                    onChangeText={(text) => setForm({ ...form, heightCm: text })}
+                    containerStyle={{ flex: 1 }}
+                  />
+                  <AppInput
+                    label="Вес (кг)"
+                    placeholder="70"
+                    keyboardType="numeric"
+                    value={form.weightKg}
+                    onChangeText={(text) => setForm({ ...form, weightKg: text })}
+                    containerStyle={{ flex: 1 }}
+                  />
+                </View>
+              </View>
+            </AppSection>
+          </AppCard>
+ 
+          <AppCard>
+            <AppSection title="История и цели" subtitle="Через запятую — приложение сохранит как список">
+              <View style={{ gap: theme.spacing.md }}>
+                <AppInput
+                  label="Хронические заболевания"
+                  placeholder="Гипертония, астма…"
+                  value={form.conditions}
+                  onChangeText={(text) => setForm({ ...form, conditions: text })}
+                />
+                <AppInput
+                  label="Аллергии"
+                  placeholder="Пенициллин, пыльца…"
+                  value={form.allergies}
+                  onChangeText={(text) => setForm({ ...form, allergies: text })}
+                />
+                <AppInput
+                  label="Цели здоровья"
+                  placeholder="Снизить вес, нормализовать давление…"
+                  value={form.goals}
+                  onChangeText={(text) => setForm({ ...form, goals: text })}
+                />
+                <AppInput
+                  label="Заметки"
+                  placeholder="Дополнительная информация…"
+                  value={form.notes}
+                  onChangeText={(text) => setForm({ ...form, notes: text })}
+                  multiline
+                  numberOfLines={4}
+                  style={{ minHeight: 100, textAlignVertical: 'top' as any }}
+                />
+              </View>
+            </AppSection>
+          </AppCard>
+ 
+          <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
+            <AppButton
+              title="Сохранить"
+              loading={saving}
+              onPress={handleSave}
+              fullWidth
+              style={{ flex: bp === 'phone' ? undefined : 1 }}
+            />
+            <AppButton
+              title="Кураторский доступ"
+              variant="secondary"
+              onPress={() => router.push('/caretaker' as any)}
+              fullWidth
+              style={{ flex: bp === 'phone' ? undefined : 1 }}
+            />
           </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Пол</Text>
-        <View style={styles.sexButtons}>
-          <TouchableOpacity
-            style={[styles.sexButton, form.sex === 'MALE' && styles.sexButtonSelected]}
-            onPress={() => setForm({ ...form, sex: 'MALE' })}>
-            <Text
-              style={[
-                styles.sexButtonText,
-                form.sex === 'MALE' && styles.sexButtonTextSelected,
-              ]}>
-              Мужской
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sexButton, form.sex === 'FEMALE' && styles.sexButtonSelected]}
-            onPress={() => setForm({ ...form, sex: 'FEMALE' })}>
-            <Text
-              style={[
-                styles.sexButtonText,
-                form.sex === 'FEMALE' && styles.sexButtonTextSelected,
-              ]}>
-              Женский
-            </Text>
-          </TouchableOpacity>
+ 
+          <AppButton title="Выйти" variant="danger" onPress={handleLogout} fullWidth />
+ 
+          {error ? (
+            <AppCard variant="surface2">
+              <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+                {error}
+              </AppText>
+            </AppCard>
+          ) : null}
         </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Дата рождения</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="ГГГГ-ММ-ДД"
-          value={form.birthDate}
-          onChangeText={(text) => setForm({ ...form, birthDate: text })}
-        />
-      </View>
-
-      <View style={styles.row}>
-        <View style={[styles.section, styles.halfWidth]}>
-          <Text style={styles.label}>Рост (см)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="170"
-            keyboardType="numeric"
-            value={form.heightCm}
-            onChangeText={(text) => setForm({ ...form, heightCm: text })}
-          />
-        </View>
-        <View style={[styles.section, styles.halfWidth]}>
-          <Text style={styles.label}>Вес (кг)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="70"
-            keyboardType="numeric"
-            value={form.weightKg}
-            onChangeText={(text) => setForm({ ...form, weightKg: text })}
-          />
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Хронические заболевания</Text>
-        <Text style={styles.hint}>Через запятую</Text>
-        <TextInput
-          style={styles.textArea}
-          multiline
-          placeholder="Гипертония, астма..."
-          value={form.conditions}
-          onChangeText={(text) => setForm({ ...form, conditions: text })}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Аллергии</Text>
-        <Text style={styles.hint}>Через запятую</Text>
-        <TextInput
-          style={styles.textArea}
-          multiline
-          placeholder="Пенициллин, пыльца..."
-          value={form.allergies}
-          onChangeText={(text) => setForm({ ...form, allergies: text })}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Цели здоровья</Text>
-        <Text style={styles.hint}>Через запятую</Text>
-        <TextInput
-          style={styles.textArea}
-          multiline
-          placeholder="Снизить вес, нормализовать давление..."
-          value={form.goals}
-          onChangeText={(text) => setForm({ ...form, goals: text })}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Заметки</Text>
-        <TextInput
-          style={styles.textArea}
-          multiline
-          numberOfLines={4}
-          placeholder="Дополнительная информация..."
-          value={form.notes}
-          onChangeText={(text) => setForm({ ...form, notes: text })}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={saving}>
-        {saving ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.saveButtonText}>Сохранить</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.caretakerButton}
-        onPress={() => router.push('/caretaker' as any)}>
-        <Text style={styles.caretakerButtonText}>Управление кураторским доступом</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Выйти</Text>
-      </TouchableOpacity>
-
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
-      ) : null}
-    </ScrollView>
+      </AppSection>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 16,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  header: {
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  userInfo: {
-    marginTop: 8,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfWidth: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f9f9f9',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f9f9f9',
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  sexButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sexButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  sexButtonSelected: {
-    backgroundColor: '#0066cc',
-    borderColor: '#0066cc',
-  },
-  sexButtonText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  sexButtonTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  saveButton: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#0066cc',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  caretakerButton: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  caretakerButtonText: {
-    color: '#0066cc',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f44336',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorContainer: {
-    padding: 16,
-    backgroundColor: '#ffebee',
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  error: {
-    color: '#f44336',
-    textAlign: 'center',
-  },
-});

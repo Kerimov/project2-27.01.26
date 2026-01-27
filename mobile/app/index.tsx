@@ -1,13 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { API_BASE_URL } from '../api/client';
 import { useAuthStore } from '../state/authStore';
+import { useAppTheme } from '@/design/tokens';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppInput } from '@/components/ui/AppInput';
+import { AppButton } from '@/components/ui/AppButton';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { bootstrap, isBootstrapping, isLoading, error, login } = useAuthStore();
+  const theme = useAppTheme();
 
   const [email, setEmail] = useState('seed@example.com');
   const [password, setPassword] = useState('seed1234');
@@ -28,53 +35,51 @@ export default function LoginScreen() {
 
   if (isBootstrapping) {
     return (
-      <View style={styles.container}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Проверяем сессию…</Text>
+        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.sm }}>
+          Проверяем сессию…
+        </AppText>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Вход</Text>
+    <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center' }}>
+      <AppCard>
+        <AppText variant="title" style={{ textAlign: 'center' }}>
+          Вход
+        </AppText>
+        <AppText variant="caption" color="mutedText" style={{ textAlign: 'center', marginTop: theme.spacing.sm }}>
+          API: {baseUrlHint}
+        </AppText>
 
-      <Text style={styles.baseUrl}>API: {baseUrlHint}</Text>
+        <View style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}>
+          <AppInput
+            label="Email"
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <AppInput
+            label="Пароль"
+            placeholder="Пароль"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Пароль"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+          {error ? (
+            <AppText variant="caption" color="danger" style={{ textAlign: 'center' }}>
+              {error}
+            </AppText>
+          ) : null}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {isLoading ? <ActivityIndicator /> : <Button title="Войти" onPress={onSubmit} />}
-    </View>
+          <AppButton title="Войти" loading={isLoading} onPress={onSubmit} fullWidth />
+        </View>
+      </AppCard>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  baseUrl: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  error: { color: 'red', textAlign: 'center' },
-  hint: { marginTop: 8, textAlign: 'center', color: '#666' },
-});

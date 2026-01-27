@@ -1,15 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getDoctors, type Doctor } from '../../api/doctors';
@@ -19,9 +9,20 @@ import {
   type AvailableSlot,
   type AppointmentType,
 } from '../../api/appointments';
+import { useAppTheme } from '@/design/tokens';
+import { useBreakpoint } from '@/design/responsive';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppInput } from '@/components/ui/AppInput';
+import { AppChip } from '@/components/ui/AppChip';
 
 export default function CreateAppointmentScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
+  const bp = useBreakpoint();
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -62,6 +63,7 @@ export default function CreateAppointmentScreen() {
     if (!selectedDoctor) return;
     try {
       setLoadingSlots(true);
+      setAvailableSlots([]);
       const dateStr = selectedDate.toISOString().split('T')[0];
       const data = await getAvailableSlots(selectedDoctor.id, dateStr);
       setAvailableSlots(data.availableSlots.filter((slot) => slot.available));
@@ -83,7 +85,10 @@ export default function CreateAppointmentScreen() {
       Alert.alert('Ошибка', 'Некорректная дата');
       return;
     }
-    if (date < new Date()) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    if (date < today) {
       Alert.alert('Ошибка', 'Дата не может быть в прошлом');
       return;
     }
@@ -129,358 +134,185 @@ export default function CreateAppointmentScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: theme.spacing.sm }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем список врачей…</Text>
-      </View>
+        <AppText variant="caption" color="mutedText">
+          Загружаем список врачей…
+        </AppText>
+      </AppScreen>
     );
   }
 
+  const dateLabel = useMemo(() => selectedDate.toLocaleDateString('ru-RU'), [selectedDate]);
+
+  const typeLabel = (type: AppointmentType) =>
+    type === 'consultation' ? 'Консультация' : type === 'follow_up' ? 'Повторный' : 'Плановый';
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Новая запись к врачу</Text>
+    <AppScreen>
+      <AppSection title="Новая запись к врачу" subtitle="Выберите врача, дату и время">
+        <AppSection title="Врач" subtitle="Обязательное поле">
+          <View style={{ gap: theme.spacing.sm }}>
+            {doctors.length === 0 ? (
+              <AppCard>
+                <AppText color="mutedText">Список врачей пуст.</AppText>
+              </AppCard>
+            ) : (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+                {doctors.map((doctor) => {
+                  const isSelected = selectedDoctor?.id === doctor.id;
+                  const widthStyle =
+                    bp === 'phone'
+                      ? { width: '100%' as const }
+                      : bp === 'tablet'
+                        ? { width: '48%' as const }
+                        : { width: '32%' as const };
+                  return (
+                    <View key={doctor.id} style={widthStyle}>
+                      <Pressable
+                        onPress={() => {
+                          setSelectedDoctor(doctor);
+                          setSelectedTime(null);
+                        }}>
+                        <AppCard
+                          variant={isSelected ? 'surface' : 'surface2'}
+                          style={{
+                            borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                          }}>
+                          <AppText variant="bodyStrong">{doctor.name}</AppText>
+                          {doctor.specialization ? (
+                            <AppText variant="caption" color="mutedText" style={{ marginTop: 2 }}>
+                              {doctor.specialization}
+                            </AppText>
+                          ) : null}
+                        </AppCard>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </AppSection>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Врач *</Text>
-        {doctors.map((doctor) => (
-          <TouchableOpacity
-            key={doctor.id}
-            style={[
-              styles.doctorCard,
-              selectedDoctor?.id === doctor.id && styles.doctorCardSelected,
-            ]}
-            onPress={() => {
-              setSelectedDoctor(doctor);
-              setSelectedTime(null);
-            }}>
-            <Text style={styles.doctorName}>{doctor.name}</Text>
-            {doctor.specialization ? (
-              <Text style={styles.doctorSpecialization}>{doctor.specialization}</Text>
-            ) : null}
-          </TouchableOpacity>
-        ))}
-      </View>
+        {selectedDoctor ? (
+          <>
+            <AppSection title="Дата">
+              <AppCard style={{ gap: theme.spacing.sm }}>
+                <AppText variant="caption" color="mutedText">
+                  Выбранная дата
+                </AppText>
+                <AppButton
+                  title={dateLabel}
+                  variant="secondary"
+                  onPress={() => {
+                    setTempDate(dateLabel);
+                    setShowDateModal(true);
+                  }}
+                />
+              </AppCard>
 
-      {selectedDoctor && (
-        <>
-          <View style={styles.section}>
-            <Text style={styles.label}>Дата *</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => {
-                setTempDate(selectedDate.toLocaleDateString('ru-RU'));
-                setShowDateModal(true);
-              }}>
-              <Text style={styles.dateButtonText}>
-                {selectedDate.toLocaleDateString('ru-RU')}
-              </Text>
-            </TouchableOpacity>
-            <Modal visible={showDateModal} transparent animationType="slide">
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Выберите дату</Text>
-                  <Text style={styles.modalHint}>Формат: ДД.ММ.ГГГГ (например, 15.02.2026)</Text>
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder="ДД.ММ.ГГГГ"
-                    value={tempDate}
-                    onChangeText={setTempDate}
-                    keyboardType="numeric"
-                  />
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonCancel]}
-                      onPress={() => {
-                        setShowDateModal(false);
-                        setTempDate('');
-                      }}>
-                      <Text style={styles.modalButtonText}>Отмена</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonConfirm]}
-                      onPress={handleDateSelect}>
-                      <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>
-                        Выбрать
-                      </Text>
-                    </TouchableOpacity>
+              <Modal visible={showDateModal} transparent animationType="fade" onRequestClose={() => setShowDateModal(false)}>
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16,
+                  }}>
+                  <View style={{ width: '100%', maxWidth: 520 }}>
+                    <AppCard>
+                      <View style={{ gap: theme.spacing.md }}>
+                        <AppText variant="h3">Выберите дату</AppText>
+                        <AppInput
+                          label="Дата"
+                          placeholder="ДД.ММ.ГГГГ"
+                          hint="Например: 15.02.2026"
+                          value={tempDate}
+                          onChangeText={setTempDate}
+                          keyboardType="numeric"
+                        />
+                        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                          <AppButton
+                            title="Отмена"
+                            variant="secondary"
+                            fullWidth
+                            onPress={() => {
+                              setShowDateModal(false);
+                              setTempDate('');
+                            }}
+                            style={{ flex: 1 }}
+                          />
+                          <AppButton title="Выбрать" fullWidth onPress={handleDateSelect} style={{ flex: 1 }} />
+                        </View>
+                      </View>
+                    </AppCard>
                   </View>
                 </View>
-              </View>
-            </Modal>
-          </View>
+              </Modal>
+            </AppSection>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Время *</Text>
-            {loadingSlots ? (
-              <ActivityIndicator />
-            ) : availableSlots.length === 0 ? (
-              <Text style={styles.hint}>Нет доступных слотов на эту дату</Text>
-            ) : (
-              <View style={styles.slotsGrid}>
-                {availableSlots.map((slot) => (
-                  <TouchableOpacity
-                    key={slot.time}
-                    style={[
-                      styles.slotButton,
-                      selectedTime === slot.timeString && styles.slotButtonSelected,
-                    ]}
-                    onPress={() => setSelectedTime(slot.timeString)}>
-                    <Text
-                      style={[
-                        styles.slotButtonText,
-                        selectedTime === slot.timeString && styles.slotButtonTextSelected,
-                      ]}>
-                      {slot.timeString}
-                    </Text>
-                  </TouchableOpacity>
+            <AppSection title="Время">
+              {loadingSlots ? (
+                <AppCard style={{ alignItems: 'center' }}>
+                  <ActivityIndicator />
+                </AppCard>
+              ) : availableSlots.length === 0 ? (
+                <AppCard>
+                  <AppText color="mutedText">Нет доступных слотов на эту дату.</AppText>
+                </AppCard>
+              ) : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+                  {availableSlots.map((slot) => {
+                    const isSelected = selectedTime === slot.timeString;
+                    return (
+                      <AppButton
+                        key={slot.time}
+                        title={slot.timeString}
+                        size="sm"
+                        variant={isSelected ? 'primary' : 'secondary'}
+                        onPress={() => setSelectedTime(slot.timeString)}
+                      />
+                    );
+                  })}
+                </View>
+              )}
+            </AppSection>
+
+            <AppSection title="Тип приема">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+                {(['consultation', 'follow_up', 'routine'] as AppointmentType[]).map((type) => (
+                  <AppChip
+                    key={type}
+                    label={typeLabel(type)}
+                    tone={appointmentType === type ? 'primary' : 'neutral'}
+                    onPress={() => setAppointmentType(type)}
+                  />
                 ))}
               </View>
-            )}
-          </View>
+            </AppSection>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Тип приема</Text>
-            <View style={styles.typeButtons}>
-              {(['consultation', 'follow_up', 'routine'] as AppointmentType[]).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeButton,
-                    appointmentType === type && styles.typeButtonSelected,
-                  ]}
-                  onPress={() => setAppointmentType(type)}>
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      appointmentType === type && styles.typeButtonTextSelected,
-                    ]}>
-                    {type === 'consultation'
-                      ? 'Консультация'
-                      : type === 'follow_up'
-                      ? 'Повторный'
-                      : 'Плановый'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+            <AppSection title="Заметки" subtitle="Необязательно">
+              <AppInput
+                placeholder="Дополнительная информация…"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                style={{ minHeight: 96, textAlignVertical: 'top' as any }}
+              />
+            </AppSection>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Заметки (необязательно)</Text>
-            <TextInput
-              style={styles.notesInput}
-              multiline
-              numberOfLines={4}
-              placeholder="Дополнительная информация..."
-              value={notes}
-              onChangeText={setNotes}
+            <AppButton
+              title="Создать запись"
+              fullWidth
+              loading={creating}
+              disabled={creating || !selectedDoctor || !selectedTime}
+              onPress={handleCreate}
             />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.createButton, creating && styles.createButtonDisabled]}
-            onPress={handleCreate}
-            disabled={creating || !selectedDoctor || !selectedTime}>
-            {creating ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.createButtonText}>Создать запись</Text>
-            )}
-          </TouchableOpacity>
-        </>
-      )}
-    </ScrollView>
+          </>
+        ) : null}
+      </AppSection>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 16,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-  },
-  doctorCard: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  doctorCardSelected: {
-    borderColor: '#0066cc',
-    backgroundColor: '#e3f2fd',
-  },
-  doctorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  doctorSpecialization: {
-    fontSize: 12,
-    color: '#666',
-  },
-  dateButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  slotsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  slotButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  slotButtonSelected: {
-    backgroundColor: '#0066cc',
-    borderColor: '#0066cc',
-  },
-  slotButtonText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  slotButtonTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  typeButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  typeButtonSelected: {
-    backgroundColor: '#0066cc',
-    borderColor: '#0066cc',
-  },
-  typeButtonText: {
-    fontSize: 12,
-    color: '#333',
-  },
-  typeButtonTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  notesInput: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    fontSize: 14,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  createButton: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#0066cc',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  createButtonDisabled: {
-    opacity: 0.6,
-  },
-  createButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    width: '80%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  modalHint: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 12,
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: '#f5f5f5',
-  },
-  modalButtonConfirm: {
-    backgroundColor: '#0066cc',
-  },
-  modalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  modalButtonTextConfirm: {
-    color: 'white',
-  },
-});

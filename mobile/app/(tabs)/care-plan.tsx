@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
+  Pressable,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -17,9 +15,19 @@ import {
   type CarePlanTask,
   type CarePlanTaskStatus,
 } from '../../api/care-plan';
+import { useAppTheme } from '@/design/tokens';
+import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppChip } from '@/components/ui/AppChip';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function CarePlanScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
+  const pad = useContentPadding();
+  const { maxWidth } = useMaxContentWidth();
 
   const [tasks, setTasks] = useState<CarePlanTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,275 +132,130 @@ export default function CarePlanScreen() {
   };
 
   const renderItem = ({ item }: { item: CarePlanTask }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.title}>{item.title}</Text>
-        <View style={[styles.statusBadge, styles[`status${item.status}`]]}>
-          <Text style={styles.statusText}>
-            {item.status === 'ACTIVE' ? 'Активна' : item.status === 'SNOOZED' ? 'Отложена' : 'Выполнена'}
-          </Text>
+    <AppCard style={{ padding: theme.spacing.lg }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <AppText variant="h3">{item.title}</AppText>
+          {item.description ? (
+            <AppText variant="body" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+              {item.description}
+            </AppText>
+          ) : null}
         </View>
+        <AppChip
+          label={item.status === 'ACTIVE' ? 'Активна' : item.status === 'SNOOZED' ? 'Отложена' : 'Выполнена'}
+          tone={item.status === 'ACTIVE' ? 'primary' : 'neutral'}
+        />
       </View>
-      {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
-      <Text style={styles.meta}>Срок: {formatDate(item.dueAt)}</Text>
-      {item.snoozedUntil ? (
-        <Text style={styles.meta}>Отложено до: {formatDate(item.snoozedUntil)}</Text>
-      ) : null}
+
+      <View style={{ marginTop: theme.spacing.md, gap: 4 }}>
+        <AppText variant="caption" color="mutedText">
+          Срок: {formatDate(item.dueAt)}
+        </AppText>
+        {item.snoozedUntil ? (
+          <AppText variant="caption" color="mutedText">
+            Отложено до: {formatDate(item.snoozedUntil)}
+          </AppText>
+        ) : null}
+      </View>
+
       {item.analysis ? (
-        <TouchableOpacity
-          onPress={() => router.push(`/analysis/${item.analysis!.id}` as any)}
-          style={styles.link}>
-          <Text style={styles.linkText}>Связанный анализ: {item.analysis.title}</Text>
-        </TouchableOpacity>
+        <Pressable onPress={() => router.push(`/analysis/${item.analysis!.id}` as any)} style={{ marginTop: theme.spacing.md }}>
+          {({ pressed }) => (
+            <AppText variant="caption" color="primary" style={{ opacity: pressed ? 0.8 : 1 }}>
+              Связанный анализ: {item.analysis.title}
+            </AppText>
+          )}
+        </Pressable>
       ) : null}
       {item.document ? (
-        <TouchableOpacity
-          onPress={() => router.push(`/document/${item.document!.id}` as any)}
-          style={styles.link}>
-          <Text style={styles.linkText}>Связанный документ: {item.document.fileName}</Text>
-        </TouchableOpacity>
+        <Pressable onPress={() => router.push(`/document/${item.document!.id}` as any)} style={{ marginTop: 6 }}>
+          {({ pressed }) => (
+            <AppText variant="caption" color="primary" style={{ opacity: pressed ? 0.8 : 1 }}>
+              Связанный документ: {item.document.fileName}
+            </AppText>
+          )}
+        </Pressable>
       ) : null}
 
-      <View style={styles.actions}>
-        {item.status === 'ACTIVE' && (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.lg }}>
+        {item.status === 'ACTIVE' ? (
           <>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeButton]}
-              onPress={() => handleComplete(item)}>
-              <Text style={styles.actionButtonText}>Выполнить</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.snoozeButton]}
-              onPress={() => handleSnooze(item)}>
-              <Text style={styles.actionButtonText}>Отложить</Text>
-            </TouchableOpacity>
+            <AppButton title="Выполнить" size="sm" onPress={() => handleComplete(item)} />
+            <AppButton title="Отложить" size="sm" variant="secondary" onPress={() => handleSnooze(item)} />
           </>
-        )}
-        {item.status === 'COMPLETED' && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.reopenButton]}
-            onPress={() => handleReopen(item)}>
-            <Text style={styles.actionButtonText}>Возобновить</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === 'SNOOZED' && (
+        ) : null}
+        {item.status === 'COMPLETED' ? (
+          <AppButton title="Возобновить" size="sm" variant="secondary" onPress={() => handleReopen(item)} />
+        ) : null}
+        {item.status === 'SNOOZED' ? (
           <>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.reopenButton]}
-              onPress={() => handleReopen(item)}>
-              <Text style={styles.actionButtonText}>Возобновить</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeButton]}
-              onPress={() => handleComplete(item)}>
-              <Text style={styles.actionButtonText}>Выполнить</Text>
-            </TouchableOpacity>
+            <AppButton title="Возобновить" size="sm" variant="secondary" onPress={() => handleReopen(item)} />
+            <AppButton title="Выполнить" size="sm" onPress={() => handleComplete(item)} />
           </>
-        )}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handleDelete(item)}>
-          <Text style={styles.actionButtonText}>Удалить</Text>
-        </TouchableOpacity>
+        ) : null}
+        <AppButton title="Удалить" size="sm" variant="danger" onPress={() => handleDelete(item)} />
       </View>
-    </View>
+    </AppCard>
   );
 
   if (loading && !tasks.length) {
     return (
-      <View style={styles.center}>
+      <AppScreen
+        scroll={false}
+        contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем задачи…</Text>
-      </View>
+        <AppText variant="caption" color="mutedText">
+          Загружаем задачи…
+        </AppText>
+      </AppScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filters}>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === null && styles.filterButtonActive]}
-          onPress={() => setFilter(null)}>
-          <Text style={[styles.filterText, filter === null && styles.filterTextActive]}>Все</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'ACTIVE' && styles.filterButtonActive]}
-          onPress={() => setFilter('ACTIVE')}>
-          <Text style={[styles.filterText, filter === 'ACTIVE' && styles.filterTextActive]}>
-            Активные
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'SNOOZED' && styles.filterButtonActive]}
-          onPress={() => setFilter('SNOOZED')}>
-          <Text style={[styles.filterText, filter === 'SNOOZED' && styles.filterTextActive]}>
-            Отложенные
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'COMPLETED' && styles.filterButtonActive]}
-          onPress={() => setFilter('COMPLETED')}>
-          <Text style={[styles.filterText, filter === 'COMPLETED' && styles.filterTextActive]}>
-            Выполненные
-          </Text>
-        </TouchableOpacity>
+    <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+      <View
+        style={{
+          paddingBottom: theme.spacing.sm,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}>
+        <AppChip label="Все" tone={filter === null ? 'primary' : 'neutral'} onPress={() => setFilter(null)} />
+        <AppChip label="Активные" tone={filter === 'ACTIVE' ? 'primary' : 'neutral'} onPress={() => setFilter('ACTIVE')} />
+        <AppChip label="Отложенные" tone={filter === 'SNOOZED' ? 'primary' : 'neutral'} onPress={() => setFilter('SNOOZED')} />
+        <AppChip label="Выполненные" tone={filter === 'COMPLETED' ? 'primary' : 'neutral'} onPress={() => setFilter('COMPLETED')} />
       </View>
 
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingVertical: theme.spacing.sm,
+          gap: theme.spacing.md,
+          paddingBottom: pad.vertical + 24,
+        }}
         renderItem={renderItem}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text>Задачи не найдены.</Text>
+          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <AppText variant="body" color="mutedText">
+              Задачи не найдены.
+            </AppText>
           </View>
         }
         refreshing={loading}
         onRefresh={loadTasks}
       />
       {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+        <View style={{ paddingBottom: pad.vertical }}>
+          <AppCard variant="surface2">
+            <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+              {error}
+            </AppText>
+          </AppCard>
         </View>
       ) : null}
-    </View>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  hint: { marginTop: 8, color: '#666' },
-  error: { color: 'red', textAlign: 'center' },
-  errorContainer: {
-    padding: 16,
-    backgroundColor: '#ffebee',
-  },
-  filters: {
-    flexDirection: 'row',
-    padding: 8,
-    backgroundColor: 'white',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-  },
-  filterButtonActive: {
-    backgroundColor: '#0066cc',
-  },
-  filterText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  filterTextActive: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  title: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusACTIVE: {
-    backgroundColor: '#e3f2fd',
-  },
-  statusSNOOZED: {
-    backgroundColor: '#fff3e0',
-  },
-  statusCOMPLETED: {
-    backgroundColor: '#e8f5e9',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#333',
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  meta: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 4,
-  },
-  link: {
-    marginTop: 8,
-    paddingVertical: 4,
-  },
-  linkText: {
-    fontSize: 12,
-    color: '#0066cc',
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 8,
-  },
-  actionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  completeButton: {
-    backgroundColor: '#4caf50',
-  },
-  snoozeButton: {
-    backgroundColor: '#ff9800',
-  },
-  reopenButton: {
-    backgroundColor: '#2196f3',
-  },
-  deleteButton: {
-    backgroundColor: '#f44336',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-});

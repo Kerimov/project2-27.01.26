@@ -54,9 +54,21 @@ export async function PUT(request: NextRequest) {
     const sexRaw = typeof body?.sex === 'string' ? body.sex.toUpperCase() : undefined
     const sex = sexRaw === 'MALE' || sexRaw === 'FEMALE' ? sexRaw : null
 
-    const birthDate = body?.birthDate ? new Date(body.birthDate) : null
-    const heightCm = typeof body?.heightCm === 'number' ? Math.max(50, Math.min(260, Math.floor(body.heightCm))) : null
-    const weightKg = typeof body?.weightKg === 'number' ? Math.max(2, Math.min(400, body.weightKg)) : null
+    const birthDate = (() => {
+      if (!body?.birthDate) return null
+      const d = new Date(body.birthDate)
+      return Number.isNaN(d.getTime()) ? null : d
+    })()
+
+    const heightCm =
+      typeof body?.heightCm === 'number' && Number.isFinite(body.heightCm)
+        ? Math.max(50, Math.min(260, Math.floor(body.heightCm)))
+        : null
+
+    const weightKg =
+      typeof body?.weightKg === 'number' && Number.isFinite(body.weightKg)
+        ? Math.max(2, Math.min(400, body.weightKg))
+        : null
 
     const conditions = parseJsonArray(body?.conditions)
     const allergies = parseJsonArray(body?.allergies)
@@ -91,7 +103,15 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ profile })
   } catch (e) {
     console.error('[profile][PUT] error:', e)
-    return NextResponse.json({ error: 'Ошибка сохранения профиля' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Ошибка сохранения профиля',
+        ...(process.env.NODE_ENV !== 'production'
+          ? { details: e instanceof Error ? e.message : String(e) }
+          : {})
+      },
+      { status: 500 }
+    )
   }
 }
 

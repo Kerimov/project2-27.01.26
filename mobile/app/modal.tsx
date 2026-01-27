@@ -1,29 +1,22 @@
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import React from 'react';
+import { useRouter } from 'expo-router';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
 
 export default function ModalScreen() {
+  const router = useRouter();
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center' }}>
+      <AppCard style={{ gap: 12 }}>
+        <AppText variant="h2">Модальное окно</AppText>
+        <AppText color="mutedText">
+          Это служебный экран. Если он открылся случайно — просто закройте.
+        </AppText>
+        <AppButton title="Закрыть" onPress={() => router.back()} />
+      </AppCard>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-});

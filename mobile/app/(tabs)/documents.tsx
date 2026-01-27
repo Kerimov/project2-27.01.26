@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
+  Pressable,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -13,10 +11,20 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { getDocuments, uploadDocument, type DocumentSummary } from '../../api/documents';
 import { useAuthStore } from '../../state/authStore';
+import { useAppTheme } from '@/design/tokens';
+import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppFAB } from '@/components/ui/AppFAB';
+import { AppChip } from '@/components/ui/AppChip';
+import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function DocumentsScreen() {
   const router = useRouter();
   const { token } = useAuthStore();
+  const theme = useAppTheme();
+  const pad = useContentPadding();
+  const { maxWidth } = useMaxContentWidth();
 
   const [items, setItems] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,144 +171,72 @@ export default function DocumentsScreen() {
   };
 
   const renderItem = ({ item }: { item: DocumentSummary }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/document/${item.id}` as any)}>
-      <Text style={styles.title}>{item.fileName}</Text>
-      <Text style={styles.subtitle}>
-        {new Date(item.uploadDate).toLocaleDateString()} · {formatFileSize(item.fileSize)}
-      </Text>
-      {item.studyType ? <Text style={styles.studyType}>{item.studyType}</Text> : null}
-      {item.parsed ? (
-        <Text style={styles.parsed}>✓ Обработан</Text>
-      ) : (
-        <Text style={styles.processing}>⏳ Обрабатывается...</Text>
+    <Pressable onPress={() => router.push(`/document/${item.id}` as any)}>
+      {({ pressed }) => (
+        <AppCard style={{ padding: theme.spacing.lg, opacity: pressed ? 0.95 : 1 }}>
+          <AppText variant="h3">{item.fileName}</AppText>
+          <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+            {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
+          </AppText>
+          {item.studyType ? (
+            <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+              {item.studyType}
+            </AppText>
+          ) : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.md }}>
+            {item.parsed ? <AppChip label="Обработан" tone="primary" /> : <AppChip label="Обрабатывается…" />}
+            {typeof item.ocrConfidence === 'number' ? (
+              <AppChip label={`OCR: ${Math.round(item.ocrConfidence * 100)}%`} />
+            ) : null}
+          </View>
+        </AppCard>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 
   if (loading && !items.length) {
     return (
-      <View style={styles.center}>
+      <AppScreen
+        scroll={false}
+        contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем документы…</Text>
-      </View>
+        <AppText variant="caption" color="mutedText">
+          Загружаем документы…
+        </AppText>
+      </AppScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={{
+          gap: theme.spacing.md,
+          paddingBottom: pad.vertical + 96,
+        }}
         renderItem={renderItem}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text>Документы пока не найдены.</Text>
+          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <AppText variant="body" color="mutedText">
+              Документы пока не найдены.
+            </AppText>
           </View>
         }
         refreshing={loading}
         onRefresh={loadDocuments}
       />
-      <TouchableOpacity
-        style={[styles.fab, uploading && styles.fabDisabled]}
-        onPress={showUploadOptions}
-        disabled={uploading}>
-        {uploading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.fabText}>+</Text>
-        )}
-      </TouchableOpacity>
+      <AppFAB icon="plus" onPress={showUploadOptions} disabled={uploading} style={{ opacity: uploading ? 0.6 : 1 }} />
       {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+        <View style={{ paddingBottom: pad.vertical }}>
+          <AppCard variant="surface2">
+            <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+              {error}
+            </AppText>
+          </AppCard>
         </View>
       ) : null}
-    </View>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  hint: { marginTop: 8, color: '#666' },
-  error: { color: 'red', textAlign: 'center' },
-  errorContainer: {
-    padding: 16,
-    backgroundColor: '#ffebee',
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 80,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  studyType: {
-    fontSize: 12,
-    color: '#444',
-    marginBottom: 4,
-  },
-  parsed: {
-    fontSize: 12,
-    color: '#4caf50',
-    fontWeight: '500',
-  },
-  processing: {
-    fontSize: 12,
-    color: '#ff9800',
-    fontWeight: '500',
-  },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0066cc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
-  },
-  fabDisabled: {
-    opacity: 0.6,
-  },
-  fabText: {
-    fontSize: 32,
-    color: 'white',
-    fontWeight: '300',
-  },
-});

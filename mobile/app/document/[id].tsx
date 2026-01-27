@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { getDocument, type DocumentDetail } from '../../api/documents';
 import { getAnalyses, type AnalysisSummary } from '../../api/analyses';
+import { setAuthToken } from '../../api/client';
+import { useAuthStore } from '../../state/authStore';
+import { useAppTheme } from '@/design/tokens';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppChip } from '@/components/ui/AppChip';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { token } = useAuthStore();
+  const theme = useAppTheme();
 
   const [document, setDocument] = useState<DocumentDetail | null>(null);
   const [linkedAnalyses, setLinkedAnalyses] = useState<AnalysisSummary[]>([]);
@@ -29,6 +32,7 @@ export default function DocumentDetailScreen() {
       try {
         setLoading(true);
         setError(null);
+        if (token) setAuthToken(token);
         const doc = await getDocument(String(id));
         if (mounted) {
           setDocument(doc);
@@ -46,7 +50,7 @@ export default function DocumentDetailScreen() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, token]);
 
   const handleOpenFile = () => {
     if (document?.fileUrl) {
@@ -58,240 +62,161 @@ export default function DocumentDetailScreen() {
 
   if (!id) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Некорректный идентификатор документа</Text>
-      </View>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <AppText color="danger" style={{ textAlign: 'center' }}>
+          Некорректный идентификатор документа
+        </AppText>
+      </AppScreen>
     );
   }
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: theme.spacing.sm }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем документ…</Text>
-      </View>
+        <AppText variant="caption" color="mutedText">
+          Загружаем документ…
+        </AppText>
+      </AppScreen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-      </View>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <AppText color="danger" style={{ textAlign: 'center' }}>
+          {error}
+        </AppText>
+      </AppScreen>
     );
   }
 
   if (!document) {
     return (
-      <View style={styles.center}>
-        <Text>Документ не найден.</Text>
-      </View>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <AppText>Документ не найден.</AppText>
+      </AppScreen>
     );
   }
 
-  const isMedicalReport = document.category === 'medical_report';
+  const uploadedAt = useMemo(
+    () => (document?.uploadDate ? new Date(document.uploadDate).toLocaleDateString('ru-RU') : ''),
+    [document?.uploadDate]
+  );
+  const studyAt = useMemo(
+    () => (document?.studyDate ? new Date(document.studyDate).toLocaleDateString('ru-RU') : ''),
+    [document?.studyDate]
+  );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{document.fileName}</Text>
-      <Text style={styles.meta}>
-        Загружен: {new Date(document.uploadDate).toLocaleDateString()}
-      </Text>
-      {document.studyType ? (
-        <Text style={styles.meta}>Тип исследования: {document.studyType}</Text>
-      ) : null}
-      {document.studyDate ? (
-        <Text style={styles.meta}>
-          Дата исследования: {new Date(document.studyDate).toLocaleDateString()}
-        </Text>
-      ) : null}
-      {document.laboratory ? (
-        <Text style={styles.meta}>Лаборатория: {document.laboratory}</Text>
-      ) : null}
-      {document.doctor ? <Text style={styles.meta}>Врач: {document.doctor}</Text> : null}
-      {document.category ? (
-        <Text style={styles.meta}>Категория: {document.category}</Text>
-      ) : null}
-      {document.parsed ? (
-        <Text style={styles.parsed}>✓ Обработан</Text>
-      ) : (
-        <Text style={styles.processing}>⏳ Обрабатывается...</Text>
-      )}
+    <AppScreen>
+      <AppSection
+        title={document.fileName}
+        subtitle={uploadedAt ? `Загружен: ${uploadedAt}` : undefined}
+        headerRight={
+          document.fileUrl ? <AppButton title="Открыть" variant="secondary" size="sm" onPress={handleOpenFile} /> : null
+        }>
+        <AppCard style={{ gap: theme.spacing.sm }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <AppChip label={document.parsed ? 'Обработан' : 'В обработке'} tone={document.parsed ? 'primary' : 'neutral'} />
+            {typeof document.ocrConfidence === 'number' ? (
+              <AppChip label={`OCR: ${Math.round(document.ocrConfidence * 100)}%`} />
+            ) : null}
+            {document.category ? <AppChip label={document.category} /> : null}
+          </View>
 
-      {document.rawText && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Текст документа</Text>
-          <Text style={styles.textContent}>{document.rawText}</Text>
-        </View>
-      )}
+          {document.studyType ? <AppText variant="caption" color="mutedText">Тип исследования: {document.studyType}</AppText> : null}
+          {studyAt ? <AppText variant="caption" color="mutedText">Дата исследования: {studyAt}</AppText> : null}
+          {document.laboratory ? <AppText variant="caption" color="mutedText">Лаборатория: {document.laboratory}</AppText> : null}
+          {document.doctor ? <AppText variant="caption" color="mutedText">Врач: {document.doctor}</AppText> : null}
+        </AppCard>
 
-      {document.indicators && Array.isArray(document.indicators) && document.indicators.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Показатели</Text>
-          {document.indicators.map((ind, idx) => (
-            <View key={idx} style={styles.indicatorRow}>
-              <Text style={styles.indicatorName}>{ind.name}</Text>
-              <Text style={styles.indicatorValue}>
-                {ind.value} {ind.unit || ''}
-              </Text>
-              {ind.referenceMin !== undefined && ind.referenceMax !== undefined && (
-                <Text style={styles.indicatorRef}>
-                  Референс: {ind.referenceMin} - {ind.referenceMax} {ind.unit || ''}
-                </Text>
-              )}
-              {ind.isNormal !== undefined && (
-                <Text
-                  style={[
-                    styles.indicatorStatus,
-                    ind.isNormal ? styles.normal : styles.abnormal,
-                  ]}>
-                  {ind.isNormal ? '✓ Норма' : '⚠ Отклонение'}
-                </Text>
-              )}
+        {document.findings ? (
+          <AppSection title="Заключение">
+            <AppCard>
+              <AppText selectable>{document.findings}</AppText>
+            </AppCard>
+          </AppSection>
+        ) : null}
+
+        {document.indicators && Array.isArray(document.indicators) && document.indicators.length > 0 ? (
+          <AppSection title="Показатели" subtitle="Извлечено из документа">
+            <View style={{ gap: theme.spacing.sm }}>
+              {document.indicators.map((ind, idx) => {
+                const value = `${ind.value}${ind.unit ? ` ${ind.unit}` : ''}`;
+                const ref =
+                  ind.referenceMin !== undefined && ind.referenceMax !== undefined
+                    ? `Референс: ${ind.referenceMin} - ${ind.referenceMax}${ind.unit ? ` ${ind.unit}` : ''}`
+                    : null;
+                return (
+                  <AppCard key={`${ind.name}-${idx}`} style={{ gap: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <AppText variant="bodyStrong">{ind.name}</AppText>
+                        <AppText color="mutedText" variant="caption">
+                          {value}
+                        </AppText>
+                      </View>
+                      {ind.isNormal !== undefined ? (
+                        <AppChip label={ind.isNormal ? 'Норма' : 'Отклонение'} tone={ind.isNormal ? 'primary' : 'neutral'} />
+                      ) : null}
+                    </View>
+                    {ref ? (
+                      <AppText variant="caption" color="mutedText">
+                        {ref}
+                      </AppText>
+                    ) : null}
+                  </AppCard>
+                );
+              })}
             </View>
-          ))}
-        </View>
-      )}
+          </AppSection>
+        ) : null}
 
-      {document.findings && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Заключение</Text>
-          <Text>{document.findings}</Text>
-        </View>
-      )}
+        {document.rawText ? (
+          <AppSection title="Текст документа" subtitle="Распознанный текст (OCR)">
+            <AppCard>
+              <AppText variant="mono" color="mutedText" selectable>
+                {document.rawText}
+              </AppText>
+            </AppCard>
+          </AppSection>
+        ) : null}
 
-      {linkedAnalyses.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Связанные анализы</Text>
-          {linkedAnalyses.map((analysis) => (
-            <TouchableOpacity
-              key={analysis.id}
-              style={styles.analysisLink}
-              onPress={() => router.push(`/analysis/${analysis.id}` as any)}>
-              <Text style={styles.analysisLinkText}>{analysis.title}</Text>
-              <Text style={styles.analysisLinkMeta}>
-                {new Date(analysis.date).toLocaleDateString()} · {analysis.status || 'normal'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+        {linkedAnalyses.length > 0 ? (
+          <AppSection title="Связанные анализы">
+            <View style={{ gap: theme.spacing.sm }}>
+              {linkedAnalyses.map((analysis) => {
+                const dateStr = analysis.date ? new Date(analysis.date).toLocaleDateString('ru-RU') : '';
+                const status = analysis.status || 'normal';
+                return (
+                  <Pressable key={analysis.id} onPress={() => router.push(`/analysis/${analysis.id}` as any)}>
+                    <AppCard style={{ gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                          {analysis.title}
+                        </AppText>
+                        <AppChip label={status} />
+                      </View>
+                      <AppText variant="caption" color="mutedText">
+                        {dateStr}
+                      </AppText>
+                    </AppCard>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </AppSection>
+        ) : null}
 
-      {document.fileUrl && (
-        <TouchableOpacity style={styles.openButton} onPress={handleOpenFile}>
-          <Text style={styles.openButtonText}>Открыть файл</Text>
-        </TouchableOpacity>
-      )}
-
-      {document.notes && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Заметки</Text>
-          <Text>{document.notes}</Text>
-        </View>
-      )}
-    </ScrollView>
+        {document.notes ? (
+          <AppSection title="Заметки">
+            <AppCard>
+              <AppText selectable>{document.notes}</AppText>
+            </AppCard>
+          </AppSection>
+        ) : null}
+      </AppSection>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 12,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  meta: {
-    fontSize: 12,
-    color: '#666',
-  },
-  parsed: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#4caf50',
-    fontWeight: '500',
-  },
-  processing: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#ff9800',
-    fontWeight: '500',
-  },
-  section: {
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  textContent: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  indicatorRow: {
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
-  },
-  indicatorName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  indicatorValue: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  indicatorRef: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  indicatorStatus: {
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  normal: {
-    color: '#4caf50',
-  },
-  abnormal: {
-    color: '#f44336',
-  },
-  analysisLink: {
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  analysisLinkText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  analysisLinkMeta: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  openButton: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#0066cc',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  openButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  error: { color: 'red', textAlign: 'center' },
-  hint: { marginTop: 8, textAlign: 'center', color: '#666' },
-});

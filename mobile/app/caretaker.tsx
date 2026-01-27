@@ -1,33 +1,32 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
+import { ActivityIndicator, Alert, View } from 'react-native';
+ 
 import {
   getCareLinks,
   createCareLink,
   deleteCareLink,
   type CareLinksResponse,
 } from '../api/caretaker';
-
+ 
+import { useAppTheme } from '@/design/tokens';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppInput } from '@/components/ui/AppInput';
+import { AppButton } from '@/components/ui/AppButton';
+import { useBreakpoint } from '@/design/responsive';
+ 
 export default function CaretakerScreen() {
+  const theme = useAppTheme();
+  const bp = useBreakpoint();
+ 
   const [links, setLinks] = useState<CareLinksResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState('');
   const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    loadLinks();
-  }, []);
-
+ 
   const loadLinks = useCallback(async () => {
     try {
       setLoading(true);
@@ -40,13 +39,17 @@ export default function CaretakerScreen() {
       setLoading(false);
     }
   }, []);
-
+ 
+  useEffect(() => {
+    loadLinks();
+  }, [loadLinks]);
+ 
   const handleAdd = async () => {
     if (!newEmail.trim()) {
       Alert.alert('Ошибка', 'Введите email');
       return;
     }
-
+ 
     try {
       setCreating(true);
       await createCareLink(newEmail.trim().toLowerCase());
@@ -59,238 +62,114 @@ export default function CaretakerScreen() {
       setCreating(false);
     }
   };
-
+ 
   const handleDelete = async (id: string, name: string) => {
-    Alert.alert(
-      'Удалить доступ',
-      `Вы уверены, что хотите удалить доступ для ${name}?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCareLink(id);
-              Alert.alert('Успех', 'Доступ удален');
-              await loadLinks();
-            } catch (e: any) {
-              Alert.alert('Ошибка', e?.message || 'Не удалось удалить доступ');
-            }
-          },
+    Alert.alert('Удалить доступ', `Вы уверены, что хотите удалить доступ для ${name}?`, [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCareLink(id);
+            Alert.alert('Успех', 'Доступ удален');
+            await loadLinks();
+          } catch (e: any) {
+            Alert.alert('Ошибка', e?.message || 'Не удалось удалить доступ');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
-
+ 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем связи…</Text>
+        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.sm }}>
+          Загружаем связи…
+        </AppText>
       </View>
     );
   }
-
+ 
+  const hasNoLinks = !links || (links.asPatient.length === 0 && links.asCaretaker.length === 0);
+ 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Кураторский доступ</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Добавить куратора</Text>
-        <Text style={styles.hint}>Введите email пользователя, которому хотите предоставить доступ</Text>
-        <View style={styles.addRow}>
-          <TextInput
-            style={styles.emailInput}
-            placeholder="email@example.com"
-            value={newEmail}
-            onChangeText={setNewEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            style={[styles.addButton, creating && styles.addButtonDisabled]}
-            onPress={handleAdd}
-            disabled={creating}>
-            {creating ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.addButtonText}>Добавить</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {links && (
-        <>
-          {links.asPatient.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Мои кураторы</Text>
-              <FlatList
-                data={links.asPatient}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={styles.linkCard}>
-                    <View style={styles.linkInfo}>
-                      <Text style={styles.linkName}>{item.caretaker.name}</Text>
-                      <Text style={styles.linkEmail}>{item.caretaker.email}</Text>
+    <AppScreen>
+      <AppSection title="Кураторский доступ" subtitle="Управляйте доступом к вашим данным">
+        <View style={{ gap: theme.spacing.lg }}>
+          <AppCard>
+            <AppSection title="Добавить куратора" subtitle="Email пользователя, которому предоставляете доступ">
+              <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
+                <AppInput
+                  label="Email"
+                  placeholder="email@example.com"
+                  value={newEmail}
+                  onChangeText={setNewEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  containerStyle={{ flex: 1 }}
+                />
+                <AppButton title="Добавить" loading={creating} onPress={handleAdd} fullWidth style={{ flex: bp === 'phone' ? undefined : 0.6 }} />
+              </View>
+            </AppSection>
+          </AppCard>
+ 
+          {links?.asPatient?.length ? (
+            <AppSection title="Мои кураторы" subtitle="Пользователи, у которых есть доступ к вашим данным">
+              <View style={{ gap: theme.spacing.md }}>
+                {links.asPatient.map((l) => (
+                  <AppCard key={l.id} padded={false} style={{ padding: theme.spacing.lg }}>
+                    <AppText variant="h3">{l.caretaker.name}</AppText>
+                    <AppText variant="caption" color="mutedText" style={{ marginTop: 4 }}>
+                      {l.caretaker.email}
+                    </AppText>
+                    <View style={{ marginTop: theme.spacing.md }}>
+                      <AppButton title="Удалить" size="sm" variant="danger" onPress={() => handleDelete(l.id, l.caretaker.name)} />
                     </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDelete(item.id, item.caretaker.name)}>
-                      <Text style={styles.deleteButtonText}>Удалить</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                scrollEnabled={false}
-              />
-            </View>
-          )}
-
-          {links.asCaretaker.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Пациенты, к которым у меня есть доступ</Text>
-              <FlatList
-                data={links.asCaretaker}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={styles.linkCard}>
-                    <View style={styles.linkInfo}>
-                      <Text style={styles.linkName}>{item.patient.name}</Text>
-                      <Text style={styles.linkEmail}>{item.patient.email}</Text>
+                  </AppCard>
+                ))}
+              </View>
+            </AppSection>
+          ) : null}
+ 
+          {links?.asCaretaker?.length ? (
+            <AppSection title="Доступ к пациентам" subtitle="Пациенты, к которым у вас есть доступ">
+              <View style={{ gap: theme.spacing.md }}>
+                {links.asCaretaker.map((l) => (
+                  <AppCard key={l.id} padded={false} style={{ padding: theme.spacing.lg }}>
+                    <AppText variant="h3">{l.patient.name}</AppText>
+                    <AppText variant="caption" color="mutedText" style={{ marginTop: 4 }}>
+                      {l.patient.email}
+                    </AppText>
+                    <View style={{ marginTop: theme.spacing.md }}>
+                      <AppButton title="Удалить" size="sm" variant="danger" onPress={() => handleDelete(l.id, l.patient.name)} />
                     </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDelete(item.id, item.patient.name)}>
-                      <Text style={styles.deleteButtonText}>Удалить</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                scrollEnabled={false}
-              />
-            </View>
-          )}
-
-          {links.asPatient.length === 0 && links.asCaretaker.length === 0 && (
-            <View style={styles.center}>
-              <Text style={styles.hint}>Нет активных связей</Text>
-            </View>
-          )}
-        </>
-      )}
-
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+                  </AppCard>
+                ))}
+              </View>
+            </AppSection>
+          ) : null}
+ 
+          {hasNoLinks ? (
+            <AppCard variant="surface2">
+              <AppText variant="body" color="mutedText" style={{ textAlign: 'center' }}>
+                Нет активных связей
+              </AppText>
+            </AppCard>
+          ) : null}
+ 
+          {error ? (
+            <AppCard variant="surface2">
+              <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+                {error}
+              </AppText>
+            </AppCard>
+          ) : null}
         </View>
-      ) : null}
-    </View>
+      </AppSection>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  addRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  emailInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: 'white',
-  },
-  addButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#0066cc',
-    justifyContent: 'center',
-  },
-  addButtonDisabled: {
-    opacity: 0.6,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  linkCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'white',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  linkInfo: {
-    flex: 1,
-  },
-  linkName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  linkEmail: {
-    fontSize: 12,
-    color: '#666',
-  },
-  deleteButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#f44336',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  errorContainer: {
-    padding: 16,
-    backgroundColor: '#ffebee',
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  error: {
-    color: '#f44336',
-    textAlign: 'center',
-  },
-});

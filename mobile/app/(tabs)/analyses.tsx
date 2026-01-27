@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getAnalyses, type AnalysisSummary } from '../../api/analyses';
+import { useAppTheme } from '@/design/tokens';
+import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { AppCard } from '@/components/ui/AppCard';
+import { AppText } from '@/components/ui/AppText';
+import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function AnalysesScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
+  const pad = useContentPadding();
+  const { maxWidth } = useMaxContentWidth();
 
   const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,95 +39,73 @@ export default function AnalysesScreen() {
   }, []);
 
   const renderItem = ({ item }: { item: AnalysisSummary }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/analysis/${item.id}` as any)}>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.subtitle}>
-        {new Date(item.date).toLocaleDateString()} · {item.type || 'Без типа'}
-      </Text>
-      {item.laboratory ? <Text style={styles.laboratory}>{item.laboratory}</Text> : null}
-      {item.status ? <Text style={styles.status}>Статус: {item.status}</Text> : null}
-    </TouchableOpacity>
+    <Pressable onPress={() => router.push(`/analysis/${item.id}` as any)}>
+      {({ pressed }) => (
+        <AppCard style={{ opacity: pressed ? 0.95 : 1 }}>
+          <AppText variant="h3">{item.title}</AppText>
+          <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+            {new Date(item.date).toLocaleDateString('ru-RU')} · {item.type || 'Без типа'}
+          </AppText>
+          {item.laboratory ? (
+            <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+              {item.laboratory}
+            </AppText>
+          ) : null}
+          {item.status ? (
+            <AppText variant="caption" color="primary" style={{ marginTop: theme.spacing.sm }}>
+              Статус: {item.status}
+            </AppText>
+          ) : null}
+        </AppCard>
+      )}
+    </Pressable>
   );
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <AppScreen
+        scroll={false}
+        contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm }}>
         <ActivityIndicator />
-        <Text style={styles.hint}>Загружаем анализы…</Text>
-      </View>
+        <AppText variant="caption" color="mutedText">
+          Загружаем анализы…
+        </AppText>
+      </AppScreen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-      </View>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <AppText variant="body" color="danger" style={{ textAlign: 'center' }}>
+          {error}
+        </AppText>
+      </AppScreen>
     );
   }
 
   if (!items.length) {
     return (
-      <View style={styles.center}>
-        <Text>Анализы пока не найдены.</Text>
-      </View>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <AppText variant="body" color="mutedText">
+          Анализы пока не найдены.
+        </AppText>
+      </AppScreen>
     );
   }
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContent}
-      renderItem={renderItem}
-    />
+    <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          gap: theme.spacing.md,
+          paddingBottom: pad.vertical + 80,
+        }}
+        renderItem={renderItem}
+      />
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  hint: { marginTop: 8, color: '#666' },
-  error: { color: 'red', textAlign: 'center' },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  laboratory: {
-    fontSize: 12,
-    color: '#444',
-    marginBottom: 4,
-  },
-  status: {
-    fontSize: 12,
-    color: '#0066cc',
-    fontWeight: '500',
-  },
-});
-
