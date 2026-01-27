@@ -1,134 +1,89 @@
-# ⚡ Быстрый старт на новом компьютере
+# ⚡ Быстрый старт на новом ПК (5 минут)
 
-Минимальная инструкция для запуска проекта за 5 минут.
+## 🎯 Минимальная установка
 
----
-
-## 📋 Шаг 1: Установка Node.js
-
-Скачайте и установите Node.js 18+ с [nodejs.org](https://nodejs.org/)
-
-Проверка:
-```bash
-node --version  # Должно быть v18.0.0+
-npm --version   # Должно быть 9.0.0+
-```
-
----
-
-## 📦 Шаг 2: Установка зависимостей
+### 1. Клонирование и установка
 
 ```bash
-cd medical-1
+git clone https://github.com/Kerimov/project2-27.01.26.git
+cd project2-27.01.26
 npm install
+cd mobile && npm install && cd ..
 ```
 
----
+### 2. Настройка окружения
 
-## ⚙️ Шаг 3: Настройка окружения
-
-### Windows PowerShell:
-```powershell
-Copy-Item env.example .env.local
-```
-
-### Linux/macOS:
 ```bash
+# Создать .env.local
 cp env.example .env.local
+
+# Минимальные настройки в .env.local:
+# JWT_SECRET=любая-случайная-строка
+# DATABASE_URL="file:./prisma/dev.db"
 ```
 
-### Отредактируйте `.env.local`:
-
-**Минимальная конфигурация:**
-```env
-JWT_SECRET=your-secret-key-change-this
-OPENAI_API_KEY=sk-proj-your-key-here
-OCR_SPACE_API_KEY=your-key-here
-DATABASE_URL="file:./prisma/dev.db"
-```
-
-**Где взять ключи:**
-- OpenAI: [platform.openai.com](https://platform.openai.com/) → API Keys
-- OCR.space: [ocr.space/ocrapi](https://ocr.space/ocrapi) → Free API Key
-
----
-
-## 🗄️ Шаг 4: Настройка базы данных
+### 3. Инициализация базы данных
 
 ```bash
 npx prisma generate
-npx prisma migrate dev --name init
-npm run db:seed
+npx prisma db push
+node prisma/seed.js
 ```
 
----
-
-## 🚀 Шаг 5: Запуск
+### 4. Запуск
 
 ```bash
+# Веб-приложение
 npm run dev
+
+# Мобильное приложение (в другом терминале)
+cd mobile
+npm start
 ```
 
-Откройте: **http://localhost:3000**
+### 5. Вход
+
+- **URL**: http://localhost:3000
+- **Email**: `seed@example.com`
+- **Пароль**: `seed1234`
 
 ---
 
-## 👤 Тестовые учетные данные
+## 📱 Для мобильного приложения
 
-После выполнения `npm run db:seed`:
+### Настройка API URL
 
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Администратор | admin@pma.ru | admin123 |
-| Пациент | test@pma.ru | test123 |
-| Врач | doctor@pma.ru | doctor123 |
+Откройте `mobile/.env`:
 
----
+```env
+# Для Android эмулятора
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
 
-## 🛠️ Дополнительно
-
-### Prisma Studio (визуальный редактор БД):
-```bash
-npm run prisma:studio
-```
-Откройте: **http://localhost:5555**
-
-### Если порт 3000 занят:
-Next.js автоматически использует порт 3001
-
----
-
-## ❗ Частые проблемы
-
-### "Cannot find module '@prisma/client'"
-```bash
-npx prisma generate
-npm install
+# Для физического устройства (замените на IP вашего ПК)
+# EXPO_PUBLIC_API_BASE_URL=http://192.168.1.100:3000
 ```
 
-### "Invalid token"
-1. Очистите cookies браузера
-2. Перезапустите сервер
-3. Войдите заново
+---
 
-### OCR/AI не работает
-1. Проверьте API ключи в `.env.local`
-2. Перезапустите сервер: `Ctrl+C` → `npm run dev`
+## 🔑 API ключи (опционально)
+
+Добавьте в `.env.local` для полной функциональности:
+
+```env
+OPENAI_API_KEY=sk-proj-ваш-ключ
+OCR_SPACE_API_KEY=ваш-ключ
+```
+
+Без ключей приложение работает в демо-режиме.
 
 ---
 
-## 📚 Полная документация
+## ✅ Проверка
 
-Смотрите `README_SETUP.md` для подробной информации.
+1. Откройте http://localhost:3000
+2. Войдите: `seed@example.com` / `seed1234`
+3. Проверьте загрузку документов и AI чат
 
 ---
 
-## ✅ Готово!
-
-Теперь можно:
-- 📊 Загружать анализы
-- 📅 Записываться на прием
-- 🤖 Общаться с AI-ассистентом
-- 👨‍⚕️ Управлять пациентами (для врачей)
-
-**Приятной работы!** 🎉
+**Подробная инструкция:** см. `README_NEW_PC.md`
