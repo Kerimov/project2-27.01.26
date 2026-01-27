@@ -167,21 +167,46 @@ export default function CreateAppointmentScreen() {
             <Text style={styles.label}>Дата *</Text>
             <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}>
+              onPress={() => {
+                setTempDate(selectedDate.toLocaleDateString('ru-RU'));
+                setShowDateModal(true);
+              }}>
               <Text style={styles.dateButtonText}>
                 {selectedDate.toLocaleDateString('ru-RU')}
               </Text>
             </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="default"
-                minimumDate={new Date()}
-                maximumDate={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)}
-                onChange={handleDateChange}
-              />
-            )}
+            <Modal visible={showDateModal} transparent animationType="slide">
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Выберите дату</Text>
+                  <Text style={styles.modalHint}>Формат: ДД.ММ.ГГГГ (например, 15.02.2026)</Text>
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="ДД.ММ.ГГГГ"
+                    value={tempDate}
+                    onChangeText={setTempDate}
+                    keyboardType="numeric"
+                  />
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalButtonCancel]}
+                      onPress={() => {
+                        setShowDateModal(false);
+                        setTempDate('');
+                      }}>
+                      <Text style={styles.modalButtonText}>Отмена</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalButtonConfirm]}
+                      onPress={handleDateSelect}>
+                      <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>
+                        Выбрать
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           </View>
 
           <View style={styles.section}>
