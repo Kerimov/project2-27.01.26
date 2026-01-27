@@ -28,6 +28,11 @@ const MAPPING = {
   'person.fill': 'person',
   // Actions
   plus: 'add',
+  // AI Chat
+  sparkles: 'auto-awesome',
+  paperclip: 'attach-file',
+  'xmark.circle.fill': 'cancel',
+  'checkmark.circle.fill': 'check-circle',
 } as IconMapping;
 
 /**

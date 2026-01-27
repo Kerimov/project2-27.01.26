@@ -16,6 +16,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AIChat } from '@/components/AIChat';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -246,6 +247,7 @@ export default function DashboardScreen() {
           </AppSection>
         </View>
       </AppSection>
+      <AIChat />
     </AppScreen>
   );
 }

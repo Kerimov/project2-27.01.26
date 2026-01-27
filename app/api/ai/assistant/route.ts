@@ -149,11 +149,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Проверка авторизации
+    // Проверка авторизации (поддержка Bearer и Cookie)
+    const auth = request.headers.get('authorization') || ''
+    const bearerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : null
     const cookieHeader = request.headers.get('cookie')
     const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
-    console.log('[AI-ASSISTANT] Token check:', { hasToken: !!token })
+    const token = bearerToken || cookies.token
+    console.log('[AI-ASSISTANT] Token check:', { hasToken: !!token, source: bearerToken ? 'bearer' : 'cookie' })
 
     if (!token) {
       console.log('[AI-ASSISTANT] No token found')
