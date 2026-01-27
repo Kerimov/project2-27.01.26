@@ -7,12 +7,17 @@ import { parse as parseCookies } from 'cookie'
 // чтобы Next.js не пытался выполнять его при статическом экспорте.
 export const dynamic = 'force-dynamic'
 
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Получаем токен из cookies
-    const cookieHeader = request.headers.get('cookie')
-    const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
+    const token = getToken(request)
 
     if (!token) {
       return NextResponse.json(

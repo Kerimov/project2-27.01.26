@@ -6,15 +6,21 @@ import { parse as parseCookies } from 'cookie'
 // Использует headers/cookies, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
+
 // GET - получить документ по ID
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieHeader = request.headers.get('cookie')
-    const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
+    const token = getToken(request)
 
     if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
@@ -68,9 +74,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieHeader = request.headers.get('cookie')
-    const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
+    const token = getToken(request)
 
     if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
@@ -108,9 +112,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieHeader = request.headers.get('cookie')
-    const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
+    const token = getToken(request)
 
     if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
