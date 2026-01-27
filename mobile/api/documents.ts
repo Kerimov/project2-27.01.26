@@ -85,13 +85,10 @@ export async function getDocument(id: string): Promise<DocumentDetail> {
 export async function uploadDocument(
   fileUri: string,
   fileName: string,
-  mimeType: string
+  mimeType: string,
+  token: string | null
 ): Promise<UploadDocumentResponse> {
-  // Читаем файл как blob
-  const response = await fetch(fileUri);
-  const blob = await response.blob();
-
-  // Создаем FormData
+  // В React Native FormData работает с объектами { uri, name, type }
   const formData = new FormData();
   formData.append('file', {
     uri: fileUri,
@@ -99,17 +96,12 @@ export async function uploadDocument(
     type: mimeType,
   } as any);
 
-  // Получаем токен из клиента
-  const token = (global as any).__authToken || null;
-  if (token) {
-    setAuthToken(token);
-  }
-
   // Отправляем запрос
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  // Не устанавливаем Content-Type - React Native сам установит с boundary для FormData
 
   const res = await fetch(`${API_BASE_URL}/api/documents/upload`, {
     method: 'POST',

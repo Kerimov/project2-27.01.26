@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { parse as parseCookies } from 'cookie'
 
 // Использует cookies/headers, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Получаем токен из cookies
-    const token = request.cookies.get('token')?.value
+    const token = getToken(request)
     if (!token) {
       return NextResponse.json({ error: 'Токен не найден' }, { status: 401 })
     }
@@ -18,9 +26,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Недействительный токен' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const documentId = searchParams.get('documentId')
+
+    const where: any = { userId: payload.userId }
+    if (documentId) {
+      where.documentId = documentId
+    }
+
     const analyses = await prisma.analysis.findMany({
-      where: { userId: payload.userId },
-      orderBy: { date: 'desc' }
+      where,
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        userId: true,
+        documentId: true,
+        title: true,
+        type: true,
+        date: true,
+        laboratory: true,
+        doctor: true,
+        results: true,
+        normalRange: true,
+        status: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      }
     })
 
     return NextResponse.json({ analyses })

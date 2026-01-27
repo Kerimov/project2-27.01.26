@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { parse as parseCookies } from 'cookie'
 
 // Использует headers, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
+
 // Получение всех записей для пациента
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getToken(request)
+    if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const token = authHeader.substring(7)
     const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: 'Неверный токен' }, { status: 401 })
@@ -53,13 +60,11 @@ export async function GET(request: NextRequest) {
 // Создание новой записи
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getToken(request)
+    if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
 
-    const token = authHeader.substring(7)
     const decoded = verifyToken(token)
     if (!decoded) {
       return NextResponse.json({ error: 'Неверный токен' }, { status: 401 })

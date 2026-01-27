@@ -9,6 +9,7 @@ export interface AnalysisSummary {
   date: string; // ISO
   status: AnalysisStatus | null;
   laboratory: string | null;
+  documentId?: string | null;
 }
 
 export interface AnalysisResultItem {
@@ -29,8 +30,9 @@ export interface AnalysisDetail extends AnalysisSummary {
 type ListResponse = { analyses: AnalysisDetail[] };
 type DetailResponse = { analysis: AnalysisDetail };
 
-export async function getAnalyses(): Promise<AnalysisSummary[]> {
-  const data = await apiJson<ListResponse>('/api/analyses');
+export async function getAnalyses(documentId?: string): Promise<AnalysisSummary[]> {
+  const url = documentId ? `/api/analyses?documentId=${documentId}` : '/api/analyses';
+  const data = await apiJson<ListResponse>(url);
   return data.analyses.map((a) => ({
     id: a.id,
     title: a.title,
@@ -38,6 +40,7 @@ export async function getAnalyses(): Promise<AnalysisSummary[]> {
     date: a.date,
     status: (a.status as AnalysisStatus) ?? 'normal',
     laboratory: a.laboratory,
+    documentId: a.documentId,
   }));
 }
 

@@ -3,14 +3,23 @@ import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
+import { parse as parseCookies } from 'cookie'
 
 // Использует headers, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
+
 // GET /api/reminders - получить все напоминания пользователя
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    const token = getToken(request)
     if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
@@ -47,7 +56,7 @@ export async function GET(request: NextRequest) {
 // POST /api/reminders - создать новое напоминание
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    const token = getToken(request)
     if (!token) {
       return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
     }
