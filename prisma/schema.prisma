@@ -680,3 +680,10 @@ model DiaryTagOnEntry {
 
   @@id([entryId, tagId])
 }
+
+/// Глобальные настройки (ключ-значение), в т.ч. выбор AI-провайдера и модели
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

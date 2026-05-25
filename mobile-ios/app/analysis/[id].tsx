@@ -399,10 +399,33 @@ export default function AnalysisDetailScreen() {
                 icon="chart.bar.fill"
                 loading={aiLoading}
                 onPress={async () => {
+                  const trendIndicator =
+                    indicators.find(
+                      (ind) =>
+                        ind.isNormal === false || ind.flag === 'high' || ind.flag === 'low'
+                    ) || indicators[0];
+                  if (!trendIndicator?.name) {
+                    Alert.alert(
+                      'Нет показателей',
+                      'В этом анализе нет числовых показателей для интерпретации тренда.'
+                    );
+                    return;
+                  }
                   try {
                     setAiLoading(true);
-                    const r = await fetchAnalysisTrend(item.id);
-                    setAiNote(r.interpretation || r.summary || r.text || JSON.stringify(r));
+                    const r = await fetchAnalysisTrend(item.id, trendIndicator.name);
+                    const text =
+                      r.interpretation ||
+                      r.summary ||
+                      r.text ||
+                      (r.result && typeof r.result === 'object' && 'tldr' in r.result
+                        ? String((r.result as { tldr?: string }).tldr)
+                        : null);
+                    setAiNote(
+                      text
+                        ? `Показатель: ${r.indicatorName || trendIndicator.name}\n\n${text}`
+                        : JSON.stringify(r)
+                    );
                   } catch (e: any) {
                     Alert.alert('Ошибка', e?.message || 'ИИ недоступен');
                   } finally {

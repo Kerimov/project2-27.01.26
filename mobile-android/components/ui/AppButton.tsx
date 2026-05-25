@@ -43,8 +43,8 @@ export function AppButton({
   const theme = useAppTheme();
   const isDisabled = disabled || loading;
  
-  const paddingY = size === 'sm' ? 9 : size === 'lg' ? 15 : 13;
-  const paddingX = size === 'sm' ? 14 : size === 'lg' ? 20 : 17;
+  const paddingY = size === 'sm' ? 10 : size === 'lg' ? 16 : 14;
+  const paddingX = size === 'sm' ? 15 : size === 'lg' ? 22 : 18;
   const radius = size === 'sm' ? theme.radius.sm : theme.radius.pill;
  
   const bg =
@@ -59,7 +59,7 @@ export function AppButton({
           : 'transparent';
  
   const borderColor =
-    variant === 'ghost' ? theme.colors.border : variant === 'secondary' ? theme.colors.borderStrong : 'transparent';
+    variant === 'ghost' || variant === 'secondary' ? theme.colors.borderStrong : 'transparent';
  
   const textColor =
     variant === 'primary' || variant === 'danger' || variant === 'ai'
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    minHeight: 48,
+    minHeight: 52,
   },
   content: {
     alignItems: 'center',

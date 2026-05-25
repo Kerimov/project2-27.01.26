@@ -6,13 +6,14 @@ import { getAIConfig } from '@/lib/ai-medical-parser'
  * Используется в UI для отображения статуса
  */
 export async function GET() {
-  const config = getAIConfig()
+  const config = await getAIConfig()
   
   if (!config) {
     return NextResponse.json({
       available: false,
       provider: 'regex',
-      message: 'Используется базовый regex-парсер. Запустите Ollama (ollama serve) и модель (ollama pull llama3.2)'
+      message:
+        'Используется базовый regex-парсер. Добавьте DEEPSEEK_API_KEY в .env.local или запустите Ollama (ollama serve).'
     })
   }
   

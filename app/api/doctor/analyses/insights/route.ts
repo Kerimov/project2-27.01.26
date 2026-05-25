@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       return `${date} — ${a.title || 'Анализ'}: ${lines}`
     }).join('\n')
 
-    const ai = getAIConfig()
+    const ai = await getAIConfig()
     let insights = ''
     if (ai?.provider === 'ollama') {
       try {

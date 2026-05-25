@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parse as parseCookies } from 'cookie'
 import { verifyToken } from '@/lib/auth'
-import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
+import { prisma } from '@/lib/db'
+import {
+  buildIndicatorSeries,
+  pickDefaultIndicatorName,
+} from '@/lib/analysis-indicator-series'
+import { callOllamaChat, isOllamaConfigured } from '@/lib/ollama'
 
 export const dynamic = 'force-dynamic'
+
+function getToken(request: NextRequest) {
+  const auth = request.headers.get('authorization') || ''
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
+  return cookies.token || null
+}
 
 function safeJsonParse(text: string) {
   try {
@@ -64,25 +77,35 @@ function computeHeuristicConfidence(points: TrendPoint[]) {
   return clamp(Math.round(score), 5, 85)
 }
 
+function formatTrendForClient(result: Record<string, unknown>) {
+  const tldr = typeof result.tldr === 'string' ? result.tldr : ''
+  const parts: string[] = []
+  if (tldr) parts.push(tldr)
+  const whatChanged = Array.isArray(result.whatChanged) ? (result.whatChanged as string[]) : []
+  if (whatChanged.length) {
+    parts.push('', 'Что изменилось:', ...whatChanged.map((x) => `• ${x}`))
+  }
+  const nextSteps = Array.isArray(result.nextSteps) ? (result.nextSteps as string[]) : []
+  if (nextSteps.length) {
+    parts.push('', 'Что делать:', ...nextSteps.map((x) => `• ${x}`))
+  }
+  return parts.join('\n').trim()
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const cookieHeader = request.headers.get('cookie')
-    const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-    const token = cookies.token
+    const token = getToken(request)
     if (!token) return NextResponse.json({ error: 'Необходима авторизация' }, { status: 401 })
 
     const payload = verifyToken(token)
     if (!payload?.userId) return NextResponse.json({ error: 'Неверный токен' }, { status: 401 })
 
     const body = await request.json()
-    const indicatorName = typeof body?.indicatorName === 'string' ? body.indicatorName.trim() : ''
+    const analysisId = typeof body?.analysisId === 'string' ? body.analysisId.trim() : ''
+    let indicatorName = typeof body?.indicatorName === 'string' ? body.indicatorName.trim() : ''
     const seriesRaw = Array.isArray(body?.series) ? body.series : []
 
-    if (!indicatorName) {
-      return NextResponse.json({ error: 'indicatorName is required' }, { status: 400 })
-    }
-
-    const series: TrendPoint[] = seriesRaw
+    let series: TrendPoint[] = seriesRaw
       .map((p: any) => ({
         date: String(p?.date ?? ''),
         value: Number(p?.value),
@@ -93,8 +116,49 @@ export async function POST(request: NextRequest) {
       .filter((p) => p.date && Number.isFinite(p.value))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
+    if (analysisId && (!indicatorName || series.length === 0)) {
+      const analysis = await prisma.analysis.findFirst({
+        where: { id: analysisId, userId: payload.userId },
+      })
+      if (!analysis) {
+        return NextResponse.json({ error: 'Анализ не найден' }, { status: 404 })
+      }
+
+      if (!indicatorName) {
+        indicatorName = pickDefaultIndicatorName(analysis.results) || ''
+      }
+
+      if (!indicatorName) {
+        return NextResponse.json(
+          { error: 'В анализе нет числовых показателей для интерпретации тренда' },
+          { status: 400 }
+        )
+      }
+
+      if (series.length === 0) {
+        const all = await prisma.analysis.findMany({
+          where: { userId: payload.userId },
+          orderBy: { date: 'asc' },
+          select: { date: true, title: true, results: true },
+        })
+        series = buildIndicatorSeries(all, indicatorName)
+      }
+    }
+
+    if (!indicatorName) {
+      return NextResponse.json(
+        { error: 'Укажите показатель (indicatorName) или анализ (analysisId)' },
+        { status: 400 }
+      )
+    }
+
     if (series.length === 0) {
-      return NextResponse.json({ error: 'series is empty' }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: `Нет данных по показателю «${indicatorName}». Добавьте ещё анализы с этим показателем.`,
+        },
+        { status: 400 }
+      )
     }
 
     const last = series[series.length - 1]
@@ -112,21 +176,30 @@ export async function POST(request: NextRequest) {
           ? `Есть только одно значение по "${indicatorName}" (${last.value}${last.unit ? ` ${last.unit}` : ''}). Для динамики нужно минимум 2 замера.`
           : `Последнее значение по "${indicatorName}": ${last.value}${last.unit ? ` ${last.unit}` : ''}. Изменение относительно прошлого: ${delta!.toFixed(2)} (${deltaPct !== null ? `${deltaPct.toFixed(1)}%` : '—'}).`
 
+      const result = {
+        tldr,
+        whatChanged: [] as string[],
+        possibleCauses: [] as unknown[],
+        confidence: heuristicConfidence,
+        redFlags: [] as string[],
+        nextSteps: [
+          'Если есть симптомы или сильные отклонения — обсудите с врачом.',
+          'Для уверенной динамики полезно иметь 2–3 измерения в сопоставимых условиях.',
+        ],
+        questionsToRefine: [
+          'Возраст/пол?',
+          'Были ли симптомы/лекарства/инфекции перед сдачей?',
+          'Условия сдачи (натощак/время суток)?',
+        ],
+      }
+      const interpretation = formatTrendForClient(result)
       return NextResponse.json({
         indicatorName,
-        result: {
-          tldr,
-          whatChanged: [],
-          possibleCauses: [],
-          confidence: heuristicConfidence,
-          redFlags: [],
-          nextSteps: [
-            'Если есть симптомы или сильные отклонения — обсудите с врачом.',
-            'Для уверенной динамики полезно иметь 2–3 измерения в сопоставимых условиях.'
-          ],
-          questionsToRefine: ['Возраст/пол?', 'Были ли симптомы/лекарства/инфекции перед сдачей?', 'Условия сдачи (натощак/время суток)?']
-        },
-        meta: { last, prev, delta, deltaPct, min, max }
+        result,
+        interpretation,
+        summary: interpretation,
+        text: interpretation,
+        meta: { last, prev, delta, deltaPct, min, max },
       })
     }
 
@@ -193,10 +266,14 @@ ${JSON.stringify({ last, prev, delta, deltaPct, min, max, heuristicConfidence },
       questionsToRefine: Array.isArray((parsed as any).questionsToRefine) ? (parsed as any).questionsToRefine.slice(0, 10) : []
     }
 
+    const interpretation = formatTrendForClient(result)
     return NextResponse.json({
       indicatorName,
       result,
-      meta: { last, prev, delta, deltaPct, min, max, heuristicConfidence }
+      interpretation,
+      summary: interpretation,
+      text: interpretation,
+      meta: { last, prev, delta, deltaPct, min, max, heuristicConfidence },
     })
   } catch (error) {
     console.error('[analysis-trend] error:', error)

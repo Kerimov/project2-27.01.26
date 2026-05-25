@@ -1,9 +1,23 @@
 import { apiJson } from './client';
 
+export type AnalysisTrendResult = {
+  indicatorName?: string;
+  interpretation?: string;
+  summary?: string;
+  text?: string;
+  result?: {
+    tldr?: string;
+    whatChanged?: string[];
+    nextSteps?: string[];
+    confidence?: number;
+  };
+};
+
 export async function fetchAnalysisTrend(analysisId: string, indicatorName?: string) {
-  return apiJson<{ interpretation?: string; summary?: string; text?: string }>('/api/ai/analysis-trend', {
+  return apiJson<AnalysisTrendResult>('/api/ai/analysis-trend', {
     method: 'POST',
     body: JSON.stringify({ analysisId, indicatorName }),
+    timeoutMs: 120000,
   });
 }
 

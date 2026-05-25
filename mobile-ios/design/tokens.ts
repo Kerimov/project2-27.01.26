@@ -13,29 +13,29 @@ function createTheme(scheme: AppColorScheme, fontScale: number) {
   const base = Colors[scheme];
  
   const isDark = scheme === 'dark';
-  const background = isDark ? '#0B1628' : '#F8FBFD';
-  const backgroundAlt = isDark ? '#102039' : '#EEF8FF';
-  const surface = isDark ? '#12213A' : '#FFFFFF';
-  const surface2 = isDark ? '#1A2B47' : '#F1F7FB';
-  const surface3 = isDark ? '#223553' : '#E7F1F8';
-  const surfaceGlass = isDark ? 'rgba(24, 42, 70, 0.86)' : 'rgba(255, 255, 255, 0.94)';
-  const border = isDark ? 'rgba(179, 191, 207, 0.22)' : 'rgba(20, 64, 96, 0.12)';
-  const borderStrong = isDark ? 'rgba(103, 232, 249, 0.34)' : 'rgba(13, 139, 255, 0.26)';
-  const mutedText = isDark ? '#B8C3D0' : '#536376';
+  const background = isDark ? '#F7FAFC' : '#F7FAFC';
+  const backgroundAlt = isDark ? '#EFF6FB' : '#EFF6FB';
+  const surface = isDark ? '#FFFFFF' : '#FFFFFF';
+  const surface2 = isDark ? '#F2F7FB' : '#F2F7FB';
+  const surface3 = isDark ? '#E8F1F7' : '#E8F1F7';
+  const surfaceGlass = isDark ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+  const border = isDark ? 'rgba(23, 37, 84, 0.12)' : 'rgba(23, 37, 84, 0.12)';
+  const borderStrong = isDark ? 'rgba(17, 98, 183, 0.24)' : 'rgba(17, 98, 183, 0.24)';
+  const mutedText = isDark ? '#526172' : '#526172';
  
-  const primary = base.tint;
-  const primary2 = isDark ? '#8B5CF6' : '#6D5DFB';
-  const primarySoft = isDark ? 'rgba(103, 232, 249, 0.14)' : 'rgba(13, 139, 255, 0.10)';
-  const ai = isDark ? '#A78BFA' : '#6952D9';
-  const aiSoft = isDark ? 'rgba(167, 139, 250, 0.18)' : 'rgba(105, 82, 217, 0.09)';
-  const danger = '#F04438';
-  const dangerSoft = isDark ? 'rgba(240, 68, 56, 0.16)' : 'rgba(240, 68, 56, 0.10)';
-  const success = '#12B76A';
-  const successSoft = isDark ? 'rgba(18, 183, 106, 0.14)' : 'rgba(18, 183, 106, 0.10)';
-  const warning = '#F79009';
-  const warningSoft = isDark ? 'rgba(247, 144, 9, 0.16)' : 'rgba(247, 144, 9, 0.12)';
-  const info = '#2E90FA';
-  const infoSoft = isDark ? 'rgba(46, 144, 250, 0.16)' : 'rgba(46, 144, 250, 0.10)';
+  const primary = '#1162B7';
+  const primary2 = '#5B4BC4';
+  const primarySoft = 'rgba(17, 98, 183, 0.10)';
+  const ai = '#5B4BC4';
+  const aiSoft = 'rgba(91, 75, 196, 0.10)';
+  const danger = '#B42318';
+  const dangerSoft = 'rgba(180, 35, 24, 0.10)';
+  const success = '#067647';
+  const successSoft = 'rgba(6, 118, 71, 0.10)';
+  const warning = '#B54708';
+  const warningSoft = 'rgba(181, 71, 8, 0.12)';
+  const info = '#175CD3';
+  const infoSoft = 'rgba(23, 92, 211, 0.10)';
  
   const radius = {
     xs: 8,
@@ -68,21 +68,21 @@ function createTheme(scheme: AppColorScheme, fontScale: number) {
     title: { fontSize: Math.round(27 * fontScale), lineHeight: Math.round(34 * fontScale), fontWeight: '800' as const },
     h2: { fontSize: Math.round(22 * fontScale), lineHeight: Math.round(29 * fontScale), fontWeight: '800' as const },
     h3: { fontSize: Math.round(18 * fontScale), lineHeight: Math.round(25 * fontScale), fontWeight: '700' as const },
-    body: { fontSize: Math.round(16 * fontScale), lineHeight: Math.round(23 * fontScale), fontWeight: '400' as const },
-    bodyStrong: { fontSize: Math.round(16 * fontScale), lineHeight: Math.round(23 * fontScale), fontWeight: '700' as const },
-    caption: { fontSize: Math.round(13 * fontScale), lineHeight: Math.round(18 * fontScale), fontWeight: '500' as const },
+    body: { fontSize: Math.round(16 * fontScale), lineHeight: Math.round(24 * fontScale), fontWeight: '400' as const },
+    bodyStrong: { fontSize: Math.round(16 * fontScale), lineHeight: Math.round(24 * fontScale), fontWeight: '700' as const },
+    caption: { fontSize: Math.round(14 * fontScale), lineHeight: Math.round(20 * fontScale), fontWeight: '500' as const },
     mono: { fontSize: Math.round(12 * fontScale), lineHeight: Math.round(16 * fontScale), fontWeight: '400' as const },
   } as const;
  
   const shadow = Platform.select({
     ios: {
-      shadowColor: isDark ? '#000' : '#0B3A5B',
-      shadowOpacity: isDark ? 0.28 : 0.07,
-      shadowRadius: isDark ? 14 : 14,
-      shadowOffset: { width: 0, height: 8 },
+      shadowColor: '#16324F',
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
     },
     android: {
-      elevation: isDark ? 4 : 3,
+      elevation: 2,
     },
     default: {},
   });
@@ -92,7 +92,7 @@ function createTheme(scheme: AppColorScheme, fontScale: number) {
     colors: {
       background,
       backgroundAlt,
-      text: base.text,
+      text: '#172033',
       mutedText,
       surface,
       surface2,

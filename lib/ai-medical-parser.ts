@@ -14,9 +14,10 @@
 import { ParsedMedicalData } from './ocr'
 import { logger } from './logger'
 import { callOllamaChat, getOllamaModel } from './ollama'
+import { callDeepSeekChat, getDeepSeekModel, isDeepSeekConfigured } from './deepseek'
 
 interface AIParserConfig {
-  provider: 'ollama' | 'anthropic' | 'local'
+  provider: 'deepseek' | 'ollama' | 'anthropic' | 'local'
   apiKey?: string
   model?: string
 }
@@ -91,6 +92,10 @@ export async function parseWithAI(
     let response: string
     
     switch (config.provider) {
+      case 'deepseek':
+        response = await parseWithDeepSeek(ocrText, config)
+        break
+
       case 'ollama':
         response = await parseWithOllama(ocrText, config)
         break
@@ -133,6 +138,23 @@ export async function parseWithAI(
 /**
  * Парсинг через Ollama (локальная LLM)
  */
+async function parseWithDeepSeek(
+  ocrText: string,
+  config: AIParserConfig
+): Promise<string> {
+  const model = config.model || getDeepSeekModel()
+  logger.info('Calling DeepSeek API', 'AI-PARSER', { model })
+  const content = await callDeepSeekChat({
+    system: MEDICAL_EXTRACTION_PROMPT,
+    user: `Проанализируй следующий медицинский документ:\n\n${ocrText}`,
+    temperature: 0.1,
+    model,
+    responseFormat: { type: 'json_object' },
+  })
+  logger.info('DeepSeek response received', 'AI-PARSER')
+  return content
+}
+
 async function parseWithOllama(
   ocrText: string,
   config: AIParserConfig
@@ -241,31 +263,28 @@ async function parseWithLocalModel(
 }
 
 /**
- * Получение конфигурации из переменных окружения
+ * Конфигурация AI: приоритет — настройки админа в БД, иначе .env.local
  */
-export function getAIConfig(): AIParserConfig | null {
-  if (process.env.OLLAMA_DISABLED === 'true') {
-    if (process.env.ANTHROPIC_API_KEY) {
-      return {
-        provider: 'anthropic',
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-      }
+export async function getAIConfig(): Promise<AIParserConfig | null> {
+  const { resolveAISettings } = await import('./ai-runtime-settings')
+  const settings = await resolveAISettings()
+
+  if (settings.provider === 'deepseek') {
+    return {
+      provider: 'deepseek',
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      model: settings.model,
     }
-    return null
   }
 
   return {
     provider: 'ollama',
-    model: getOllamaModel(),
+    model: settings.model || getOllamaModel(),
   }
 }
 
-/**
- * Проверка доступности AI-парсера
- */
-export function isAIParserAvailable(): boolean {
-  return getAIConfig() !== null
+export async function isAIParserAvailable(): Promise<boolean> {
+  return (await getAIConfig()) !== null
 }
 
 /**
@@ -285,7 +304,7 @@ export async function generateAnalysisComments(input: {
     isNormal?: boolean | null
   }>
 }): Promise<string> {
-  const config = getAIConfig()
+  const config = await getAIConfig()
   if (!config) {
     // Fallback: простая эвристика без AI
     const abnormal = input.indicators.filter(i => i.isNormal === false)
@@ -317,6 +336,7 @@ export async function generateAnalysisComments(input: {
 
   try {
     switch (config.provider) {
+      case 'deepseek':
       case 'ollama': {
         return (
           await callOllamaChat({

@@ -147,7 +147,7 @@ const OCR_PROCESS_TIMEOUT_MS = 180_000
 async function resolveAIConfigForOCR() {
   const { getAIConfig } = await import('@/lib/ai-medical-parser')
   const { isOllamaReachable } = await import('@/lib/ollama')
-  const config = getAIConfig()
+  const config = await getAIConfig()
   if (!config) return null
   if (config.provider === 'ollama') {
     const reachable = await isOllamaReachable()
@@ -352,7 +352,7 @@ async function processDocumentOCRInner(documentId: string) {
       const aiConfig = await resolveAIConfigForOCR()
       const { isOllamaVisionAvailable, callOllamaVision, fetchImageAsBase64 } = await import('@/lib/ollama')
       const visionOk = await isOllamaVisionAvailable()
-      if (aiConfig?.provider === 'ollama' && visionOk && document.fileType.startsWith('image/')) {
+      if (visionOk && document.fileType.startsWith('image/')) {
         const imageBase64 = await fetchImageAsBase64(document.fileUrl)
         const extractedText = await callOllamaVision({
           imageBase64,

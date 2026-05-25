@@ -4,6 +4,12 @@ import { useRouter } from 'expo-router';
  
 import { getProfile, updateProfile, type PatientProfile, type Sex } from '../../api/profile';
 import { me } from '../../api/me';
+import {
+  getAdminAiSettings,
+  updateAdminAiSettings,
+  type AdminAiSettingsResponse,
+  type AiProviderId,
+} from '../../api/admin-ai';
 import { useAuthStore } from '../../state/authStore';
 import { setAuthToken } from '../../api/client';
  
@@ -29,6 +35,12 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [aiData, setAiData] = useState<AdminAiSettingsResponse | null>(null);
+  const [aiProvider, setAiProvider] = useState<AiProviderId>('deepseek');
+  const [aiModel, setAiModel] = useState('');
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
  
   const [form, setForm] = useState({
     sex: '' as Sex | '',
@@ -78,6 +90,41 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (token) loadData();
   }, [token, loadData]);
+
+  const loadAiSettings = useCallback(async () => {
+    if (!token || user?.role !== 'ADMIN') return;
+    try {
+      setAiLoading(true);
+      setAuthToken(token);
+      const data = await getAdminAiSettings();
+      setAiData(data);
+      setAiProvider(data.settings.provider);
+      setAiModel(data.settings.model);
+    } catch (e: any) {
+      console.warn('AI settings load:', e?.message);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [token, user?.role]);
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN') loadAiSettings();
+  }, [user?.role, loadAiSettings]);
+
+  const handleSaveAi = async () => {
+    if (!token || !aiModel) return;
+    try {
+      setAiSaving(true);
+      setAuthToken(token);
+      const res = await updateAdminAiSettings(aiProvider, aiModel);
+      Alert.alert('Готово', res.message || 'Модель AI обновлена');
+      await loadAiSettings();
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.message || 'Не удалось сохранить');
+    } finally {
+      setAiSaving(false);
+    }
+  };
  
   const toOptionalInt = (v: string): number | null => {
     const s = (v || '').trim();
@@ -271,6 +318,55 @@ export default function ProfileScreen() {
             </AppSection>
           </AppCard>
  
+          {user?.role === 'ADMIN' ? (
+            <AppCard variant="glass">
+              <AppSection
+                title="AI-модель (админ)"
+                subtitle={
+                  aiData?.settings.modelLabel
+                    ? `Активная: ${aiData.settings.modelLabel}`
+                    : 'Выберите активную модель для всего приложения'
+                }
+              >
+                {aiLoading ? (
+                  <ActivityIndicator style={{ marginVertical: theme.spacing.md }} />
+                ) : (
+                  <View style={{ gap: theme.spacing.md }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {(aiData?.models ?? []).map((m) => {
+                        const active = aiProvider === m.provider && aiModel === m.model;
+                        return (
+                          <AppChip
+                            key={`${m.provider}-${m.model}`}
+                            label={active ? `✓ ${m.label}` : m.label}
+                            tone={active ? 'ai' : 'neutral'}
+                            onPress={() => {
+                              setAiProvider(m.provider);
+                              setAiModel(m.model);
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                    {aiData?.vision ? (
+                      <AppText variant="caption" color="mutedText">
+                        OCR фото: {aiData.vision.label} (отдельно, из .env)
+                      </AppText>
+                    ) : null}
+                    <AppButton
+                      title="Применить"
+                      icon="sparkles"
+                      variant="ai"
+                      loading={aiSaving}
+                      onPress={handleSaveAi}
+                      fullWidth
+                    />
+                  </View>
+                )}
+              </AppSection>
+            </AppCard>
+          ) : null}
+
           <AppCard variant="glass">
             <AppSection title="Сервисы" subtitle="Как на веб-версии">
               <View style={{ gap: theme.spacing.sm }}>

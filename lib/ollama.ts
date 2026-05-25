@@ -1,6 +1,10 @@
 /**
  * Клиент Ollama (OpenAI-совместимый /v1/chat/completions + нативный API).
+ * При наличии DEEPSEEK_API_KEY чат/JSON идут в DeepSeek (см. lib/deepseek.ts).
  */
+
+import { callDeepSeekChat, isDeepSeekConfigured } from './deepseek'
+import { getResolvedAISettingsSync, resolveAISettings } from './ai-runtime-settings'
 
 const DEFAULT_BASE = 'http://127.0.0.1:11434'
 const DEFAULT_MODEL = 'llama3.2'
@@ -35,16 +39,24 @@ export function getOllamaVisionModel(): string {
   return process.env.OLLAMA_VISION_MODEL || DEFAULT_VISION_MODEL
 }
 
-/** AI включён, если не задан OLLAMA_DISABLED=true */
-export function isOllamaConfigured(): boolean {
+/** Ollama не выключена в .env (OLLAMA_DISABLED !== true) */
+export function isOllamaServiceEnabled(): boolean {
   return process.env.OLLAMA_DISABLED !== 'true'
 }
 
+/** Готов ли активный в админке LLM-провайдер */
+export function isOllamaConfigured(): boolean {
+  const { provider } = getResolvedAISettingsSync()
+  if (provider === 'deepseek') return isDeepSeekConfigured()
+  return isOllamaServiceEnabled()
+}
+
+/** Сервер Ollama отвечает на /api/tags */
 export async function isOllamaReachable(): Promise<boolean> {
-  if (!isOllamaConfigured()) return false
+  if (!isOllamaServiceEnabled()) return false
   try {
     const res = await fetch(`${getOllamaBaseUrl()}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     })
     return res.ok
   } catch {
@@ -52,9 +64,17 @@ export async function isOllamaReachable(): Promise<boolean> {
   }
 }
 
-/** Есть ли vision-модель (llava и т.п.) в `ollama list` */
+/** Активная модель (из админки) доступна для запросов */
+export async function isActiveLlmReady(): Promise<boolean> {
+  await resolveAISettings()
+  const { provider } = getResolvedAISettingsSync()
+  if (provider === 'deepseek') return isDeepSeekConfigured()
+  return isOllamaReachable()
+}
+
+/** Есть ли vision-модель (llava) в `ollama list` */
 export async function isOllamaVisionAvailable(): Promise<boolean> {
-  if (!isOllamaConfigured()) return false
+  if (!isOllamaServiceEnabled()) return false
   try {
     const res = await fetch(`${getOllamaBaseUrl()}/api/tags`, {
       signal: AbortSignal.timeout(3000),
@@ -77,11 +97,29 @@ function buildHeaders(): Record<string, string> {
 }
 
 export async function callOllamaChat(params: OllamaChatParams): Promise<string> {
-  if (!isOllamaConfigured()) {
-    throw new Error('Ollama отключён (OLLAMA_DISABLED=true)')
+  await resolveAISettings()
+  const settings = (await import('./ai-runtime-settings')).getResolvedAISettingsSync()
+
+  if (settings.provider === 'deepseek') {
+    if (!isDeepSeekConfigured()) {
+      throw new Error('Выбран DeepSeek, но DEEPSEEK_API_KEY не задан в .env.local')
+    }
+    return callDeepSeekChat({ ...params, model: params.model || settings.model })
   }
 
-  const model = params.model || getOllamaModel()
+  if (!isOllamaServiceEnabled()) {
+    throw new Error(
+      'Ollama выключена (OLLAMA_DISABLED=true). В .env.local укажите OLLAMA_DISABLED=false и перезапустите npm run dev'
+    )
+  }
+  const reachable = await isOllamaReachable()
+  if (!reachable) {
+    throw new Error(
+      'Ollama не запущена. Выполните: ollama serve && ollama pull llama3.2 (см. OLLAMA_BASE_URL в .env.local)'
+    )
+  }
+
+  const model = params.model || settings.model || getOllamaModel()
   const body: Record<string, unknown> = {
     model,
     messages: [
@@ -139,11 +177,16 @@ export async function callOllamaVision(params: {
   prompt?: string
   model?: string
 }): Promise<string> {
-  if (!isOllamaConfigured()) {
-    throw new Error('Ollama отключён (OLLAMA_DISABLED=true)')
+  if (!isOllamaServiceEnabled()) {
+    throw new Error('Ollama Vision: OLLAMA_DISABLED=true в .env.local')
+  }
+  const reachable = await isOllamaReachable()
+  if (!reachable) {
+    throw new Error('Ollama Vision: запустите ollama serve')
   }
 
-  const model = params.model || getOllamaVisionModel()
+  const { resolveVisionModel } = await import('./ai-runtime-settings')
+  const model = params.model || (await resolveVisionModel())
   const prompt =
     params.prompt ||
     'Извлеки ПЛОСКИЙ текст из медицинского документа на изображении. Отвечай только текстом без форматирования.'

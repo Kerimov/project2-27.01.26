@@ -24,7 +24,7 @@ export function AppInput({ label, hint, error, containerStyle, style, ...rest }:
   return (
     <View style={[styles.container, containerStyle]}>
       {label ? (
-        <AppText variant="caption" color="mutedText" style={{ marginBottom: theme.spacing.xs }}>
+        <AppText variant="bodyStrong" style={{ marginBottom: theme.spacing.xs }}>
           {label}
         </AppText>
       ) : null}
@@ -34,11 +34,11 @@ export function AppInput({ label, hint, error, containerStyle, style, ...rest }:
           styles.input,
           {
             backgroundColor: theme.colors.surfaceGlass,
-            borderColor: error ? theme.colors.danger : theme.colors.border,
+            borderColor: error ? theme.colors.danger : theme.colors.borderStrong,
             borderRadius: theme.radius.lg,
             color: theme.colors.text,
             paddingHorizontal: theme.spacing.lg,
-            paddingVertical: theme.spacing.md,
+            paddingVertical: 16,
           },
           style,
         ]}
@@ -60,8 +60,10 @@ export function AppInput({ label, hint, error, containerStyle, style, ...rest }:
 const styles = StyleSheet.create({
   container: {},
   input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    fontSize: 14,
+    borderWidth: 1,
+    fontSize: 17,
+    lineHeight: 24,
+    minHeight: 58,
   },
 });
 

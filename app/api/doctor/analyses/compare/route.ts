@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     Object.values(byIndicator).forEach(arr => arr.sort((a,b)=>a.date.localeCompare(b.date)))
 
     // AI summary
-    const ai = getAIConfig()
+    const ai = await getAIConfig()
     let insights = ''
     if (ai?.provider === 'ollama') {
       try {
