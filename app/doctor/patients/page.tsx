@@ -124,7 +124,7 @@ export default function DoctorPatients() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-gradient-brand">
                 Управление пациентами
               </h1>
               <p className="text-gray-600 mt-2">
@@ -132,7 +132,7 @@ export default function DoctorPatients() {
               </p>
             </div>
             <Link href="/doctor/patients/new">
-              <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Новый пациент
               </Button>
@@ -166,7 +166,7 @@ export default function DoctorPatients() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-lg">
                       {String((patient as any)?.name || '?').charAt(0)}
                     </div>
                     <div>
@@ -257,7 +257,7 @@ export default function DoctorPatients() {
               </p>
               {!searchTerm && (
                 <Link href="/doctor/patients/new">
-                  <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     <Plus className="w-4 h-4 mr-2" />
                     Добавить пациента
                   </Button>

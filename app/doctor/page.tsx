@@ -307,7 +307,7 @@ export default function DoctorDashboard() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-gradient-brand">
                 Личный кабинет врача
               </h1>
               <p className="text-gray-600 mt-2">
@@ -316,7 +316,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex gap-3">
               <Link href="/doctor/patients/new">
-                <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
                   <UserPlus className="w-4 h-4 mr-2" />
                   Новый пациент
                 </Button>
@@ -339,7 +339,7 @@ export default function DoctorDashboard() {
               <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <div className="text-2xl font-bold text-gradient-brand">
                 {stats?.totalPatients || 0}
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -398,7 +398,7 @@ export default function DoctorDashboard() {
           {/* Recent Patients */}
           <Card className="glass-effect border-0 shadow-medical">
             <CardHeader>
-              <CardTitle className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <CardTitle className="text-gradient-brand">
                 Последние пациенты
               </CardTitle>
               <CardDescription>
@@ -413,7 +413,7 @@ export default function DoctorDashboard() {
                     .map((patient: any) => (
                     <div key={patient.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center text-white font-semibold">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
                           {String(patient?.name || '?').charAt(0)}
                         </div>
                         <div>
@@ -549,7 +549,7 @@ export default function DoctorDashboard() {
         <div className="mt-8">
           <Card className="glass-effect border-0 shadow-medical">
             <CardHeader>
-              <CardTitle className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <CardTitle className="text-gradient-brand">
                 Клинические протоколы (шаблоны)
               </CardTitle>
               <CardDescription>
@@ -596,7 +596,7 @@ export default function DoctorDashboard() {
                     type="date"
                     value={protocolStart}
                     onChange={(e) => setProtocolStart(e.target.value)}
-                    className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                    className="w-full"
                   />
                 </div>
               </div>
@@ -622,7 +622,7 @@ export default function DoctorDashboard() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={applyProtocol} disabled={protocolBusy} className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
+                <Button onClick={applyProtocol} disabled={protocolBusy} className="bg-primary text-primary-foreground">
                   {protocolBusy ? 'Создаю…' : 'Сформировать план (на согласование)'}
                 </Button>
               </div>
@@ -704,7 +704,7 @@ export default function DoctorDashboard() {
         <div className="mt-8">
           <Card className="glass-effect border-0 shadow-medical">
             <CardHeader>
-              <CardTitle className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <CardTitle className="text-gradient-brand">
                 День врача (сегодня + завтра)
               </CardTitle>
               <CardDescription>

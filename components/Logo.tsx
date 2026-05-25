@@ -33,9 +33,9 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
           {/* Медицинский крест */}
           <div className="relative">
             {/* Горизонтальная линия */}
-            <div className="w-3 h-0.5 bg-gradient-to-r from-blue-600 to-green-600 rounded-full"></div>
+            <div className="w-3 h-0.5 bg-primary rounded-full"></div>
             {/* Вертикальная линия */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-3 bg-gradient-to-b from-blue-600 to-green-600 rounded-full"></div>
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-3 bg-primary rounded-full"></div>
           </div>
         </div>
         
@@ -47,7 +47,7 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
       {/* Текст логотипа */}
       {showText && (
         <div className="flex flex-col">
-          <span className={`font-bold ${textSizeClasses[size]} bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent`}>
+          <span className={`font-bold ${textSizeClasses[size]} text-gradient-brand`}>
             ПМА
           </span>
           <span className="text-xs text-muted-foreground font-medium">
@@ -67,12 +67,12 @@ export function LogoCompact({ className = '' }: { className?: string }) {
         <div className="absolute inset-0 rounded-full gradient-primary shadow-medical"></div>
         <div className="absolute inset-1 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
           <div className="relative">
-            <div className="w-2.5 h-0.5 bg-gradient-to-r from-blue-600 to-green-600 rounded-full"></div>
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-2.5 bg-gradient-to-b from-blue-600 to-green-600 rounded-full"></div>
+            <div className="w-2.5 h-0.5 bg-primary rounded-full"></div>
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-2.5 bg-primary rounded-full"></div>
           </div>
         </div>
       </div>
-      <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+      <span className="font-bold text-lg text-gradient-brand">
         ПМА
       </span>
     </div>

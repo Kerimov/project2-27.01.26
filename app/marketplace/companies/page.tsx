@@ -402,7 +402,7 @@ export default function CompaniesPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full gradient-primary mb-6 shadow-medical">
             <Building2 className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-4 text-gradient-brand">
             Каталог компаний
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-4">

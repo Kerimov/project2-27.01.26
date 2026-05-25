@@ -42,14 +42,14 @@ export default function LoginPage() {
           <span className="font-bold text-2xl">ПМА</span>
         </Link>
 
-        <Card className="border-2">
+        <Card className="border border-border shadow-medical">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Вход в систему</CardTitle>
             <CardDescription>
               Введите ваш email и пароль для входа
             </CardDescription>
-            <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-900 dark:text-blue-100">
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <p className="text-sm text-blue-900">
                 ℹ️ <strong>Внимание:</strong> Данные хранятся в памяти и удаляются при перезапуске сервера. 
                 Если вы раньше регистрировались, создайте новый аккаунт.
               </p>

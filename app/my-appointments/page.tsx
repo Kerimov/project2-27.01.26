@@ -284,7 +284,7 @@ export default function MyAppointmentsPage() {
               <Calendar className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-gradient-brand">
                 Мои записи
               </h1>
               <p className="text-muted-foreground">
@@ -397,7 +397,7 @@ export default function MyAppointmentsPage() {
                               className={
                                 appointment.preVisit?.submittedAt
                                   ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                                  : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white'
+                                  : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                               }
                             >
                               {appointment.preVisit?.submittedAt ? 'Анкета заполнена' : 'Анкета перед визитом'}

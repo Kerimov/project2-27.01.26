@@ -34,9 +34,11 @@ type AttachedDocument = {
 type AIChatProps = {
   initialDocumentIds?: string[];
   autoOpen?: boolean;
+  /** На экранах без нижних вкладок — false */
+  aboveTabBar?: boolean;
 };
 
-export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
+export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIChatProps = {}) {
   const router = useRouter();
   const { token } = useAuthStore();
   const theme = useAppTheme();
@@ -334,7 +336,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
   };
 
   if (!isOpen) {
-    return <AppFAB icon="sparkles" onPress={() => setIsOpen(true)} />;
+    return <AppFAB icon="sparkles" aboveTabBar={aboveTabBar} onPress={() => setIsOpen(true)} />;
   }
 
   return (

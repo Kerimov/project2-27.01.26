@@ -15,6 +15,7 @@ import {
 } from '../../api/appointments';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
@@ -26,6 +27,7 @@ export default function AppointmentsScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
   const { maxWidth } = useMaxContentWidth();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -213,7 +215,7 @@ export default function AppointmentsScreen() {
         contentContainerStyle={{
           paddingVertical: theme.spacing.sm,
           gap: theme.spacing.md,
-          paddingBottom: pad.vertical + 96,
+          paddingBottom: listPaddingBottom,
         }}
         renderItem={renderItem}
         ListEmptyComponent={

@@ -17,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru">
-      <body className={inter.className}>
+    <html lang="ru" className="light">
+      <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <Header />

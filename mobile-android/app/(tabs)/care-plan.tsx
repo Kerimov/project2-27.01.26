@@ -20,6 +20,7 @@ import {
 } from '../../api/care-plan';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
@@ -31,6 +32,7 @@ export default function CarePlanScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
   const { maxWidth } = useMaxContentWidth();
 
   const [tasks, setTasks] = useState<CarePlanTask[]>([]);
@@ -257,7 +259,7 @@ export default function CarePlanScreen() {
         contentContainerStyle={{
           paddingVertical: theme.spacing.sm,
           gap: theme.spacing.md,
-          paddingBottom: pad.vertical + 24,
+          paddingBottom: listPaddingBottom,
         }}
         ListHeaderComponent={
           pending.length > 0 ? (

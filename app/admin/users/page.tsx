@@ -290,7 +290,7 @@ export default function AdminUsersPage() {
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-gradient-brand">
                 Управление пользователями
               </h1>
               <p className="text-muted-foreground">
@@ -349,7 +349,7 @@ export default function AdminUsersPage() {
                     <TableRow key={user.id} className="hover:bg-muted/50">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                             <span className="text-white font-semibold">
                               {user.name.charAt(0).toUpperCase()}
                             </span>
@@ -618,7 +618,7 @@ export default function AdminUsersPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                       <span className="text-white text-xl font-semibold">
                         {selectedUser.name.charAt(0).toUpperCase()}
                       </span>

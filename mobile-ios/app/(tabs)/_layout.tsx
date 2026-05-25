@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { FLOATING_TAB_BAR } from '@/design/tab-bar';
 import { useAppTheme } from '@/design/tokens';
 import { useAuthStore } from '../../state/authStore';
 
@@ -42,8 +43,8 @@ export default function TabLayout() {
           position: 'absolute',
           left: 10,
           right: 10,
-          bottom: 8,
-          height: 74,
+          bottom: FLOATING_TAB_BAR.marginBottom,
+          height: FLOATING_TAB_BAR.height,
           paddingTop: 9,
           paddingBottom: 11,
           borderRadius: 24,

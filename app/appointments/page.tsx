@@ -217,7 +217,7 @@ export default function AppointmentsPage() {
               <Calendar className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-gradient-brand">
                 Запись к врачу
               </h1>
               <p className="text-muted-foreground">

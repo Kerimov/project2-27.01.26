@@ -41,6 +41,7 @@ const MAPPING = {
   'building.2.fill': 'business',
   'questionmark.circle.fill': 'help',
   'moon.fill': 'bedtime',
+  'sun.max.fill': 'wb-sunny',
   stethoscope: 'medical-services',
 } as IconMapping;
 

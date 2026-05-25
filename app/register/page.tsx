@@ -62,8 +62,8 @@ export default function RegisterPage() {
             <CardDescription>
               Создайте аккаунт для управления своим здоровьем
             </CardDescription>
-            <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-blue-900 dark:text-blue-100">
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <p className="text-sm text-blue-900">
                 ℹ️ <strong>Demo режим:</strong> Данные хранятся в памяти для демонстрации. 
                 В продакшене будет использоваться PostgreSQL.
               </p>

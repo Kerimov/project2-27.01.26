@@ -232,7 +232,7 @@ export default function PatientCardPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-gradient-brand">
             {patient.name}
           </h1>
           <p className="text-muted-foreground">{patient.email}</p>
@@ -284,7 +284,7 @@ export default function PatientCardPage() {
                         {(items as any[]).map((a:any)=> (
                           <div key={a.id} className="p-3 rounded-lg bg-white/70 border flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white flex items-center justify-center">
+                              <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
                                 <FileText className="w-4 h-4" />
                               </div>
                               <div>

@@ -11,6 +11,7 @@ import {
   type AiProviderId,
 } from '../../api/admin-ai';
 import { useAuthStore } from '../../state/authStore';
+import { useThemeStore } from '../../state/themeStore';
 import { setAuthToken } from '../../api/client';
  
 import { useAppTheme } from '@/design/tokens';
@@ -27,6 +28,8 @@ import { useBreakpoint } from '@/design/responsive';
 export default function ProfileScreen() {
   const router = useRouter();
   const { logout, token } = useAuthStore();
+  const themeScheme = useThemeStore((s) => s.scheme);
+  const setThemeScheme = useThemeStore((s) => s.setScheme);
   const theme = useAppTheme();
   const bp = useBreakpoint();
  
@@ -366,6 +369,28 @@ export default function ProfileScreen() {
               </AppSection>
             </AppCard>
           ) : null}
+
+          <AppCard variant="glass">
+            <AppSection title="Оформление" subtitle="Светлая или тёмная тема интерфейса">
+              <View style={{ gap: theme.spacing.md }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <AppChip
+                    label="Светлая"
+                    tone={themeScheme === 'light' ? 'primary' : 'neutral'}
+                    onPress={() => setThemeScheme('light')}
+                  />
+                  <AppChip
+                    label="Тёмная"
+                    tone={themeScheme === 'dark' ? 'primary' : 'neutral'}
+                    onPress={() => setThemeScheme('dark')}
+                  />
+                </View>
+                <AppText variant="caption" color="mutedText">
+                  Выбор сохраняется на этом устройстве.
+                </AppText>
+              </View>
+            </AppSection>
+          </AppCard>
 
           <AppCard variant="glass">
             <AppSection title="Сервисы" subtitle="Как на веб-версии">

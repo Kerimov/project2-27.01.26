@@ -127,7 +127,7 @@ export default function DoctorAnalyses() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-gradient-brand">
                 Анализы пациентов
               </h1>
               <p className="text-gray-600 mt-2">
@@ -161,7 +161,7 @@ export default function DoctorAnalyses() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center text-white">
+                    <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground">
                       <FileText className="w-6 h-6" />
                     </div>
                     <div>

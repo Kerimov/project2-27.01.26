@@ -94,7 +94,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <Bell className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Напоминания о лекарствах</CardTitle>
@@ -104,7 +104,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <Calendar className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Запись к врачам</CardTitle>
@@ -114,7 +114,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <FileText className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>История анализов</CardTitle>
@@ -124,7 +124,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <Heart className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Дневник здоровья</CardTitle>
@@ -134,7 +134,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <TrendingUp className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Аналитика и графики</CardTitle>
@@ -144,7 +144,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
               <CardHeader>
                 <Smartphone className="h-12 w-12 text-primary mb-4" />
                 <CardTitle>Мобильное приложение</CardTitle>

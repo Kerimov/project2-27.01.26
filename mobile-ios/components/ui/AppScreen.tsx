@@ -53,7 +53,8 @@ export function AppScreen({
           width: 260,
           height: 260,
           borderRadius: 130,
-          backgroundColor: 'rgba(17, 98, 183, 0.035)',
+          backgroundColor:
+            theme.scheme === 'dark' ? 'rgba(91, 159, 239, 0.08)' : 'rgba(17, 98, 183, 0.035)',
         }}
       />
       <View
@@ -65,7 +66,8 @@ export function AppScreen({
           width: 280,
           height: 280,
           borderRadius: 140,
-          backgroundColor: 'rgba(91, 75, 196, 0.028)',
+          backgroundColor:
+            theme.scheme === 'dark' ? 'rgba(155, 138, 232, 0.07)' : 'rgba(91, 75, 196, 0.028)',
         }}
       />
       {scroll ? (

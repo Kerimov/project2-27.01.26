@@ -13,6 +13,7 @@ import { setAuthToken } from '../../api/client';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -27,6 +28,7 @@ export default function DiaryScreen() {
   const { token } = useAuthStore();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
   const { maxWidth } = useMaxContentWidth();
 
   const { selectedPatientId } = useCaretakerStore();
@@ -240,7 +242,7 @@ export default function DiaryScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           gap: theme.spacing.md,
-          paddingBottom: pad.vertical + 96,
+          paddingBottom: listPaddingBottom,
         }}
         renderItem={renderItem}
         ListEmptyComponent={

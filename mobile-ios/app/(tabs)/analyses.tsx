@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { getAnalyses, deleteAnalysis, type AnalysisSummary } from '../../api/analyses';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -19,6 +20,7 @@ export default function AnalysesScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
 
   const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function AnalysesScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           gap: theme.spacing.md,
-          paddingBottom: pad.vertical + 96,
+          paddingBottom: listPaddingBottom,
         }}
         ListHeaderComponent={
           <View style={{ marginBottom: theme.spacing.sm }}>

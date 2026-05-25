@@ -172,7 +172,7 @@ export default function DocumentViewPage() {
             <Card className={`border-2 ${
               document.indicators.some(i => !i.isNormal)
                 ? 'border-destructive/50 bg-destructive/5'
-                : 'border-green-500/50 bg-green-50/50 dark:bg-green-950/20'
+                : 'border-green-500/50 bg-green-50'
             }`}>
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
@@ -506,8 +506,8 @@ export default function DocumentViewPage() {
                         key={index} 
                         className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
                           indicator.isNormal 
-                            ? 'border-green-200 bg-green-50/50 dark:bg-green-950/20' 
-                            : 'border-red-200 bg-red-50/50 dark:bg-red-950/20'
+                            ? 'border-green-200 bg-green-50' 
+                            : 'border-red-200 bg-red-50'
                         }`}
                       >
                         <div className="flex items-center gap-3">

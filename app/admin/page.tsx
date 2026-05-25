@@ -99,7 +99,7 @@ export default function AdminPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full gradient-primary mb-6 shadow-medical">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-brand">
             Админ-панель
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -115,7 +115,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Пользователи</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalUsers}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Всего зарегистрировано</p>
@@ -132,7 +132,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Документы</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalDocuments}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Загружено файлов</p>
@@ -149,7 +149,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Анализы</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalAnalyses}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Обработано анализов</p>
@@ -166,7 +166,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Напоминания</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalReminders}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Активных напоминаний</p>
@@ -183,7 +183,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Рекомендации</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalRecommendations}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Сгенерировано</p>
@@ -200,7 +200,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Компании</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                    <p className="text-3xl font-bold text-gradient-brand">
                       {stats.totalCompanies}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">В каталоге</p>
@@ -383,7 +383,7 @@ export default function AdminPage() {
           <div className="mt-8">
             <Card className="glass-effect border-0 shadow-medical">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                <CardTitle className="text-2xl font-bold text-gradient-brand">
                   Последняя активность
                 </CardTitle>
                 <CardDescription className="text-base">Недавние действия в системе</CardDescription>

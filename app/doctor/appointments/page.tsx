@@ -154,7 +154,7 @@ export default function DoctorAppointmentsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Приемы</h1>
+            <h1 className="text-3xl font-bold text-gradient-brand">Приемы</h1>
             <p className="text-muted-foreground">Всего: {appointments.length}</p>
           </div>
           <Button 
@@ -178,7 +178,7 @@ export default function DoctorAppointmentsPage() {
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>

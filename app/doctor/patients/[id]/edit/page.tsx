@@ -126,7 +126,7 @@ export default function DoctorPatientEditPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-gradient-brand">
               Редактирование пациента
             </h1>
             <p className="text-muted-foreground">
@@ -202,7 +202,7 @@ export default function DoctorPatientEditPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button disabled={saving} onClick={save} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white">
+              <Button disabled={saving} onClick={save} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? 'Сохранение…' : 'Сохранить'}
               </Button>

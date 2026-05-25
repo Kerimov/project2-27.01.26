@@ -33,7 +33,7 @@ export function AppInput({ label, hint, error, containerStyle, style, ...rest }:
         style={[
           styles.input,
           {
-            backgroundColor: theme.colors.surfaceGlass,
+            backgroundColor: theme.colors.surface,
             borderColor: error ? theme.colors.danger : theme.colors.borderStrong,
             borderRadius: theme.radius.lg,
             color: theme.colors.text,

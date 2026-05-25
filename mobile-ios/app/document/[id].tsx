@@ -390,7 +390,7 @@ export default function DocumentDetailScreen() {
           }}
         />
       </AppSection>
-      <AIChat initialDocumentIds={[String(id)]} />
+      <AIChat initialDocumentIds={[String(id)]} aboveTabBar={false} />
     </AppScreen>
   );
 }

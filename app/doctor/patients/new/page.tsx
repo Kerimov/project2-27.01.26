@@ -139,7 +139,7 @@ export default function NewPatient() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-gradient-brand">
                 Новый пациент
               </h1>
               <p className="text-gray-600 mt-2">
@@ -152,7 +152,7 @@ export default function NewPatient() {
         <div className="max-w-2xl mx-auto">
           <Card className="glass-effect border-0 shadow-medical">
             <CardHeader>
-              <CardTitle className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <CardTitle className="text-gradient-brand">
                 <UserPlus className="w-5 h-5 inline mr-2" />
                 Информация о пациенте
               </CardTitle>
@@ -263,7 +263,7 @@ export default function NewPatient() {
                   <Button
                     type="submit"
                     disabled={submitting || !formData.patientId}
-                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                   >
                     {submitting ? (
                       <>

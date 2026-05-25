@@ -175,7 +175,7 @@ export default function AdminRemindersPage() {
               <Bell className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-gradient-brand">
                 Управление напоминаниями
               </h1>
               <p className="text-muted-foreground">
@@ -403,7 +403,7 @@ export default function AdminRemindersPage() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-gray-800">Пользователь</h4>
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-50/50 to-green-50/50 border border-blue-100/50">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-green-500 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                           <span className="text-white font-semibold">
                             {selectedReminder.user.name.charAt(0).toUpperCase()}
                           </span>

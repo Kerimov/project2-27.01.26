@@ -1,17 +1,27 @@
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/design/tokens';
+import { useThemeStore } from '@/state/themeStore';
 
 export default function RootLayout() {
+  const bootstrapTheme = useThemeStore((s) => s.bootstrap);
   const appTheme = useAppTheme();
+  const isDark = appTheme.scheme === 'dark';
+  const baseNav = isDark ? DarkTheme : DefaultTheme;
+
+  useEffect(() => {
+    bootstrapTheme();
+  }, [bootstrapTheme]);
+
   const navTheme = {
-    ...DefaultTheme,
+    ...baseNav,
     colors: {
-      ...DefaultTheme.colors,
+      ...baseNav.colors,
       background: appTheme.colors.background,
       card: appTheme.colors.surfaceGlass,
       text: appTheme.colors.text,
@@ -55,7 +65,7 @@ export default function RootLayout() {
           <Stack.Screen name="marketplace/[id]" options={{ title: 'Клиника' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
       </ThemeProvider>
     </SafeAreaProvider>
   );

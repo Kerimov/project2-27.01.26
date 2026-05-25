@@ -11,6 +11,7 @@ import { useCaretakerStore } from '../../state/caretakerStore';
 import { PatientSwitcher } from '../../components/PatientSwitcher';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -21,6 +22,7 @@ export default function RemindersScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
   const { selectedPatientId } = useCaretakerStore();
 
   const [items, setItems] = useState<Reminder[]>([]);
@@ -87,7 +89,7 @@ export default function RemindersScreen() {
         data={items}
         keyExtractor={(i) => i.id}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: pad.vertical + 80, gap: theme.spacing.md }}
+        contentContainerStyle={{ paddingBottom: listPaddingBottom, gap: theme.spacing.md }}
         refreshing={loading}
         onRefresh={load}
         renderItem={({ item }) => (

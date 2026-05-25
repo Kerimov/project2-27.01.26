@@ -14,6 +14,7 @@ import { getDocuments, uploadDocument, deleteDocument, type DocumentSummary } fr
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding } from '@/design/responsive';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
@@ -30,6 +31,7 @@ export default function DocumentsScreen() {
   const { token } = useAuthStore();
   const theme = useAppTheme();
   const pad = useContentPadding();
+  const { listPaddingBottom } = useFloatingTabBarInsets();
 
   const [items, setItems] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,7 +291,7 @@ export default function DocumentsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{
           gap: theme.spacing.md,
-          paddingBottom: pad.vertical + 96,
+          paddingBottom: listPaddingBottom,
         }}
         renderItem={renderItem}
         ListHeaderComponent={

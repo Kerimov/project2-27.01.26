@@ -135,7 +135,7 @@ export default function DoctorSetup() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-gradient-brand">
                 Настройка профиля врача
               </h1>
               <p className="text-gray-600 mt-2">
@@ -150,7 +150,7 @@ export default function DoctorSetup() {
             {/* Основная информация */}
             <Card className="glass-effect border-0 shadow-medical">
               <CardHeader>
-                <CardTitle className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                <CardTitle className="text-gradient-brand">
                   <Stethoscope className="w-5 h-5 inline mr-2" />
                   Основная информация
                 </CardTitle>
@@ -350,7 +350,7 @@ export default function DoctorSetup() {
               <Button
                 type="submit"
                 disabled={submitting || !formData.licenseNumber || !formData.specialization || !formData.experience || !formData.education}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
               >
                 {submitting ? (
                   <>

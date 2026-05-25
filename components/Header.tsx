@@ -44,12 +44,12 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-effect border-b shadow-medical">
+    <header className="sticky top-0 z-50 w-full glass-effect border-b border-border/80 shadow-sm">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center">
           <Logo size="md" showText={false} />
           <div className="ml-3 hidden sm:block">
-            <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            <span className="font-bold text-xl text-gradient-brand">
               Персональный Медицинский Ассистент
             </span>
           </div>

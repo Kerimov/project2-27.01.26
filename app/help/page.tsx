@@ -29,18 +29,18 @@ export default function HelpPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg space-y-2">
+              <div className="p-4 bg-yellow-50 rounded-lg space-y-2">
                 <p className="font-semibold">Данные хранятся в памяти и удаляются при:</p>
                 <ul className="list-disc list-inside space-y-1 text-sm">
                   <li>Перезапуске сервера разработки</li>
                   <li className="line-through opacity-50">Изменении файлов проекта (hot reload) - ИСПРАВЛЕНО!</li>
                   <li>Перезагрузке компьютера</li>
                 </ul>
-                <div className="mt-2 p-2 bg-green-100 dark:bg-green-900 rounded text-sm">
+                <div className="mt-2 p-2 bg-green-100 rounded text-sm text-green-900">
                   ✅ <strong>Новое:</strong> Данные теперь сохраняются при hot reload!
                 </div>
               </div>
-              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
                 <Database className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold">В следующих версиях:</p>
@@ -148,7 +148,7 @@ export default function HelpPage() {
                 <CardTitle>🔄 Что делать, если сервер перезапустился?</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
                   <RefreshCw className="h-5 w-5 text-blue-600" />
                   <p className="text-sm">
                     Просто создайте новый аккаунт - это займет 30 секунд
