@@ -15,6 +15,7 @@ import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { useBreakpoint } from '@/design/responsive';
  
 export default function ProfileScreen() {
@@ -177,26 +178,32 @@ export default function ProfileScreen() {
     <AppScreen>
       <AppSection title="Профиль" subtitle={displayName}>
         <View style={{ gap: theme.spacing.lg }}>
-          <AppCard>
+          <AppCard variant="hero">
+            <View style={{ gap: theme.spacing.sm }}>
+              <AppStatusBadge label="AI-персонализация" tone="ai" />
+              <AppText variant="h2">{displayName}</AppText>
+              <AppText variant="caption" color="mutedText">
+                Чем точнее профиль, тем полезнее рекомендации, план ухода и интерпретация анализов.
+              </AppText>
+            </View>
+          </AppCard>
+
+          <AppCard variant="glass">
             <AppSection title="Основное" subtitle="Заполните минимум — это усилит рекомендации и ИИ‑функции">
               <View style={{ gap: theme.spacing.md }}>
                 <AppText variant="caption" color="mutedText">
                   Пол
                 </AppText>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  <AppChip
-                    label="Мужской"
-                    tone={form.sex === 'MALE' ? 'primary' : 'neutral'}
-                    onPress={() => setForm({ ...form, sex: 'MALE' })}
-                  />
+                  <AppChip label="Мужской" tone={form.sex === 'MALE' ? 'ai' : 'neutral'} onPress={() => setForm({ ...form, sex: 'MALE' })} />
                   <AppChip
                     label="Женский"
-                    tone={form.sex === 'FEMALE' ? 'primary' : 'neutral'}
+                    tone={form.sex === 'FEMALE' ? 'ai' : 'neutral'}
                     onPress={() => setForm({ ...form, sex: 'FEMALE' })}
                   />
                   <AppChip
                     label="Не указывать"
-                    tone={form.sex === '' ? 'primary' : 'neutral'}
+                    tone={form.sex === '' ? 'ai' : 'neutral'}
                     onPress={() => setForm({ ...form, sex: '' })}
                   />
                 </View>
@@ -230,7 +237,7 @@ export default function ProfileScreen() {
             </AppSection>
           </AppCard>
  
-          <AppCard>
+          <AppCard variant="glass">
             <AppSection title="История и цели" subtitle="Через запятую — приложение сохранит как список">
               <View style={{ gap: theme.spacing.md }}>
                 <AppInput
@@ -264,13 +271,13 @@ export default function ProfileScreen() {
             </AppSection>
           </AppCard>
  
-          <AppCard>
+          <AppCard variant="glass">
             <AppSection title="Сервисы" subtitle="Как на веб-версии">
               <View style={{ gap: theme.spacing.sm }}>
-                <AppButton title="Аналитика" variant="secondary" onPress={() => router.push('/analytics' as any)} fullWidth />
-                <AppButton title="База знаний" variant="secondary" onPress={() => router.push('/knowledge' as any)} fullWidth />
-                <AppButton title="Маркетплейс клиник" variant="secondary" onPress={() => router.push('/marketplace' as any)} fullWidth />
-                <AppButton title="Помощь и FAQ" variant="secondary" onPress={() => router.push('/help' as any)} fullWidth />
+                <AppButton title="Аналитика" icon="chart.bar.fill" variant="secondary" onPress={() => router.push('/analytics' as any)} fullWidth />
+                <AppButton title="База знаний" icon="book.closed.fill" variant="secondary" onPress={() => router.push('/knowledge' as any)} fullWidth />
+                <AppButton title="Маркетплейс клиник" icon="building.2.fill" variant="secondary" onPress={() => router.push('/marketplace' as any)} fullWidth />
+                <AppButton title="Помощь и FAQ" icon="questionmark.circle.fill" variant="secondary" onPress={() => router.push('/help' as any)} fullWidth />
               </View>
             </AppSection>
           </AppCard>
@@ -278,6 +285,8 @@ export default function ProfileScreen() {
           <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
             <AppButton
               title="Сохранить"
+              icon="checkmark.circle.fill"
+              variant="ai"
               loading={saving}
               onPress={handleSave}
               fullWidth
@@ -285,6 +294,7 @@ export default function ProfileScreen() {
             />
             <AppButton
               title="Кураторский доступ"
+              icon="person.fill"
               variant="secondary"
               onPress={() => router.push('/caretaker' as any)}
               fullWidth

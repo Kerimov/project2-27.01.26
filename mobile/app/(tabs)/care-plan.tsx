@@ -183,19 +183,19 @@ export default function CarePlanScreen() {
       </View>
 
       {item.analysis ? (
-        <Pressable onPress={() => router.push(`/analysis/${item.analysis!.id}` as any)} style={{ marginTop: theme.spacing.md }}>
+        <Pressable onPress={() => item.analysis && router.push(`/analysis/${item.analysis.id}` as any)} style={{ marginTop: theme.spacing.md }}>
           {({ pressed }) => (
             <AppText variant="caption" color="primary" style={{ opacity: pressed ? 0.8 : 1 }}>
-              Связанный анализ: {item.analysis.title}
+              Связанный анализ: {item.analysis?.title}
             </AppText>
           )}
         </Pressable>
       ) : null}
       {item.document ? (
-        <Pressable onPress={() => router.push(`/document/${item.document!.id}` as any)} style={{ marginTop: 6 }}>
+        <Pressable onPress={() => item.document && router.push(`/document/${item.document.id}` as any)} style={{ marginTop: 6 }}>
           {({ pressed }) => (
             <AppText variant="caption" color="primary" style={{ opacity: pressed ? 0.8 : 1 }}>
-              Связанный документ: {item.document.fileName}
+              Связанный документ: {item.document?.fileName}
             </AppText>
           )}
         </Pressable>

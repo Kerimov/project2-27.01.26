@@ -97,14 +97,14 @@ export default function EditMedicationScreen() {
  
       const medicationData: UpdateMedicationData = {
         name: form.name.trim(),
-        dosage: form.dosage.trim() || null,
-        form: form.form.trim() || null,
-        route: form.route.trim() || null,
-        frequencyPerDay: form.frequencyPerDay ? parseInt(form.frequencyPerDay, 10) : null,
-        times: times.length > 0 ? times : null,
-        startDate: form.startDate || null,
-        endDate: form.endDate || null,
-        notes: form.notes.trim() || null,
+        dosage: form.dosage.trim() || undefined,
+        form: form.form.trim() || undefined,
+        route: form.route.trim() || undefined,
+        frequencyPerDay: form.frequencyPerDay ? parseInt(form.frequencyPerDay, 10) : undefined,
+        times: times.length > 0 ? times : undefined,
+        startDate: form.startDate || undefined,
+        endDate: form.endDate || undefined,
+        notes: form.notes.trim() || undefined,
         isSupplement: form.isSupplement,
       };
  

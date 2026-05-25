@@ -34,7 +34,7 @@ export function AppScreen({
           alignSelf: 'center',
           paddingHorizontal: pad.horizontal,
           paddingTop: pad.vertical + insets.top,
-          paddingBottom: pad.vertical + insets.bottom,
+          paddingBottom: pad.vertical + insets.bottom + theme.spacing.xl,
         },
         contentContainerStyle,
       ]}>
@@ -44,6 +44,30 @@ export function AppScreen({
  
   return (
     <SafeAreaView edges={[]} style={[{ flex: 1, backgroundColor: theme.colors.background }, style]}>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: -120,
+          right: -90,
+          width: 260,
+          height: 260,
+          borderRadius: 130,
+          backgroundColor: theme.scheme === 'dark' ? 'rgba(103, 232, 249, 0.08)' : 'rgba(13, 139, 255, 0.045)',
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 120,
+          left: -140,
+          width: 280,
+          height: 280,
+          borderRadius: 140,
+          backgroundColor: theme.scheme === 'dark' ? 'rgba(167, 139, 250, 0.07)' : 'rgba(105, 82, 217, 0.035)',
+        }}
+      />
       {scroll ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"

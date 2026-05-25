@@ -16,6 +16,8 @@ import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { openDocumentFile, isImageFileUrl } from '../../utils/openDocumentFile';
 
 export default function DocumentDetailScreen() {
@@ -153,11 +155,31 @@ export default function DocumentDetailScreen() {
             />
           ) : null
         }>
-        <AppCard style={{ gap: theme.spacing.sm }}>
+        <AppCard variant="hero" style={{ gap: theme.spacing.md }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
+            <View style={{ flex: 1, gap: theme.spacing.xs }}>
+              <AppStatusBadge label={document.parsed ? 'OCR готов' : 'OCR в процессе'} tone={document.parsed ? 'success' : 'warning'} />
+              <AppText variant="h2">{document.studyType || 'Медицинский документ'}</AppText>
+              <AppText variant="caption" color="mutedText">
+                {uploadedAt ? `Загружен ${uploadedAt}` : 'Документ в архиве'} · {document.fileType}
+              </AppText>
+            </View>
+            <View
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: theme.radius.pill,
+                backgroundColor: theme.colors.aiSoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <IconSymbol name="doc.text.fill" size={24} color={theme.colors.ai} />
+            </View>
+          </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <AppChip label={document.parsed ? 'Обработан' : 'В обработке'} tone={document.parsed ? 'primary' : 'neutral'} />
+            <AppChip label={document.parsed ? 'AI готов к диалогу' : 'В обработке'} tone={document.parsed ? 'ai' : 'warning'} />
             {typeof document.ocrConfidence === 'number' ? (
-              <AppChip label={`OCR: ${Math.round(document.ocrConfidence * 100)}%`} />
+              <AppChip label={`OCR: ${Math.round(document.ocrConfidence * 100)}%`} tone="info" />
             ) : null}
             {document.category ? <AppChip label={document.category} /> : null}
           </View>
@@ -182,7 +204,7 @@ export default function DocumentDetailScreen() {
 
         {document.findings ? (
           <AppSection title="Заключение">
-            <AppCard>
+            <AppCard variant="glass">
               <AppText selectable>{document.findings}</AppText>
             </AppCard>
           </AppSection>
@@ -198,7 +220,15 @@ export default function DocumentDetailScreen() {
                     ? `Референс: ${ind.referenceMin} - ${ind.referenceMax}${ind.unit ? ` ${ind.unit}` : ''}`
                     : null;
                 return (
-                  <AppCard key={`${ind.name}-${idx}`} style={{ gap: 6 }}>
+                  <AppCard
+                    key={`${ind.name}-${idx}`}
+                    variant={ind.isNormal === false ? 'glass' : 'surface'}
+                    style={{
+                      gap: 6,
+                      borderLeftWidth: ind.isNormal === false ? 4 : 0,
+                      borderLeftColor: ind.isNormal === false ? theme.colors.warning : 'transparent',
+                      backgroundColor: ind.isNormal === false ? theme.colors.warningSoft : undefined,
+                    }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
                       <View style={{ flex: 1 }}>
                         <AppText variant="bodyStrong">{ind.name}</AppText>
@@ -207,7 +237,7 @@ export default function DocumentDetailScreen() {
                         </AppText>
                       </View>
                       {ind.isNormal !== undefined ? (
-                        <AppChip label={ind.isNormal ? 'Норма' : 'Отклонение'} tone={ind.isNormal ? 'primary' : 'neutral'} />
+                        <AppChip label={ind.isNormal ? 'Норма' : 'Отклонение'} tone={ind.isNormal ? 'success' : 'warning'} />
                       ) : null}
                     </View>
                     {ref ? (
@@ -224,7 +254,7 @@ export default function DocumentDetailScreen() {
 
         {document.rawText ? (
           <AppSection title="Текст документа" subtitle="Распознанный текст (OCR)">
-            <AppCard>
+            <AppCard variant="glass">
               <AppText variant="mono" color="mutedText" selectable>
                 {document.rawText}
               </AppText>
@@ -240,12 +270,12 @@ export default function DocumentDetailScreen() {
                 const status = analysis.status || 'normal';
                 return (
                   <Pressable key={analysis.id} onPress={() => router.push(`/analysis/${analysis.id}` as any)}>
-                    <AppCard style={{ gap: 6 }}>
+                    <AppCard variant="interactive" style={{ gap: 6 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                         <AppText variant="bodyStrong" style={{ flex: 1 }}>
                           {analysis.title}
                         </AppText>
-                        <AppChip label={status} />
+                        <AppChip label={status} tone={status === 'normal' ? 'success' : status === 'critical' ? 'danger' : 'warning'} />
                       </View>
                       <AppText variant="caption" color="mutedText">
                         {dateStr}
@@ -260,7 +290,7 @@ export default function DocumentDetailScreen() {
 
         {document.notes ? (
           <AppSection title="Заметки">
-            <AppCard>
+            <AppCard variant="glass">
               <AppText selectable>{document.notes}</AppText>
             </AppCard>
           </AppSection>
@@ -278,7 +308,7 @@ export default function DocumentDetailScreen() {
             />
           }>
           {editMode ? (
-            <AppCard style={{ gap: theme.spacing.md }}>
+            <AppCard variant="glass" style={{ gap: theme.spacing.md }}>
               <AppInput label="Тип исследования" value={edits.studyType} onChangeText={(t) => setEdits((e) => ({ ...e, studyType: t }))} />
               <AppInput label="Дата (ГГГГ-ММ-ДД)" value={edits.studyDate} onChangeText={(t) => setEdits((e) => ({ ...e, studyDate: t }))} />
               <AppInput label="Лаборатория" value={edits.laboratory} onChangeText={(t) => setEdits((e) => ({ ...e, laboratory: t }))} />
@@ -330,7 +360,7 @@ export default function DocumentDetailScreen() {
               />
             </AppCard>
           ) : (
-            <AppCard>
+            <AppCard variant="glass">
               <AppText variant="caption" color="mutedText">
                 Нажмите «Редактировать», чтобы поправить OCR перед созданием анализа.
               </AppText>

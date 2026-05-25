@@ -6,13 +6,15 @@ import {
   StyleProp,
   StyleSheet,
   TextStyle,
+  View,
   ViewStyle,
 } from 'react-native';
  
 import { useAppTheme } from '@/design/tokens';
 import { AppText } from '@/components/ui/AppText';
+import { IconSymbol } from '@/components/ui/icon-symbol';
  
-export type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'ai';
 export type AppButtonSize = 'sm' | 'md' | 'lg';
  
 export type AppButtonProps = Omit<PressableProps, 'style'> & {
@@ -21,6 +23,7 @@ export type AppButtonProps = Omit<PressableProps, 'style'> & {
   size?: AppButtonSize;
   loading?: boolean;
   fullWidth?: boolean;
+  icon?: Parameters<typeof IconSymbol>[0]['name'];
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
@@ -31,6 +34,7 @@ export function AppButton({
   size = 'md',
   loading,
   fullWidth,
+  icon,
   disabled,
   style,
   textStyle,
@@ -39,13 +43,15 @@ export function AppButton({
   const theme = useAppTheme();
   const isDisabled = disabled || loading;
  
-  const paddingY = size === 'sm' ? 8 : size === 'lg' ? 14 : 11;
-  const paddingX = size === 'sm' ? 12 : size === 'lg' ? 16 : 14;
-  const radius = size === 'sm' ? theme.radius.sm : theme.radius.md;
+  const paddingY = size === 'sm' ? 9 : size === 'lg' ? 15 : 13;
+  const paddingX = size === 'sm' ? 14 : size === 'lg' ? 20 : 17;
+  const radius = size === 'sm' ? theme.radius.sm : theme.radius.pill;
  
   const bg =
     variant === 'primary'
       ? theme.colors.primary
+      : variant === 'ai'
+        ? theme.colors.ai
       : variant === 'secondary'
         ? theme.colors.surface2
         : variant === 'danger'
@@ -53,10 +59,14 @@ export function AppButton({
           : 'transparent';
  
   const borderColor =
-    variant === 'ghost' ? theme.colors.border : variant === 'secondary' ? theme.colors.border : 'transparent';
+    variant === 'ghost' ? theme.colors.border : variant === 'secondary' ? theme.colors.borderStrong : 'transparent';
  
   const textColor =
-    variant === 'primary' || variant === 'danger' ? '#fff' : variant === 'ghost' ? theme.colors.text : theme.colors.text;
+    variant === 'primary' || variant === 'danger' || variant === 'ai'
+      ? '#fff'
+      : variant === 'ghost'
+        ? theme.colors.text
+        : theme.colors.text;
  
   return (
     <Pressable
@@ -71,6 +81,7 @@ export function AppButton({
           paddingVertical: paddingY,
           paddingHorizontal: paddingX,
           opacity: isDisabled ? 0.55 : pressed ? 0.92 : 1,
+          transform: [{ scale: pressed && !isDisabled ? 0.98 : 1 }],
           width: fullWidth ? '100%' : undefined,
         },
         style,
@@ -79,9 +90,12 @@ export function AppButton({
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
+        <View style={styles.content}>
+          {icon ? <IconSymbol name={icon} size={size === 'sm' ? 15 : 18} color={textColor} /> : null}
         <AppText variant="bodyStrong" style={[{ color: textColor, textAlign: 'center' }, textStyle]}>
           {title}
         </AppText>
+        </View>
       )}
     </Pressable>
   );
@@ -92,6 +106,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 48,
+  },
+  content: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
   },
 });
 

@@ -6,14 +6,40 @@ import { AppText } from '@/components/ui/AppText';
  
 export type AppChipProps = Omit<PressableProps, 'style'> & {
   label: string;
-  tone?: 'neutral' | 'primary';
+  tone?: 'neutral' | 'primary' | 'ai' | 'success' | 'warning' | 'danger' | 'info';
   style?: StyleProp<ViewStyle>;
 };
  
 export function AppChip({ label, tone = 'neutral', style, ...rest }: AppChipProps) {
   const theme = useAppTheme();
-  const bg = tone === 'primary' ? theme.colors.primary : theme.colors.surface2;
-  const text = tone === 'primary' ? '#fff' : theme.colors.text;
+  const bg =
+    tone === 'primary'
+      ? theme.colors.primary
+      : tone === 'ai'
+        ? theme.colors.aiSoft
+        : tone === 'success'
+          ? theme.colors.successSoft
+          : tone === 'warning'
+            ? theme.colors.warningSoft
+            : tone === 'danger'
+              ? theme.colors.dangerSoft
+              : tone === 'info'
+                ? theme.colors.infoSoft
+                : theme.colors.surface2;
+  const text =
+    tone === 'primary'
+      ? '#fff'
+      : tone === 'ai'
+        ? theme.colors.ai
+        : tone === 'success'
+          ? theme.colors.success
+          : tone === 'warning'
+            ? theme.colors.warning
+            : tone === 'danger'
+              ? theme.colors.danger
+              : tone === 'info'
+                ? theme.colors.info
+                : theme.colors.text;
   const border = tone === 'primary' ? 'transparent' : theme.colors.border;
  
   return (
@@ -24,8 +50,9 @@ export function AppChip({ label, tone = 'neutral', style, ...rest }: AppChipProp
           backgroundColor: bg,
           borderColor: border,
           borderRadius: theme.radius.pill,
-          paddingVertical: 6,
-          paddingHorizontal: 10,
+          minHeight: 32,
+          paddingVertical: 7,
+          paddingHorizontal: 11,
           opacity: pressed ? 0.9 : 1,
         },
         style,

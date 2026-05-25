@@ -33,7 +33,15 @@ const MAPPING = {
   sparkles: 'auto-awesome',
   paperclip: 'attach-file',
   'xmark.circle.fill': 'cancel',
-  'checkmark.circle.fill': 'check-circle',
+  'doc.badge.plus': 'upload-file',
+  'calendar.badge.plus': 'event-available',
+  'calendar.badge.clock': 'event-note',
+  'chart.bar.fill': 'bar-chart',
+  'book.closed.fill': 'library-books',
+  'building.2.fill': 'business',
+  'questionmark.circle.fill': 'help',
+  'moon.fill': 'bedtime',
+  stethoscope: 'medical-services',
 } as IconMapping;
 
 /**

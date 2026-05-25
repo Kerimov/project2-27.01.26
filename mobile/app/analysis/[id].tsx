@@ -18,6 +18,8 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const AI_MARKER = '--- AI Комментарии ---';
 
@@ -166,12 +168,32 @@ export default function AnalysisDetailScreen() {
 
   return (
     <AppScreen>
-      <AppSection
-        title={item.title}
-        subtitle={`${new Date(item.date).toLocaleDateString('ru-RU')} · ${item.type || 'Без типа'}`}
-      >
+      <AppSection title={item.title} subtitle={`${new Date(item.date).toLocaleDateString('ru-RU')} · ${item.type || 'Без типа'}`}>
         <View style={{ gap: theme.spacing.lg }}>
-          <AppCard style={{ gap: 8 }}>
+          <AppCard variant="hero" style={{ gap: theme.spacing.md }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
+              <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                <AppStatusBadge
+                  label={`Риск: ${riskLoading ? '…' : riskLabel(displayRiskLevel)}`}
+                  tone={displayRiskLevel === 'urgent' ? 'danger' : displayRiskLevel === 'attention' ? 'warning' : 'success'}
+                />
+                <AppText variant="h2">{item.title}</AppText>
+                <AppText variant="caption" color="mutedText">
+                  {item.type || 'Лабораторное исследование'} · {indicators.length} показателей
+                </AppText>
+              </View>
+              <View
+                style={{
+                  width: 54,
+                  height: 54,
+                  borderRadius: theme.radius.pill,
+                  backgroundColor: theme.colors.aiSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <IconSymbol name="sparkles" size={24} color={theme.colors.ai} />
+              </View>
+            </View>
             {item.laboratory ? (
               <AppText variant="caption" color="mutedText">
                 Лаборатория: {item.laboratory}
@@ -183,22 +205,22 @@ export default function AnalysisDetailScreen() {
               </AppText>
             ) : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-              <AppChip label={statusLabel(item.status)} tone={item.status === 'normal' ? 'primary' : 'neutral'} />
+              <AppChip label={statusLabel(item.status)} tone={item.status === 'normal' ? 'success' : item.status === 'critical' ? 'danger' : 'warning'} />
               <AppChip
                 label={`Риск: ${riskLoading ? '…' : riskLabel(displayRiskLevel)}`}
-                tone={displayRiskLevel === 'urgent' ? 'neutral' : displayRiskLevel === 'attention' ? 'neutral' : 'primary'}
+                tone={displayRiskLevel === 'urgent' ? 'danger' : displayRiskLevel === 'attention' ? 'warning' : 'success'}
               />
               {risk?.confidence !== undefined ? (
-                <AppChip label={`Уверенность ${risk.confidence}%`} />
+                <AppChip label={`Уверенность ${risk.confidence}%`} tone="info" />
               ) : null}
-              {abnormalCount > 0 ? <AppChip label={`Отклонений: ${abnormalCount}`} /> : null}
+              {abnormalCount > 0 ? <AppChip label={`Отклонений: ${abnormalCount}`} tone="warning" /> : null}
             </View>
           </AppCard>
 
           {risk && (risk.reasons?.length || risk.redFlags?.length || risk.nextSteps?.length) ? (
             <AppSection title="Сигналы риска и триаж" subtitle="Как на веб-версии">
               {risk.reasons?.length ? (
-                <AppCard style={{ marginBottom: theme.spacing.sm, gap: 6 }}>
+                <AppCard variant="glass" style={{ marginBottom: theme.spacing.sm, gap: 6 }}>
                   <AppText variant="bodyStrong">Почему так</AppText>
                   {risk.reasons.slice(0, 6).map((x, idx) => (
                     <AppText key={idx} variant="caption" color="mutedText">
@@ -208,7 +230,7 @@ export default function AnalysisDetailScreen() {
                 </AppCard>
               ) : null}
               {risk.redFlags?.length ? (
-                <AppCard style={{ marginBottom: theme.spacing.sm, gap: 6 }}>
+                <AppCard variant="glass" style={{ marginBottom: theme.spacing.sm, gap: 6, borderColor: theme.colors.danger }}>
                   <AppText variant="bodyStrong" color="danger">
                     Когда срочно
                   </AppText>
@@ -220,7 +242,7 @@ export default function AnalysisDetailScreen() {
                 </AppCard>
               ) : null}
               {risk.nextSteps?.length ? (
-                <AppCard style={{ gap: 6 }}>
+                <AppCard variant="glass" style={{ gap: 6 }}>
                   <AppText variant="bodyStrong">Что делать дальше</AppText>
                   {risk.nextSteps.slice(0, 6).map((x, idx) => (
                     <AppText key={idx} variant="caption" color="mutedText">
@@ -253,12 +275,13 @@ export default function AnalysisDetailScreen() {
 
                   return (
                     <AppCard
+                      variant={isAbnormal ? 'glass' : 'surface'}
                       key={`${ind.name}-${idx}`}
                       style={{
                         gap: 6,
                         borderLeftWidth: isAbnormal ? 4 : 0,
                         borderLeftColor: isAbnormal ? theme.colors.danger : 'transparent',
-                        backgroundColor: isAbnormal ? `${theme.colors.danger}18` : undefined,
+                        backgroundColor: isAbnormal ? theme.colors.dangerSoft : undefined,
                       }}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
@@ -271,7 +294,7 @@ export default function AnalysisDetailScreen() {
                           </AppText>
                         </View>
                         {ind.isNormal !== undefined || isAbnormal ? (
-                          <AppChip label={isAbnormal ? 'Отклонение' : 'Норма'} tone={isAbnormal ? 'neutral' : 'primary'} />
+                          <AppChip label={isAbnormal ? 'Отклонение' : 'Норма'} tone={isAbnormal ? 'warning' : 'success'} />
                         ) : null}
                       </View>
                       {ref ? (
@@ -289,7 +312,7 @@ export default function AnalysisDetailScreen() {
                 })}
               </View>
             ) : (
-              <AppCard>
+              <AppCard variant="glass">
                 <AppText variant="caption" color="mutedText">
                   Показатели не найдены в записи анализа. Если документ только что обработан — обновите список через
                   минуту.
@@ -300,7 +323,7 @@ export default function AnalysisDetailScreen() {
 
           {(aiComments || commentsLoading) && (
             <AppSection title="AI комментарии" subtitle="Интерпретация отклонений и нормы">
-              <AppCard style={{ gap: 8 }}>
+              <AppCard variant="glass" style={{ gap: 8, borderColor: theme.colors.borderStrong }}>
                 {commentsLoading ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <ActivityIndicator size="small" />
@@ -315,7 +338,8 @@ export default function AnalysisDetailScreen() {
                 )}
                 <AppButton
                   title="Обновить комментарии"
-                  variant="secondary"
+                  variant="ai"
+                  icon="sparkles"
                   size="sm"
                   loading={commentsLoading}
                   onPress={() => loadComments(item.id, true)}
@@ -326,7 +350,7 @@ export default function AnalysisDetailScreen() {
 
           {item.notes && !item.notes.includes(AI_MARKER) ? (
             <AppSection title="Заключение / примечания">
-              <AppCard>
+              <AppCard variant="glass">
                 <AppText variant="body" selectable>
                   {item.notes}
                 </AppText>
@@ -364,13 +388,15 @@ export default function AnalysisDetailScreen() {
             <View style={{ gap: theme.spacing.sm }}>
               <AppButton
                 title="Обновить оценку риска"
-                variant="secondary"
+                variant="ai"
+                icon="sparkles"
                 loading={riskLoading}
                 onPress={() => loadRisk(item.id)}
               />
               <AppButton
                 title="Интерпретация тренда"
                 variant="secondary"
+                icon="chart.bar.fill"
                 loading={aiLoading}
                 onPress={async () => {
                   try {
@@ -387,6 +413,7 @@ export default function AnalysisDetailScreen() {
               <AppButton
                 title="План действий"
                 variant="secondary"
+                icon="checkmark.circle.fill"
                 loading={aiLoading}
                 onPress={async () => {
                   try {
@@ -402,7 +429,7 @@ export default function AnalysisDetailScreen() {
               />
             </View>
             {aiNote ? (
-              <AppCard style={{ marginTop: theme.spacing.md }}>
+              <AppCard variant="glass" style={{ marginTop: theme.spacing.md }}>
                 <AppText variant="body" selectable>
                   {aiNote}
                 </AppText>

@@ -6,11 +6,11 @@ import { useAppTheme } from '@/design/tokens';
 import { IconSymbol } from '@/components/ui/icon-symbol';
  
 export type AppFABProps = Omit<PressableProps, 'style'> & {
-  icon: Parameters<typeof IconSymbol>[0]['name'];
+  icon?: Parameters<typeof IconSymbol>[0]['name'];
   style?: StyleProp<ViewStyle>;
 };
  
-export function AppFAB({ icon, style, ...rest }: AppFABProps) {
+export function AppFAB({ icon = 'plus', style, ...rest }: AppFABProps) {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -19,10 +19,11 @@ export function AppFAB({ icon, style, ...rest }: AppFABProps) {
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: theme.colors.ai,
           borderRadius: theme.radius.pill,
           opacity: pressed ? 0.92 : 1,
           bottom: 16 + (insets.bottom || 0),
+          transform: [{ scale: pressed ? 0.96 : 1 }],
         },
         theme.shadow as any,
         style,

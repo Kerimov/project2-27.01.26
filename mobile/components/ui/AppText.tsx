@@ -3,11 +3,11 @@ import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native'
  
 import { useAppTheme } from '@/design/tokens';
  
-export type AppTextVariant = 'title' | 'h2' | 'h3' | 'body' | 'bodyStrong' | 'caption' | 'mono';
+export type AppTextVariant = 'hero' | 'title' | 'h2' | 'h3' | 'body' | 'bodyStrong' | 'caption' | 'mono';
  
 export type AppTextProps = TextProps & {
   variant?: AppTextVariant;
-  color?: 'text' | 'mutedText' | 'primary' | 'danger' | 'success' | 'warning';
+  color?: 'text' | 'mutedText' | 'primary' | 'primary2' | 'ai' | 'danger' | 'success' | 'warning' | 'info';
   style?: StyleProp<TextStyle>;
 };
  

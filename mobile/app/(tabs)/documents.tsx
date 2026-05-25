@@ -13,27 +13,30 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getDocuments, uploadDocument, deleteDocument, type DocumentSummary } from '../../api/documents';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
-import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { useContentPadding } from '@/design/responsive';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppFAB } from '@/components/ui/AppFAB';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
+import { AppEmptyState } from '@/components/ui/AppEmptyState';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function DocumentsScreen() {
   const router = useRouter();
   const { token } = useAuthStore();
   const theme = useAppTheme();
   const pad = useContentPadding();
-  const { maxWidth } = useMaxContentWidth();
 
   const [items, setItems] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -211,23 +214,43 @@ export default function DocumentsScreen() {
   };
 
   const renderItem = ({ item }: { item: DocumentSummary }) => (
-    <AppCard style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
+    <AppCard variant="interactive" style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
       <Pressable onPress={() => router.push(`/document/${item.id}` as any)}>
         {({ pressed }) => (
-          <View style={{ opacity: pressed ? 0.95 : 1 }}>
-            <AppText variant="h3">{item.fileName}</AppText>
-            <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-              {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
-            </AppText>
-            {item.studyType ? (
-              <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-                {item.studyType}
-              </AppText>
-            ) : null}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.md }}>
-              {item.parsed ? <AppChip label="Обработан" tone="primary" /> : <AppChip label="Обрабатывается…" />}
+          <View style={{ opacity: pressed ? 0.9 : 1, gap: theme.spacing.sm }}>
+            <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: theme.radius.pill,
+                  backgroundColor: item.parsed ? theme.colors.successSoft : theme.colors.warningSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <IconSymbol name="doc.text.fill" size={22} color={item.parsed ? theme.colors.success : theme.colors.warning} />
+              </View>
+              <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.sm }}>
+                  <AppText variant="h3" style={{ flex: 1 }} numberOfLines={2}>
+                    {item.fileName}
+                  </AppText>
+                  <AppStatusBadge label={item.parsed ? 'Готов' : 'OCR'} tone={item.parsed ? 'success' : 'warning'} />
+                </View>
+                <AppText variant="caption" color="mutedText">
+                  {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
+                </AppText>
+                {item.studyType ? (
+                  <AppText variant="caption" color="mutedText">
+                    {item.studyType}
+                  </AppText>
+                ) : null}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {item.parsed ? <AppChip label="Готов к вопросам" tone="ai" /> : <AppChip label="Обрабатывается…" tone="warning" />}
               {typeof item.ocrConfidence === 'number' ? (
-                <AppChip label={`OCR: ${Math.round(item.ocrConfidence * 100)}%`} />
+                <AppChip label={`OCR: ${Math.round(item.ocrConfidence * 100)}%`} tone="info" />
               ) : null}
             </View>
           </View>
@@ -236,11 +259,12 @@ export default function DocumentsScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <AppButton
           title="Открыть"
-          variant="secondary"
+          icon="chevron.right"
+          variant="ai"
           size="sm"
           onPress={() => router.push(`/document/${item.id}` as any)}
         />
-        <AppButton title="Удалить" variant="danger" size="sm" onPress={() => handleDelete(item)} />
+        <AppButton title="Удалить" variant="ghost" size="sm" onPress={() => handleDelete(item)} />
       </View>
     </AppCard>
   );
@@ -268,12 +292,33 @@ export default function DocumentsScreen() {
           paddingBottom: pad.vertical + 96,
         }}
         renderItem={renderItem}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <AppText variant="body" color="mutedText">
-              Документы пока не найдены.
-            </AppText>
+        ListHeaderComponent={
+          <View style={{ marginBottom: theme.spacing.sm }}>
+            <AppSection title="Документы" subtitle="PDF, фото и распознавание текста">
+              <AppCard variant="hero">
+                <View style={{ gap: theme.spacing.sm }}>
+                  <AppStatusBadge label={uploading ? 'Загрузка...' : `${items.length} файлов`} tone={uploading ? 'warning' : 'ai'} />
+                  <AppText variant="h2">Ваш медицинский архив</AppText>
+                  <AppText variant="caption" color="mutedText">
+                    Загружайте PDF или фото: система извлечёт текст, а помощник сможет отвечать по документу.
+                  </AppText>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <AppButton title="PDF / файл" icon="doc.badge.plus" variant="ai" size="sm" onPress={handlePickPdf} disabled={uploading} />
+                    <AppButton title="Фото" icon="doc.text.fill" variant="secondary" size="sm" onPress={handleTakePhoto} disabled={uploading} />
+                  </View>
+                </View>
+              </AppCard>
+            </AppSection>
           </View>
+        }
+        ListEmptyComponent={
+          <AppEmptyState
+            title="Документы пока не загружены"
+            subtitle="Добавьте PDF или снимок анализа. Система распознает текст и подготовит документ к вопросам."
+            icon="doc.badge.plus"
+            actionTitle="Добавить документ"
+            onAction={showUploadOptions}
+          />
         }
         refreshing={loading}
         onRefresh={loadDocuments}

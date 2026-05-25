@@ -4,15 +4,35 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '@/design/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const appTheme = useAppTheme();
+  const navTheme = {
+    ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme).colors,
+      background: appTheme.colors.background,
+      card: appTheme.colors.surfaceGlass,
+      text: appTheme.colors.text,
+      border: appTheme.colors.border,
+      primary: appTheme.colors.primary,
+    },
+  };
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+      <ThemeProvider value={navTheme}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: appTheme.colors.surfaceGlass },
+            headerTintColor: appTheme.colors.text,
+            headerShadowVisible: false,
+            headerTitleStyle: { fontWeight: '800' },
+            contentStyle: { backgroundColor: appTheme.colors.background },
+          }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ title: 'Регистрация' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

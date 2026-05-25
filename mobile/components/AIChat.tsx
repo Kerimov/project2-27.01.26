@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   TextInput,
   View,
@@ -20,6 +22,7 @@ import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppFAB } from '@/components/ui/AppFAB';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 type AttachedDocument = {
@@ -44,7 +47,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
       id: '1',
       role: 'assistant',
       content:
-        'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь вам:\n\n• 📅 Записаться на прием к врачу\n• 📊 Показать результаты анализов\n• 💡 Дать персональные рекомендации\n• 👨‍⚕️ Найти подходящего врача\n• 📋 Показать ваши записи на приемы\n\nПросто скажите, что вам нужно!',
+        'Здравствуйте. Я помогу простыми словами разобраться в анализах, документах, записях и плане лечения. Напишите вопрос или выберите подсказку ниже.',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -164,7 +167,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
         id: '1',
         role: 'assistant',
         content:
-          'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь вам:\n\n• 📅 Записаться на прием к врачу\n• 📊 Показать результаты анализов\n• 💡 Дать персональные рекомендации\n• 👨‍⚕️ Найти подходящего врача\n• 📋 Показать ваши записи на приемы\n\nПросто скажите, что вам нужно!',
+          'Здравствуйте. Я помогу простыми словами разобраться в анализах, документах, записях и плане лечения. Напишите вопрос или выберите подсказку ниже.',
         timestamp: new Date().toISOString(),
       },
     ]);
@@ -210,11 +213,11 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: theme.colors.surface2,
+              backgroundColor: theme.colors.aiSoft,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <IconSymbol name="sparkles" size={18} color={theme.colors.primary} />
+            <IconSymbol name="sparkles" size={18} color={theme.colors.ai} />
           </View>
         )}
 
@@ -228,10 +231,11 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
           )}
 
           <AppCard
-            variant={isUser ? 'surface' : 'surface2'}
+            variant={isUser ? 'surface' : 'glass'}
             style={{
-              backgroundColor: isUser ? theme.colors.primary : theme.colors.surface2,
+              backgroundColor: isUser ? theme.colors.primary : undefined,
               padding: theme.spacing.md,
+              borderColor: isUser ? 'transparent' : theme.colors.borderStrong,
             }}>
             <AppText
               variant="body"
@@ -263,9 +267,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
 
             {!isUser && Array.isArray(item.sources) && item.sources.length > 0 && (
               <View style={{ marginTop: theme.spacing.sm, gap: 4 }}>
-                <AppText variant="caption" color="mutedText" style={{ marginBottom: 4 }}>
-                  Источники:
-                </AppText>
+                <AppStatusBadge label="Источники ответа" tone="info" />
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                   {(() => {
                     const seen = new Set<string>();
@@ -336,47 +338,58 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
   }
 
   return (
-    <Modal visible={isOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsOpen(false)}>
-      <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+    <Modal visible={isOpen} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setIsOpen(false)}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}>
+      <AppScreen scroll={false} contentContainerStyle={{ flex: 1, paddingBottom: theme.spacing.md }}>
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingBottom: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
+            padding: theme.spacing.sm,
+            paddingLeft: theme.spacing.md,
+            borderWidth: 1,
+            borderColor: theme.colors.borderStrong,
+            borderRadius: theme.radius.xl,
+            backgroundColor: theme.colors.surfaceGlass,
             marginBottom: theme.spacing.md,
           }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
             <View
               style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: theme.colors.surface2,
+                backgroundColor: theme.colors.aiSoft,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <IconSymbol name="sparkles" size={24} color={theme.colors.primary} />
+              <IconSymbol name="sparkles" size={24} color={theme.colors.ai} />
             </View>
             <View>
-              <AppText variant="h3">AI Ассистент</AppText>
+              <AppText variant="h3">Помощник здоровья</AppText>
               <AppText variant="caption" color="mutedText">
-                Персональный медицинский помощник
+                Анализы, документы и записи
               </AppText>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-            <AppButton
-              title="Очистить"
-              variant="ghost"
-              size="sm"
-              onPress={clearChat}
-              style={{ minWidth: 80 }}
-            />
-            <AppButton title="Закрыть" variant="ghost" size="sm" onPress={() => setIsOpen(false)} />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Закрыть помощника"
+            onPress={() => setIsOpen(false)}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: theme.radius.pill,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: pressed ? theme.colors.surface3 : theme.colors.surface2,
+            })}>
+            <IconSymbol name="xmark.circle.fill" size={24} color={theme.colors.mutedText} />
+          </Pressable>
         </View>
 
         <FlatList
@@ -400,8 +413,11 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
                   }}>
                   <IconSymbol name="sparkles" size={18} color={theme.colors.primary} />
                 </View>
-                <AppCard variant="surface2" style={{ padding: theme.spacing.md }}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                <AppCard variant="glass" style={{ padding: theme.spacing.md }}>
+                  <ActivityIndicator size="small" color={theme.colors.ai} />
+                  <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+                    AI анализирует контекст...
+                  </AppText>
                 </AppCard>
               </View>
             ) : null
@@ -415,7 +431,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
                 const doc = availableDocuments.find((d) => d.id === docId);
                 return doc ? (
                   <View key={docId} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <AppChip label={doc.studyType || doc.fileName} tone="primary" />
+                    <AppChip label={doc.studyType || doc.fileName} tone="ai" />
                     <Pressable onPress={() => removeSelectedDocument(docId)}>
                       <IconSymbol name="xmark.circle.fill" size={16} color={theme.colors.danger} />
                     </Pressable>
@@ -426,7 +442,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
           )}
 
           {showDocumentSelector && (
-            <AppCard variant="surface2" style={{ maxHeight: 150 }}>
+            <AppCard variant="glass" style={{ maxHeight: 170 }}>
               <FlatList
                 data={availableDocuments}
                 keyExtractor={(item) => item.id}
@@ -436,7 +452,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
                     style={{
                       padding: theme.spacing.sm,
                       backgroundColor: selectedDocuments.includes(item.id)
-                        ? theme.colors.primary + '20'
+                        ? theme.colors.aiSoft
                         : 'transparent',
                       borderRadius: theme.radius.md,
                       marginBottom: theme.spacing.xs,
@@ -444,7 +460,7 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <AppText variant="caption">{item.studyType || item.fileName}</AppText>
                       {selectedDocuments.includes(item.id) && (
-                        <IconSymbol name="checkmark.circle.fill" size={16} color={theme.colors.primary} />
+                        <IconSymbol name="checkmark.circle.fill" size={16} color={theme.colors.ai} />
                       )}
                     </View>
                   </Pressable>
@@ -460,90 +476,106 @@ export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
             <AppButton
-              title="📅 Запись"
+              title="Запись"
+              icon="calendar"
               variant="secondary"
               size="sm"
               onPress={() => setInput('Хочу записаться на прием')}
               disabled={isLoading}
             />
             <AppButton
-              title="👨‍⚕️ Врачи"
+              title="Врачи"
+              icon="stethoscope"
               variant="secondary"
               size="sm"
               onPress={() => setInput('Покажи список врачей')}
               disabled={isLoading}
             />
             <AppButton
-              title="📊 Анализы"
+              title="Анализы"
+              icon="waveform.path.ecg"
               variant="secondary"
               size="sm"
               onPress={() => setInput('Покажи мои результаты анализов')}
               disabled={isLoading}
             />
             <AppButton
-              title="📋 Записи"
+              title="Мои записи"
+              icon="calendar.badge.clock"
               variant="secondary"
               size="sm"
               onPress={() => setInput('Покажи мои записи на приемы')}
               disabled={isLoading}
             />
+            <AppButton
+              title="Очистить"
+              variant="ghost"
+              size="sm"
+              onPress={clearChat}
+              disabled={isLoading}
+            />
           </View>
 
-          <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
             <Pressable
               onPress={() => setShowDocumentSelector(!showDocumentSelector)}
               disabled={isLoading}
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: theme.radius.md,
-                backgroundColor: theme.colors.surface2,
+                width: 54,
+                height: 54,
+                borderRadius: theme.radius.pill,
+                backgroundColor: selectedDocuments.length > 0 ? theme.colors.aiSoft : theme.colors.surface2,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderWidth: selectedDocuments.length > 0 ? 2 : 0,
-                borderColor: theme.colors.primary,
+                borderColor: theme.colors.ai,
               }}>
               <IconSymbol
                 name="paperclip"
                 size={20}
-                color={selectedDocuments.length > 0 ? theme.colors.primary : theme.colors.text}
+                color={selectedDocuments.length > 0 ? theme.colors.ai : theme.colors.text}
               />
             </Pressable>
             <TextInput
               value={input}
               onChangeText={setInput}
-              placeholder="Напишите ваш вопрос..."
+              placeholder="Напишите вопрос о здоровье..."
               placeholderTextColor={theme.colors.mutedText}
               multiline
               style={{
                 flex: 1,
-                minHeight: 44,
-                maxHeight: 100,
-                paddingHorizontal: theme.spacing.md,
-                paddingVertical: theme.spacing.sm,
-                backgroundColor: theme.colors.surface2,
-                borderRadius: theme.radius.md,
+                minHeight: 64,
+                maxHeight: 150,
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: 14,
+                backgroundColor: theme.colors.surfaceGlass,
+                borderRadius: theme.radius.xl,
                 color: theme.colors.text,
-                fontSize: 14,
+                fontSize: 16,
+                lineHeight: 22,
                 borderWidth: 1,
                 borderColor: theme.colors.border,
+                textAlignVertical: 'top',
               }}
               editable={!isLoading}
             />
             <AppButton
               title={isLoading ? '' : 'Отправить'}
+              icon="paperplane.fill"
               onPress={handleSend}
               disabled={!input.trim() || isLoading}
               loading={isLoading}
-              style={{ minWidth: isLoading ? 44 : 100 }}
+              variant="ai"
+              style={{ minWidth: isLoading ? 54 : 112, minHeight: 54 }}
             />
           </View>
 
           <AppText variant="caption" color="mutedText" style={{ textAlign: 'center', marginTop: theme.spacing.xs }}>
-            AI может ошибаться. Проверяйте важную информацию.
+            Помощник не ставит диагнозы. Важные решения подтверждайте с врачом.
           </AppText>
         </View>
       </AppScreen>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

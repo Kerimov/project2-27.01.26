@@ -3,20 +3,22 @@ import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getAnalyses, deleteAnalysis, type AnalysisSummary } from '../../api/analyses';
-import { AppChip } from '@/components/ui/AppChip';
 import { useAppTheme } from '@/design/tokens';
-import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
+import { useContentPadding } from '@/design/responsive';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppFAB } from '@/components/ui/AppFAB';
 import { AppScreen } from '@/components/ui/AppScreen';
+import { AppSection } from '@/components/ui/AppSection';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
+import { AppEmptyState } from '@/components/ui/AppEmptyState';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function AnalysesScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const pad = useContentPadding();
-  const { maxWidth } = useMaxContentWidth();
 
   const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,46 +59,61 @@ export default function AnalysesScreen() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: AnalysisSummary }) => (
-    <AppCard style={{ gap: theme.spacing.sm }}>
-      <View>
-        <AppText variant="h3">{item.title}</AppText>
-        <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-          {new Date(item.date).toLocaleDateString('ru-RU')} · {item.type || 'Без типа'}
-        </AppText>
-        {item.laboratory ? (
-          <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-            {item.laboratory}
-          </AppText>
-        ) : null}
-        {item.status ? (
-          <View style={{ flexDirection: 'row', marginTop: theme.spacing.sm }}>
-            <AppChip
-              label={
-                item.status === 'normal'
-                  ? 'Норма'
-                  : item.status === 'abnormal'
-                    ? 'Отклонение'
-                    : item.status === 'critical'
-                      ? 'Критично'
-                      : item.status
-              }
-              tone={item.status === 'normal' ? 'primary' : 'neutral'}
-            />
+  const renderItem = ({ item }: { item: AnalysisSummary }) => {
+    const tone = item.status === 'critical' ? 'danger' : item.status === 'abnormal' ? 'warning' : 'success';
+    const label =
+      item.status === 'normal'
+        ? 'Норма'
+        : item.status === 'abnormal'
+          ? 'Отклонение'
+          : item.status === 'critical'
+            ? 'Критично'
+            : item.status || 'AI-анализ';
+
+    return (
+      <AppCard variant="interactive" style={{ gap: theme.spacing.md }}>
+        <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: theme.radius.pill,
+              backgroundColor: tone === 'success' ? theme.colors.successSoft : tone === 'warning' ? theme.colors.warningSoft : theme.colors.dangerSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <IconSymbol name="waveform.path.ecg" size={22} color={theme.colors[tone]} />
           </View>
-        ) : null}
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <AppButton
-          title="Подробнее"
-          variant="secondary"
-          size="sm"
-          onPress={() => router.push(`/analysis/${item.id}` as any)}
-        />
-        <AppButton title="Удалить" variant="danger" size="sm" onPress={() => handleDelete(item)} />
-      </View>
-    </AppCard>
-  );
+          <View style={{ flex: 1, gap: theme.spacing.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.sm }}>
+              <AppText variant="h3" style={{ flex: 1 }}>
+                {item.title}
+              </AppText>
+              <AppStatusBadge label={label} tone={tone} />
+            </View>
+            <AppText variant="caption" color="mutedText">
+              {new Date(item.date).toLocaleDateString('ru-RU')} · {item.type || 'Без типа'}
+            </AppText>
+            {item.laboratory ? (
+              <AppText variant="caption" color="mutedText">
+                {item.laboratory}
+              </AppText>
+            ) : null}
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <AppButton
+            title="AI-разбор"
+            icon="sparkles"
+            variant="ai"
+            size="sm"
+            onPress={() => router.push(`/analysis/${item.id}` as any)}
+          />
+          <AppButton title="Удалить" variant="ghost" size="sm" onPress={() => handleDelete(item)} />
+        </View>
+      </AppCard>
+    );
+  };
 
   if (loading) {
     return (
@@ -131,20 +148,32 @@ export default function AnalysesScreen() {
           gap: theme.spacing.md,
           paddingBottom: pad.vertical + 96,
         }}
+        ListHeaderComponent={
+          <View style={{ marginBottom: theme.spacing.sm }}>
+            <AppSection title="Анализы" subtitle="Понятная интерпретация, динамика и отклонения">
+              <AppCard variant="hero">
+                <View style={{ gap: theme.spacing.sm }}>
+                  <AppStatusBadge label={`${items.length} записей`} tone="ai" />
+                  <AppText variant="h2">Ваши лабораторные показатели</AppText>
+                  <AppText variant="caption" color="mutedText">
+                    Откройте анализ, чтобы увидеть пояснения, отклонения и рекомендации простым языком.
+                  </AppText>
+                </View>
+              </AppCard>
+            </AppSection>
+          </View>
+        }
         renderItem={renderItem}
         refreshing={loading}
         onRefresh={loadAnalyses}
         ListEmptyComponent={
-          <View style={{ alignItems: 'center', padding: 24 }}>
-            <AppText variant="body" color="mutedText">
-              Анализы пока не найдены.
-            </AppText>
-            <AppButton
-              title="Добавить вручную"
-              style={{ marginTop: theme.spacing.md }}
-              onPress={() => router.push('/analyses/create' as any)}
-            />
-          </View>
+          <AppEmptyState
+            title="Анализы пока не добавлены"
+            subtitle="Добавьте анализ вручную или загрузите PDF/фото в документы, чтобы помощник извлёк показатели."
+            icon="waveform.path.ecg"
+            actionTitle="Добавить анализ"
+            onAction={() => router.push('/analyses/create' as any)}
+          />
         }
       />
       <AppFAB icon="plus" onPress={() => router.push('/analyses/create' as any)} />

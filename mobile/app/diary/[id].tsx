@@ -149,9 +149,9 @@ export default function EditDiaryEntryScreen() {
   const isWide = bp !== 'phone';
   const rowStyle = useMemo(
     () => ({
-      flexDirection: (isWide ? 'row' : 'column') as const,
+      flexDirection: isWide ? 'row' : 'column',
       gap: theme.spacing.md,
-    }),
+    } as const),
     [isWide, theme.spacing.md]
   );
 

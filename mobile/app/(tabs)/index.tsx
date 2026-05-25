@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getAnalyses } from '../../api/analyses';
@@ -15,6 +15,9 @@ import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppMetricCard } from '@/components/ui/AppMetricCard';
+import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
+import { AppListItem } from '@/components/ui/AppListItem';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AIChat } from '@/components/AIChat';
 
@@ -23,6 +26,7 @@ export default function DashboardScreen() {
   const { user, token } = useAuthStore();
   const theme = useAppTheme();
   const bp = useBreakpoint();
+  const { width: screenWidth } = useWindowDimensions();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -53,6 +57,7 @@ export default function DashboardScreen() {
         getAppointments().catch(() => []),
         getAnalytics().catch(() => ({ kpi: {}, trend: [] })),
       ]);
+      const kpi = (analytics?.kpi || {}) as any;
 
       const upcoming = appointments
         .filter((apt) => new Date(apt.scheduledAt) >= new Date() && apt.status !== 'cancelled')
@@ -65,10 +70,10 @@ export default function DashboardScreen() {
           : null;
 
       setStats({
-        analysesCount: analytics?.kpi?.analysesCount ?? analyses.length,
-        documentsCount: analytics?.kpi?.documentsCount ?? documents.length,
-        upcomingAppointments: analytics?.kpi?.upcomingAppointments ?? upcoming.length,
-        avgSleep: analytics?.kpi?.avgSleep ?? null,
+        analysesCount: kpi.analysesCount ?? analyses.length,
+        documentsCount: kpi.documentsCount ?? documents.length,
+        upcomingAppointments: kpi.upcomingAppointments ?? upcoming.length,
+        avgSleep: kpi.avgSleep ?? null,
         latestAnalysis,
         upcomingAppointmentsList: upcoming,
         diaryTrend: analytics?.trend ?? [],
@@ -126,186 +131,173 @@ export default function DashboardScreen() {
     );
   }
 
-  const quickActionWidth = bp === 'phone' ? '48%' : bp === 'tablet' ? '31%' : '23%';
+  const isNarrowPhone = bp === 'phone' && screenWidth < 390;
+  const cardWidth = isNarrowPhone ? '100%' : bp === 'phone' ? '48%' : bp === 'tablet' ? '31%' : '23%';
+  const quickActionWidth = isNarrowPhone ? '100%' : bp === 'phone' ? '48%' : bp === 'tablet' ? '31%' : '23%';
+  const firstName = displayFirstName || user?.name || 'Пользователь';
+  const nextAppointment = stats.upcomingAppointmentsList[0];
+  const latestAnalysisTitle = stats.latestAnalysis?.title || stats.latestAnalysis?.studyType || 'Анализ';
+  const latestIndicators = Array.isArray(stats.latestAnalysis?.indicators) ? stats.latestAnalysis.indicators : [];
+  const abnormalCount = latestIndicators.filter((i: any) => i?.isNormal === false).length;
+  const aiInsight =
+    abnormalCount > 0
+      ? `AI нашёл ${abnormalCount} показател${abnormalCount === 1 ? 'ь' : 'я'} вне референса в последнем анализе.`
+      : stats.latestAnalysis
+        ? 'Последний анализ выглядит спокойно. Можно открыть AI-интерпретацию для деталей.'
+        : 'Загрузите анализ или документ, и AI соберёт персональную картину здоровья.';
 
   return (
     <AppScreen>
-      <AppSection
-        title="Главная"
-        subtitle={`Добро пожаловать, ${displayFirstName || user?.name || 'Пользователь'}`}
-      >
-        <View style={{ gap: theme.spacing.lg }}>
-          {/* Статистика */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <AppCard padded={false} style={{ flex: 1, alignItems: 'center', padding: theme.spacing.lg }}>
-              <AppText variant="title" style={{ color: theme.colors.primary }}>
-                {stats.analysesCount}
-              </AppText>
-              <AppText variant="caption" color="mutedText">
-                Анализы
-              </AppText>
-            </AppCard>
-            <AppCard padded={false} style={{ flex: 1, alignItems: 'center', padding: theme.spacing.lg }}>
-              <AppText variant="title" style={{ color: theme.colors.primary }}>
-                {stats.documentsCount}
-              </AppText>
-              <AppText variant="caption" color="mutedText">
-                Документы
-              </AppText>
-            </AppCard>
-            <AppCard padded={false} style={{ flex: 1, alignItems: 'center', padding: theme.spacing.lg }}>
-              <AppText variant="title" style={{ color: theme.colors.primary }}>
-                {stats.upcomingAppointments}
-              </AppText>
-              <AppText variant="caption" color="mutedText">
-                Записи
-              </AppText>
-            </AppCard>
-          </View>
-
-          {stats.avgSleep != null ? (
-            <AppCard>
-              <AppText variant="caption" color="mutedText">
-                Средний сон за период
-              </AppText>
-              <AppText variant="h3" style={{ marginTop: 4 }}>
-                {stats.avgSleep.toFixed(1)} ч
-              </AppText>
-            </AppCard>
-          ) : null}
-
-          <AppButton title="Подробная аналитика" variant="secondary" onPress={() => router.push('/analytics' as any)} />
-
-          {stats.diaryTrend.length > 0 ? (
-            <AppSection title="Динамика дневника" subtitle="Сон по дням (последние записи)">
-              <AppCard>
-                {stats.diaryTrend.slice(-7).map((p) => (
-                  <AppText key={p.day} variant="caption" color="mutedText" style={{ marginBottom: 4 }}>
-                    {p.day}: {p.sleep != null ? `${p.sleep} ч` : '—'}
-                  </AppText>
-                ))}
-              </AppCard>
-            </AppSection>
-          ) : null}
-
-          {/* Последний анализ */}
-          {stats.latestAnalysis ? (
-            <AppSection title="Последний анализ">
-              <AppCard>
-                <AppText variant="h3">{stats.latestAnalysis.title || 'Анализ'}</AppText>
-                <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-                  {formatDate(stats.latestAnalysis.date)}
+      <View style={{ gap: theme.spacing.xl }}>
+        <AppCard variant="hero">
+          <View style={{ gap: theme.spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                <AppText variant="caption" color="ai">
+                  Ваш помощник здоровья
                 </AppText>
-                <View style={{ marginTop: theme.spacing.md }}>
-                  <AppButton
-                    title="Открыть"
-                    onPress={() => router.push(`/analysis/${stats.latestAnalysis.id}` as any)}
-                  />
-                </View>
-              </AppCard>
-            </AppSection>
-          ) : null}
-
-          {/* Предстоящие записи */}
-          {stats.upcomingAppointmentsList.length > 0 ? (
-            <AppSection
-              title="Предстоящие записи"
-              headerRight={<AppButton title="Все" variant="ghost" size="sm" onPress={() => router.push('/appointments' as any)} />}
-            >
-              <View style={{ gap: theme.spacing.md }}>
-                {stats.upcomingAppointmentsList.map((apt) => (
-                  <AppCard key={apt.id}>
-                    <AppText variant="h3">{apt.doctor.user.name}</AppText>
-                    {apt.doctor.specialization ? (
-                      <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-                        {apt.doctor.specialization}
-                      </AppText>
-                    ) : null}
-                    <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-                      {formatDateTime(apt.scheduledAt)}
-                    </AppText>
-                    <View style={{ marginTop: theme.spacing.md }}>
-                      <AppButton title="Открыть" onPress={() => router.push(`/appointment/${apt.id}` as any)} />
-                    </View>
-                  </AppCard>
-                ))}
+                <AppText variant="hero">Здравствуйте, {firstName}</AppText>
+                <AppText variant="body" color="mutedText">
+                  Здесь собраны анализы, документы, план лечения и ближайшие действия.
+                </AppText>
               </View>
-            </AppSection>
-          ) : null}
+              {!isNarrowPhone ? (
+                <View
+                style={{
+                  width: 54,
+                  height: 54,
+                  borderRadius: theme.radius.pill,
+                  backgroundColor: theme.colors.aiSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <IconSymbol name="sparkles" size={26} color={theme.colors.ai} />
+              </View>
+              ) : null}
+            </View>
 
-          {/* Быстрые действия */}
-          <AppSection title="Быстрые действия" subtitle="Часто используемые разделы">
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              <QuickAction
-                width={quickActionWidth}
-                icon="waveform.path.ecg"
-                label="Анализы"
-                onPress={() => router.push('/analyses' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="doc.text.fill"
-                label="Документы"
+            <AppCard variant="glass" style={{ borderColor: theme.colors.borderStrong }}>
+              <View style={{ gap: theme.spacing.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <AppStatusBadge label="AI-инсайт" tone="ai" />
+                  <AppStatusBadge label={abnormalCount > 0 ? 'Требует внимания' : 'Спокойно'} tone={abnormalCount > 0 ? 'warning' : 'success'} />
+                </View>
+                <AppText variant="bodyStrong">{aiInsight}</AppText>
+                <AppText variant="caption" color="mutedText">
+                  Помощник объясняет данные простыми словами. Важные решения обсуждайте с врачом.
+                </AppText>
+              </View>
+            </AppCard>
+
+            <View style={{ flexDirection: isNarrowPhone ? 'column' : 'row', gap: theme.spacing.sm }}>
+              <AppButton
+                title="Загрузить документ"
+                icon="doc.badge.plus"
+                variant="ai"
+                style={{ flex: 1 }}
                 onPress={() => router.push('/documents' as any)}
               />
-              <QuickAction
-                width={quickActionWidth}
-                icon="calendar"
-                label="Записи"
-                onPress={() => router.push('/appointments' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="checkmark.circle.fill"
-                label="План задач"
-                onPress={() => router.push('/care-plan' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="pills.fill"
-                label="Лекарства"
-                onPress={() => router.push('/medications' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="book.fill"
-                label="Дневник"
-                onPress={() => router.push('/diary' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="bell.fill"
-                label="Напоминания"
-                onPress={() => router.push('/reminders' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
+              <AppButton
+                title="Аналитика"
                 icon="chart.bar.fill"
-                label="Аналитика"
+                variant="secondary"
+                style={{ flex: 1 }}
                 onPress={() => router.push('/analytics' as any)}
               />
-              <QuickAction
-                width={quickActionWidth}
-                icon="book.closed.fill"
-                label="База знаний"
-                onPress={() => router.push('/knowledge' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="building.2.fill"
-                label="Маркетплейс"
-                onPress={() => router.push('/marketplace' as any)}
-              />
-              <QuickAction
-                width={quickActionWidth}
-                icon="questionmark.circle.fill"
-                label="Помощь"
-                onPress={() => router.push('/help' as any)}
-              />
             </View>
-          </AppSection>
-        </View>
-      </AppSection>
+          </View>
+        </AppCard>
+
+        <AppSection title="Снимок здоровья" subtitle="Главные показатели и ближайшие события">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>
+            <AppMetricCard
+              label="Анализы"
+              value={stats.analysesCount}
+              caption={stats.latestAnalysis ? `последний: ${formatDate(stats.latestAnalysis.date)}` : 'пока нет данных'}
+              icon="waveform.path.ecg"
+              tone={abnormalCount > 0 ? 'warning' : 'primary'}
+              style={{ width: cardWidth }}
+              onPress={() => router.push('/analyses' as any)}
+            />
+            <AppMetricCard
+              label="Документы"
+              value={stats.documentsCount}
+              caption="распознавание и вопросы"
+              icon="doc.text.fill"
+              tone="info"
+              style={{ width: cardWidth }}
+              onPress={() => router.push('/documents' as any)}
+            />
+            <AppMetricCard
+              label="Записи"
+              value={stats.upcomingAppointments}
+              caption={nextAppointment ? 'ближайшая запланирована' : 'нет активных записей'}
+              icon="calendar"
+              tone="success"
+              style={{ width: cardWidth }}
+              onPress={() => router.push('/appointments' as any)}
+            />
+            <AppMetricCard
+              label="Сон"
+              value={stats.avgSleep != null ? `${stats.avgSleep.toFixed(1)} ч` : '—'}
+              caption="средний показатель"
+              icon="moon.fill"
+              tone="ai"
+              style={{ width: cardWidth }}
+              onPress={() => router.push('/diary' as any)}
+            />
+          </View>
+        </AppSection>
+
+        <AppSection title="Что важно сейчас" subtitle="Ближайшие действия по вашим данным">
+          <AppCard variant="glass">
+            {stats.latestAnalysis ? (
+              <AppListItem
+                title={latestAnalysisTitle}
+                subtitle={`${formatDate(stats.latestAnalysis.date)} · ${abnormalCount > 0 ? `${abnormalCount} отклон.` : 'без явных отклонений'}`}
+                icon="waveform.path.ecg"
+                meta="Анализ"
+                onPress={() => router.push(`/analysis/${stats.latestAnalysis.id}` as any)}
+              />
+            ) : (
+              <AppListItem
+                title="Загрузите первый анализ"
+                subtitle="Помощник выделит показатели и объяснит результат простым языком."
+                icon="doc.badge.plus"
+                onPress={() => router.push('/documents' as any)}
+              />
+            )}
+            {nextAppointment ? (
+              <AppListItem
+                title={nextAppointment.doctor.user.name}
+                subtitle={`${nextAppointment.doctor.specialization || 'Врач'} · ${formatDateTime(nextAppointment.scheduledAt)}`}
+                icon="calendar"
+                meta="Запись"
+                onPress={() => router.push(`/appointment/${nextAppointment.id}` as any)}
+              />
+            ) : (
+              <AppListItem
+                title="Запланировать визит"
+                subtitle="Подготовьте вопросы врачу и прикрепите документы перед приёмом."
+                icon="calendar.badge.plus"
+                onPress={() => router.push('/appointments' as any)}
+              />
+            )}
+          </AppCard>
+        </AppSection>
+
+        <AppSection title="Разделы" subtitle="Быстрый доступ ко всем функциям">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            <QuickAction width={quickActionWidth} icon="checkmark.circle.fill" label="План" onPress={() => router.push('/care-plan' as any)} />
+            <QuickAction width={quickActionWidth} icon="pills.fill" label="Лекарства" onPress={() => router.push('/medications' as any)} />
+            <QuickAction width={quickActionWidth} icon="book.fill" label="Дневник" onPress={() => router.push('/diary' as any)} />
+            <QuickAction width={quickActionWidth} icon="bell.fill" label="Напоминания" onPress={() => router.push('/reminders' as any)} />
+            <QuickAction width={quickActionWidth} icon="book.closed.fill" label="Знания" onPress={() => router.push('/knowledge' as any)} />
+            <QuickAction width={quickActionWidth} icon="building.2.fill" label="Клиники" onPress={() => router.push('/marketplace' as any)} />
+            <QuickAction width={quickActionWidth} icon="questionmark.circle.fill" label="Помощь" onPress={() => router.push('/help' as any)} />
+          </View>
+        </AppSection>
+      </View>
       <AIChat />
     </AppScreen>
   );
@@ -320,27 +312,20 @@ function QuickAction({
   icon: Parameters<typeof IconSymbol>[0]['name'];
   label: string;
   onPress: () => void;
-  width: string;
+  width: any;
 }) {
   const theme = useAppTheme();
   return (
-    <AppCard
-      padded={false}
-      style={{
-        width,
-        padding: theme.spacing.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: theme.colors.surface2, alignItems: 'center', justifyContent: 'center' }}>
+    <AppCard padded={false} variant="interactive" style={{ width, overflow: 'hidden' }}>
+      <View style={{ padding: theme.spacing.md, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm }}>
+      <View style={{ width: 42, height: 42, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
         <IconSymbol name={icon} size={20} color={theme.colors.primary} />
       </View>
-      <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.sm, textAlign: 'center' }}>
+      <AppText variant="caption" style={{ textAlign: 'center' }}>
         {label}
       </AppText>
-      <View style={{ marginTop: theme.spacing.sm, width: '100%' }}>
-        <AppButton title="Открыть" size="sm" variant="secondary" onPress={onPress} />
       </View>
+      <AppButton title="Открыть" size="sm" variant="ghost" onPress={onPress} style={{ borderRadius: 0 }} />
     </AppCard>
   );
 }

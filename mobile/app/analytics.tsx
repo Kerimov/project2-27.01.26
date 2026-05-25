@@ -17,7 +17,7 @@ export default function AnalyticsScreen() {
     (async () => {
       try {
         const data = await getAnalytics();
-        setKpi(data.kpi || {});
+        setKpi((data.kpi || {}) as Record<string, number | undefined>);
         setTrend(data.trend || []);
       } finally {
         setLoading(false);
