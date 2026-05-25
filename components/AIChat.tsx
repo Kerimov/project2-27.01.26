@@ -35,6 +35,7 @@ type AssistantAction =
   | { type: 'select_slot'; doctorId: string; scheduledAt: string }
   | { type: 'confirm_booking' }
   | { type: 'cancel_booking' }
+  | { type: 'complete_task'; taskId: string }
 
 type PendingBooking = {
   doctorId: string
@@ -52,7 +53,7 @@ export function AIChat() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь вам:\n\n• 📅 Записаться на прием к врачу\n• 📊 Показать результаты анализов\n• 💡 Дать персональные рекомендации\n• 👨‍⚕️ Найти подходящего врача\n• 📋 Показать ваши записи на приемы\n\nПросто скажите, что вам нужно!',
+      content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь:\n\n• 📅 Записаться на приём к врачу\n• 📓 Дневник — записи, лекарства, план действий\n• 📊 Результаты анализов и рекомендации\n• 👨‍⚕️ Найти врача\n\nПримеры: «покажи дневник», «мои лекарства», «задачи плана», «запиши в дневник: боль 3, сон 8».',
       timestamp: new Date()
     }
   ])
@@ -206,7 +207,7 @@ export function AIChat() {
       {
         id: '1',
         role: 'assistant',
-        content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь вам:\n\n• 📅 Записаться на прием к врачу\n• 📊 Показать результаты анализов\n• 💡 Дать персональные рекомендации\n• 👨‍⚕️ Найти подходящего врача\n• 📋 Показать ваши записи на приемы\n\nПросто скажите, что вам нужно!',
+        content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент. Я могу помочь:\n\n• 📅 Записаться на приём к врачу\n• 📓 Дневник — записи, лекарства, план действий\n• 📊 Результаты анализов и рекомендации\n• 👨‍⚕️ Найти врача\n\nПримеры: «покажи дневник», «мои лекарства», «задачи плана», «запиши в дневник: боль 3, сон 8».',
         timestamp: new Date()
       }
     ])
@@ -222,6 +223,13 @@ export function AIChat() {
       case 'get_recommendations': return '💡 Рекомендации'
       case 'get_doctors': return '👨‍⚕️ Список врачей'
       case 'get_appointments': return '📋 Записи на приемы'
+      case 'get_diary_entries':
+      case 'add_diary_entry':
+      case 'diary_weekly_review': return '📓 Дневник'
+      case 'get_medications': return '💊 Лекарства'
+      case 'get_care_plan_tasks':
+      case 'add_care_plan_task':
+      case 'complete_task': return '📋 План действий'
       default: return 'Функция выполнена'
     }
   }
@@ -413,6 +421,61 @@ export function AIChat() {
                       <div className="text-xs text-indigo-600">
                         Показано {message.functionResult.length} записей.
                       </div>
+                    )}
+                    {(message.functionResult?.action === 'diary_entries' || message.functionResult?.action === 'diary_entry_created') && (
+                      <div className="text-xs text-rose-700 space-y-1">
+                        {message.functionResult?.link && (
+                          <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                            Открыть дневник →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'medications' && Array.isArray(message.functionResult.medications) && (
+                      <div className="space-y-2 text-xs text-violet-700">
+                        {message.functionResult.medications.map((med: any) => (
+                          <div key={med.id} className="rounded-md border bg-background/80 p-2 text-foreground">
+                            <div className="font-medium">{med.name}</div>
+                            {med.dosage ? <div className="text-muted-foreground">{med.dosage}</div> : null}
+                          </div>
+                        ))}
+                        {message.functionResult?.link && (
+                          <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                            Все лекарства →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'care_plan_tasks' && Array.isArray(message.functionResult.tasks) && (
+                      <div className="space-y-2 text-xs text-emerald-700">
+                        {message.functionResult.tasks.map((task: any) => (
+                          <div key={task.id} className="rounded-md border bg-background/80 p-2 text-foreground flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{task.title}</div>
+                              <div className="text-muted-foreground">{task.status}</div>
+                            </div>
+                            {task.status === 'ACTIVE' && task.approvalStatus !== 'PENDING' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs shrink-0"
+                                onClick={() => handleAction(`Выполнено: ${task.title}`, { type: 'complete_task', taskId: task.id })}
+                                disabled={isLoading}
+                              >
+                                Готово
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        {message.functionResult?.link && (
+                          <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                            Открыть план →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'task_completed' && (
+                      <div className="text-xs text-green-600">Задача выполнена.</div>
                     )}
                   </div>
                 )}

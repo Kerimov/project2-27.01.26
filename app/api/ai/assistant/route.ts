@@ -80,6 +80,7 @@ type AssistantAction =
   | { type: 'select_slot'; doctorId: string; scheduledAt: string }
   | { type: 'confirm_booking' }
   | { type: 'cancel_booking' }
+  | { type: 'complete_task'; taskId: string }
 
 type AssistantDoctor = {
   id: string
@@ -280,11 +281,266 @@ function isNoIntent(message: string) {
 }
 
 function isDoctorIntent(message: string) {
+  if (isDiaryIntent(message) || isMedicationsIntent(message) || isCarePlanTasksIntent(message)) return false
   return /врач|доктор|специалист|терапевт|кардиолог|невролог|эндокринолог|при[её]м|запис/i.test(message)
 }
 
 function isBookingIntent(message: string) {
   return /запис|при[её]м|свободн|слот|время|расписан/i.test(message)
+}
+
+function isDiaryIntent(message: string) {
+  return /дневник|самочувств|настроен|сон|бол[ьи]|шаг|давлен|пульс|температур|симптом|вес|запис.*дневник/i.test(message)
+}
+
+function isAddDiaryIntent(message: string) {
+  return /(добав|запиш|внес|отмет|сохран).*(дневник|запис|самочувств)/i.test(message) || hasDiaryMetrics(message)
+}
+
+function hasDiaryMetrics(message: string) {
+  return /(?:боль|сон|настроен|давлен|пульс|шаг|температур|вес)\s*[:\s]*\d/i.test(message)
+}
+
+function isDiaryReviewIntent(message: string) {
+  return /обзор|недел|итог|что влияло|корреляц/i.test(message) && isDiaryIntent(message)
+}
+
+function isMedicationsIntent(message: string) {
+  return (
+    /лекарств|препарат|таблетк|бад|медикамент|что принимаю|список.*лекарств|расписан.*при[её]м/i.test(message) &&
+    !/рекомендац|совет.*леч/i.test(message)
+  )
+}
+
+function isCarePlanTasksIntent(message: string) {
+  const t = (message || '').toLowerCase()
+  if (/планов.*при[её]м|плановый осмотр/i.test(t)) return false
+  return (
+    /план действий|мои задачи|задач|активн.*задач|отложен|выполнен|согласован|что сделать|следующ.*шаг/i.test(t) &&
+    !/запис.*врач|слот|при[её]м к|к врачу/i.test(t)
+  )
+}
+
+function isAddCarePlanTaskIntent(message: string) {
+  return /(добав|создай|новая).*(задач)/i.test(message) || /задач[ауи]:\s*\S/i.test(message)
+}
+
+function extractTaskTitle(message: string): string | null {
+  const quoted = message.match(/задач[ауи]:\s*([^\n.]+)/i)
+  if (quoted?.[1]) return quoted[1].trim().slice(0, 200)
+  const free = message.match(/(?:добав|создай)(?:ить)?\s+задач[ау]?\s+(.+)/i)
+  if (free?.[1]) return free[1].trim().slice(0, 200)
+  return null
+}
+
+function extractDiaryFieldsFromMessage(message: string) {
+  const fields: {
+    mood?: number
+    painScore?: number
+    sleepHours?: number
+    steps?: number
+    temperature?: number
+    weight?: number
+    pulse?: number
+    systolic?: number
+    diastolic?: number
+    symptoms?: string
+    notes?: string
+  } = {}
+  const mood = message.match(/настроен(?:ие)?\s*[:\s]*(\d)/i)
+  const pain = message.match(/боль\s*[:\s]*(\d+)/i)
+  const sleep = message.match(/сон\s*[:\s]*(\d+(?:[.,]\d+)?)/i)
+  const steps = message.match(/шаг\w*\s*[:\s]*(\d+)/i)
+  const temp = message.match(/температур\w*\s*[:\s]*(\d+(?:[.,]\d+)?)/i)
+  const weight = message.match(/вес\s*[:\s]*(\d+(?:[.,]\d+)?)/i)
+  const pulse = message.match(/пульс\s*[:\s]*(\d+)/i)
+  const bp = message.match(/давлен\w*\s*[:\s]*(\d+)\s*[/\s]\s*(\d+)/i)
+
+  if (mood?.[1]) fields.mood = Math.min(5, Math.max(1, Number(mood[1])))
+  if (pain?.[1]) fields.painScore = Math.min(10, Math.max(0, Number(pain[1])))
+  if (sleep?.[1]) fields.sleepHours = Number(String(sleep[1]).replace(',', '.'))
+  if (steps?.[1]) fields.steps = Number(steps[1])
+  if (temp?.[1]) fields.temperature = Number(String(temp[1]).replace(',', '.'))
+  if (weight?.[1]) fields.weight = Number(String(weight[1]).replace(',', '.'))
+  if (pulse?.[1]) fields.pulse = Number(pulse[1])
+  if (bp?.[1] && bp?.[2]) {
+    fields.systolic = Number(bp[1])
+    fields.diastolic = Number(bp[2])
+  }
+
+  const cleaned = message
+    .replace(/добавь|запиш|внеси|в дневник|дневник/gi, '')
+    .replace(/настроен(?:ие)?\s*[:\s]*\d/gi, '')
+    .replace(/боль\s*[:\s]*\d+/gi, '')
+    .replace(/сон\s*[:\s]*\d+(?:[.,]\d+)?/gi, '')
+    .trim()
+  if (cleaned.length >= 3) fields.notes = cleaned.slice(0, 2000)
+  else if (/симптом/i.test(message)) {
+    const sym = message.match(/симптом\w*\s*[:\s]*([^\n.]+)/i)
+    if (sym?.[1]) fields.symptoms = sym[1].trim().slice(0, 500)
+  }
+
+  return fields
+}
+
+function formatDiaryLine(entry: any) {
+  const date = new Date(entry.entryDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const parts: string[] = []
+  if (entry.mood != null) parts.push(`настроение ${entry.mood}/5`)
+  if (entry.painScore != null) parts.push(`боль ${entry.painScore}/10`)
+  if (entry.sleepHours != null) parts.push(`сон ${entry.sleepHours} ч`)
+  if (entry.systolic != null && entry.diastolic != null) parts.push(`АД ${entry.systolic}/${entry.diastolic}`)
+  if (entry.notes) parts.push(String(entry.notes).slice(0, 80))
+  return `• ${date}: ${parts.length ? parts.join(', ') : 'запись без показателей'}`
+}
+
+function formatMedicationLine(med: any) {
+  const times = Array.isArray(med.times) ? med.times.join(', ') : ''
+  const dose = med.dosage ? `, ${med.dosage}` : ''
+  const freq = med.frequencyPerDay ? `, ${med.frequencyPerDay}×/день` : ''
+  const tag = med.isSupplement ? ' (БАД)' : ''
+  return `• ${med.name}${tag}${dose}${freq}${times ? `, ${times}` : ''}`
+}
+
+function formatCarePlanTaskLine(task: any, index: number) {
+  const due = task.dueAt || task.snoozedUntil
+  const dueStr = due ? `, срок ${new Date(due).toLocaleDateString('ru-RU')}` : ''
+  const status =
+    task.status === 'COMPLETED' ? 'выполнено' : task.status === 'SNOOZED' ? 'отложено' : 'активно'
+  return `${index + 1}. ${task.title} (${status}${dueStr})`
+}
+
+async function listDiaryEntries(userId: string, limit = 7) {
+  return prisma.healthDiaryEntry.findMany({
+    where: { userId },
+    orderBy: { entryDate: 'desc' },
+    take: limit,
+    include: { tags: { include: { tag: true } } },
+  })
+}
+
+async function createDiaryEntryFromMessage(userId: string, message: string) {
+  const fields = extractDiaryFieldsFromMessage(message)
+  const hasNumeric =
+    fields.mood != null ||
+    fields.painScore != null ||
+    fields.sleepHours != null ||
+    fields.steps != null ||
+    fields.notes ||
+    fields.symptoms != null
+
+  if (!hasNumeric) {
+    throw new Error('Укажите показатели: например «боль 4, сон 7» или заметку.')
+  }
+
+  return prisma.healthDiaryEntry.create({
+    data: {
+      userId,
+      entryDate: new Date(),
+      mood: typeof fields.mood === 'number' ? fields.mood : undefined,
+      painScore: typeof fields.painScore === 'number' ? fields.painScore : undefined,
+      sleepHours: typeof fields.sleepHours === 'number' ? fields.sleepHours : undefined,
+      steps: typeof fields.steps === 'number' ? fields.steps : undefined,
+      temperature: typeof fields.temperature === 'number' ? fields.temperature : undefined,
+      weight: typeof fields.weight === 'number' ? fields.weight : undefined,
+      pulse: typeof fields.pulse === 'number' ? fields.pulse : undefined,
+      systolic: typeof fields.systolic === 'number' ? fields.systolic : undefined,
+      diastolic: typeof fields.diastolic === 'number' ? fields.diastolic : undefined,
+      symptoms: fields.symptoms,
+      notes: typeof fields.notes === 'string' ? fields.notes : undefined,
+    },
+    include: { tags: { include: { tag: true } } },
+  })
+}
+
+async function summarizeDiaryWeek(userId: string) {
+  const end = new Date()
+  const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const entries = await prisma.healthDiaryEntry.findMany({
+    where: { userId, entryDate: { gte: start, lte: end } },
+    orderBy: { entryDate: 'asc' },
+  })
+
+  if (entries.length === 0) {
+    return { text: 'За последние 7 дней записей в дневнике нет. Добавьте самочувствие в разделе «Дневник → Записи».', entries: [] }
+  }
+
+  const avg = (key: 'mood' | 'painScore' | 'sleepHours') => {
+    const vals = entries.map((e) => e[key]).filter((v): v is number => typeof v === 'number')
+    if (!vals.length) return null
+    return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+  }
+
+  const mood = avg('mood')
+  const pain = avg('painScore')
+  const sleep = avg('sleepHours')
+  const lines = [
+    `Записей за 7 дней: ${entries.length}.`,
+    mood != null ? `Среднее настроение: ${mood}/5.` : null,
+    pain != null ? `Средняя боль: ${pain}/10.` : null,
+    sleep != null ? `Средний сон: ${sleep} ч.` : null,
+    'Подробный AI-обзор можно сформировать в «Дневник → Записи».',
+  ].filter(Boolean)
+
+  return { text: lines.join(' '), entries }
+}
+
+async function listPatientMedications(userId: string) {
+  return prisma.patientMedication.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  })
+}
+
+async function listCarePlanTasks(userId: string, status?: 'ACTIVE' | 'SNOOZED' | 'COMPLETED') {
+  return prisma.carePlanTask.findMany({
+    where: {
+      userId,
+      approvalStatus: 'APPROVED',
+      ...(status ? { status } : {}),
+    },
+    include: {
+      analysis: { select: { id: true, title: true } },
+      document: { select: { id: true, fileName: true } },
+    },
+    orderBy: [{ status: 'asc' }, { dueAt: 'asc' }, { createdAt: 'desc' }],
+    take: 20,
+  })
+}
+
+async function completeCarePlanTaskById(userId: string, taskId: string, reason?: string) {
+  const task = await prisma.carePlanTask.findFirst({ where: { id: taskId, userId } })
+  if (!task) throw new Error('Задача не найдена')
+
+  const updated = await prisma.carePlanTask.update({
+    where: { id: taskId },
+    data: { status: 'COMPLETED', snoozedUntil: null },
+  })
+
+  await prisma.carePlanCheckIn.create({
+    data: {
+      taskId,
+      type: 'COMPLETE',
+      reason: reason?.trim()?.slice(0, 800) || 'Выполнено через AI-чат',
+    },
+  })
+
+  return updated
+}
+
+async function createCarePlanTaskFromMessage(userId: string, message: string) {
+  const title = extractTaskTitle(message)
+  if (!title) throw new Error('Укажите название задачи, например: «Добавь задачу: сдать анализ крови».')
+
+  return prisma.carePlanTask.create({
+    data: {
+      userId,
+      title,
+      description: null,
+      recurrence: 'NONE',
+    },
+  })
 }
 
 function extractAppointmentType(message: string) {
@@ -656,6 +912,143 @@ async function handleProjectActionIntent(input: {
       data: {
         action: 'booking_pending',
         pendingBooking: pending,
+      },
+    }
+  }
+
+  if (action?.type === 'complete_task') {
+    try {
+      const task = await completeCarePlanTaskById(userId, action.taskId, message)
+      return {
+        functionName: 'complete_task',
+        message: `Задача «${task.title}» отмечена выполненной. Откройте «Дневник → План» для остальных задач.`,
+        data: { action: 'task_completed', task },
+      }
+    } catch (e) {
+      return {
+        functionName: 'complete_task',
+        message: e instanceof Error ? e.message : 'Не удалось обновить задачу',
+        data: { action: 'task_error' },
+      }
+    }
+  }
+
+  if (isDiaryIntent(message)) {
+    if (isDiaryReviewIntent(message)) {
+      const review = await summarizeDiaryWeek(userId)
+      return {
+        functionName: 'diary_weekly_review',
+        message: review.text,
+        data: { action: 'diary_review', entries: review.entries?.slice(0, 5) },
+      }
+    }
+
+    if (isAddDiaryIntent(message)) {
+      try {
+        const entry = await createDiaryEntryFromMessage(userId, message)
+        return {
+          functionName: 'add_diary_entry',
+          message: `Запись добавлена в дневник на ${new Date(entry.entryDate).toLocaleString('ru-RU')}. Откройте «Дневник → Записи» для просмотра.`,
+          data: { action: 'diary_entry_created', entry },
+        }
+      } catch (e) {
+        return {
+          functionName: 'add_diary_entry',
+          message: e instanceof Error ? e.message : 'Не удалось сохранить запись',
+          data: { action: 'diary_error' },
+        }
+      }
+    }
+
+    const entries = await listDiaryEntries(userId, 7)
+    if (entries.length === 0) {
+      return {
+        functionName: 'get_diary_entries',
+        message: 'В дневнике пока нет записей. Напишите, например: «запиши в дневник: боль 3, сон 8» — или откройте «Дневник → Записи».',
+        data: { action: 'diary_empty', entries: [], link: '/diary' },
+      }
+    }
+
+    return {
+      functionName: 'get_diary_entries',
+      message: `Последние записи дневника:\n${entries.map(formatDiaryLine).join('\n')}\n\nПолный дневник: /diary`,
+      data: { action: 'diary_entries', entries, link: '/diary' },
+    }
+  }
+
+  if (isMedicationsIntent(message)) {
+    const meds = await listPatientMedications(userId)
+    if (meds.length === 0) {
+      return {
+        functionName: 'get_medications',
+        message: 'Список лекарств пуст. Добавьте препараты в «Дневник → Лекарства».',
+        data: { action: 'medications_empty', medications: [], link: '/diary?tab=medications' },
+      }
+    }
+
+    return {
+      functionName: 'get_medications',
+      message: `Ваши лекарства и БАДы (${meds.length}):\n${meds.slice(0, 10).map(formatMedicationLine).join('\n')}\n\nУправление: /diary?tab=medications`,
+      data: { action: 'medications', medications: meds.slice(0, 10), link: '/diary?tab=medications' },
+    }
+  }
+
+  if (isCarePlanTasksIntent(message)) {
+    if (isAddCarePlanTaskIntent(message)) {
+      try {
+        const task = await createCarePlanTaskFromMessage(userId, message)
+        return {
+          functionName: 'add_care_plan_task',
+          message: `Задача «${task.title}» добавлена в план. Смотрите «Дневник → План».`,
+          data: { action: 'task_created', task, link: '/diary?tab=plan' },
+        }
+      } catch (e) {
+        return {
+          functionName: 'add_care_plan_task',
+          message: e instanceof Error ? e.message : 'Не удалось создать задачу',
+          data: { action: 'task_error' },
+        }
+      }
+    }
+
+    const [active, pending] = await Promise.all([
+      listCarePlanTasks(userId, 'ACTIVE'),
+      prisma.carePlanTask.findMany({
+        where: { userId, approvalStatus: 'PENDING' },
+        orderBy: { approvalRequestedAt: 'desc' },
+        take: 5,
+      }),
+    ])
+
+    const snoozed = await listCarePlanTasks(userId, 'SNOOZED')
+    const allForDisplay = [...pending, ...active, ...snoozed].slice(0, 12)
+
+    if (allForDisplay.length === 0) {
+      return {
+        functionName: 'get_care_plan_tasks',
+        message: 'Активных задач в плане нет. Напишите «добавь задачу: …» или откройте «Дневник → План».',
+        data: { action: 'tasks_empty', tasks: [], link: '/diary?tab=plan' },
+      }
+    }
+
+    const pendingNote = pending.length
+      ? `\n\nОжидают согласования (${pending.length}): ${pending.map((t) => t.title).join('; ')}`
+      : ''
+
+    return {
+      functionName: 'get_care_plan_tasks',
+      message: `Ваш план действий:\n${allForDisplay.map(formatCarePlanTaskLine).join('\n')}${pendingNote}\n\nОткройте «Дневник → План» для управления.`,
+      data: {
+        action: 'care_plan_tasks',
+        tasks: allForDisplay.map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          dueAt: t.dueAt,
+          snoozedUntil: t.snoozedUntil,
+          approvalStatus: t.approvalStatus,
+        })),
+        link: '/diary?tab=plan',
       },
     }
   }

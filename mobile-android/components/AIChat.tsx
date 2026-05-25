@@ -190,7 +190,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         id: '1',
         role: 'assistant',
         content:
-          'Здравствуйте. Я помогу простыми словами разобраться в анализах, документах, записях и плане лечения. Напишите вопрос или выберите подсказку ниже.',
+          'Здравствуйте. Я помогу с анализами, записью к врачу и разделом «Дневник»: записи самочувствия, лекарства и план задач. Например: «мои лекарства», «задачи плана», «запиши в дневник: боль 3, сон 8».',
         timestamp: new Date().toISOString(),
       },
     ]);
@@ -211,6 +211,16 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         return '👨‍⚕️ Список врачей';
       case 'get_appointments':
         return '📋 Записи на приемы';
+      case 'get_diary_entries':
+      case 'add_diary_entry':
+      case 'diary_weekly_review':
+        return '📓 Дневник';
+      case 'get_medications':
+        return '💊 Лекарства';
+      case 'get_care_plan_tasks':
+      case 'add_care_plan_task':
+      case 'complete_task':
+        return '📋 План';
       default:
         return 'Функция выполнена';
     }
@@ -355,6 +365,62 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                       />
                     </View>
                   </View>
+                )}
+                {item.functionResult?.action === 'medications' && Array.isArray(item.functionResult.medications) && (
+                  <View style={{ gap: theme.spacing.xs }}>
+                    {item.functionResult.medications.slice(0, 5).map((med: any) => (
+                      <AppText key={med.id} variant="caption" color="mutedText">
+                        {med.name}
+                        {med.dosage ? ` · ${med.dosage}` : ''}
+                      </AppText>
+                    ))}
+                    <AppButton
+                      title="Открыть лекарства"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => router.push({ pathname: '/(tabs)/diary', params: { section: 'medications' } } as any)}
+                    />
+                  </View>
+                )}
+                {item.functionResult?.action === 'care_plan_tasks' && Array.isArray(item.functionResult.tasks) && (
+                  <View style={{ gap: theme.spacing.xs }}>
+                    {item.functionResult.tasks.slice(0, 6).map((task: any) => (
+                      <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <AppText variant="caption" color="mutedText" style={{ flex: 1 }}>
+                          {task.title}
+                        </AppText>
+                        {task.status === 'ACTIVE' && task.approvalStatus !== 'PENDING' && (
+                          <AppButton
+                            title="Готово"
+                            size="sm"
+                            variant="secondary"
+                            onPress={() => handleAction(`Выполнено: ${task.title}`, { type: 'complete_task', taskId: task.id })}
+                            disabled={isLoading}
+                          />
+                        )}
+                      </View>
+                    ))}
+                    <AppButton
+                      title="Открыть план"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => router.push({ pathname: '/(tabs)/diary', params: { section: 'plan' } } as any)}
+                    />
+                  </View>
+                )}
+                {(item.functionResult?.action === 'diary_entries' ||
+                  item.functionResult?.action === 'diary_entry_created') && (
+                  <AppButton
+                    title="Открыть дневник"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => router.push('/(tabs)/diary' as any)}
+                  />
+                )}
+                {item.functionResult?.action === 'task_completed' && (
+                  <AppText variant="caption" style={{ color: theme.colors.success }}>
+                    Задача выполнена
+                  </AppText>
                 )}
               </View>
             )}

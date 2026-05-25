@@ -10,6 +10,11 @@ import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppText } from '@/components/ui/AppText';
+import {
+  buildDueAtFromForm,
+  promptAddToIOSAfterReminderSaved,
+} from '../../lib/ios-reminders';
 
 export default function CreateReminderScreen() {
   const router = useRouter();
@@ -21,13 +26,15 @@ export default function CreateReminderScreen() {
   const [dueTime, setDueTime] = useState('09:00');
   const [loading, setLoading] = useState(false);
 
+  const finish = () => router.back();
+
   const onSave = async () => {
     if (!title.trim()) {
       Alert.alert('Ошибка', 'Укажите название');
       return;
     }
-    const datePart = dueDate.trim() || new Date().toISOString().slice(0, 10);
-    const dueAt = new Date(`${datePart}T${dueTime || '09:00'}:00`).toISOString();
+    const dueAtDate = buildDueAtFromForm(dueDate, dueTime);
+    const dueAt = dueAtDate.toISOString();
     try {
       setLoading(true);
       await createReminder(title.trim(), dueAt, {
@@ -35,7 +42,15 @@ export default function CreateReminderScreen() {
         patientId: selectedPatientId || undefined,
         channels: ['PUSH'],
       });
-      router.back();
+
+      promptAddToIOSAfterReminderSaved(
+        {
+          title: title.trim(),
+          notes: description.trim() || undefined,
+          dueAt: dueAtDate,
+        },
+        finish
+      );
     } catch (e: any) {
       Alert.alert('Ошибка', e?.message || 'Не удалось создать');
     } finally {
@@ -47,6 +62,9 @@ export default function CreateReminderScreen() {
     <AppScreen>
       <PatientSwitcher />
       <AppCard style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
+        <AppText variant="caption" color="mutedText">
+          После сохранения можно добавить то же напоминание в «Напоминания» iPhone.
+        </AppText>
         <AppInput label="Название" value={title} onChangeText={setTitle} />
         <AppInput
           label="Описание"
@@ -58,7 +76,7 @@ export default function CreateReminderScreen() {
         <AppInput label="Время (ЧЧ:ММ)" value={dueTime} onChangeText={setDueTime} />
         <View style={{ gap: 8 }}>
           <AppButton title="Создать" loading={loading} onPress={onSave} fullWidth />
-          <AppButton title="Отмена" variant="secondary" onPress={() => router.back()} fullWidth />
+          <AppButton title="Отмена" variant="secondary" onPress={finish} fullWidth />
         </View>
       </AppCard>
     </AppScreen>

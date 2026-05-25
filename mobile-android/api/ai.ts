@@ -26,7 +26,8 @@ export type AssistantAction =
   | { type: 'select_doctor'; doctorId: string; date?: string | null }
   | { type: 'select_slot'; doctorId: string; scheduledAt: string }
   | { type: 'confirm_booking' }
-  | { type: 'cancel_booking' };
+  | { type: 'cancel_booking' }
+  | { type: 'complete_task'; taskId: string };
 
 export type PendingBooking = {
   doctorId: string;
