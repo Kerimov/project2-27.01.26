@@ -8,6 +8,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppChip } from '@/components/ui/AppChip';
+import { MarketplaceAISearch } from '@/components/MarketplaceAISearch';
 
 export default function MarketplaceScreen() {
   const router = useRouter();
@@ -18,14 +19,20 @@ export default function MarketplaceScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   const load = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await getCompanies({
         city: city || undefined,
         search: search || undefined,
       });
       setCompanies(res.companies || []);
+    } catch (e: unknown) {
+      setCompanies([]);
+      setError(e instanceof Error ? e.message : 'Не удалось загрузить клиники');
     } finally {
       setLoading(false);
     }
@@ -43,6 +50,7 @@ export default function MarketplaceScreen() {
 
   return (
     <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+      <MarketplaceAISearch cityHint={city || undefined} />
       <AppInput placeholder="Поиск клиники…" value={search} onChangeText={setSearch} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 }}>
         <AppChip label="Все города" tone={!city ? 'primary' : 'neutral'} onPress={() => setCity('')} />
@@ -50,6 +58,11 @@ export default function MarketplaceScreen() {
           <AppChip key={c} label={c} tone={city === c ? 'primary' : 'neutral'} onPress={() => setCity(c)} />
         ))}
       </View>
+      {error ? (
+        <AppText color="mutedText" style={{ textAlign: 'center', padding: 16 }}>
+          {error}
+        </AppText>
+      ) : null}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (

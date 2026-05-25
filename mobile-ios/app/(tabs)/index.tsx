@@ -244,7 +244,7 @@ export default function DashboardScreen() {
               icon="moon.fill"
               tone="ai"
               style={{ width: cardWidth }}
-              onPress={() => router.push('/diary' as any)}
+              onPress={() => router.push('/(tabs)/diary' as any)}
             />
           </View>
         </AppSection>
@@ -288,9 +288,12 @@ export default function DashboardScreen() {
 
         <AppSection title="Разделы" subtitle="Быстрый доступ ко всем функциям">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            <QuickAction width={quickActionWidth} icon="checkmark.circle.fill" label="План" onPress={() => router.push('/care-plan' as any)} />
-            <QuickAction width={quickActionWidth} icon="pills.fill" label="Лекарства" onPress={() => router.push('/medications' as any)} />
-            <QuickAction width={quickActionWidth} icon="book.fill" label="Дневник" onPress={() => router.push('/diary' as any)} />
+            <QuickAction
+              width={quickActionWidth}
+              icon="book.fill"
+              label="Дневник"
+              onPress={() => router.push('/(tabs)/diary' as any)}
+            />
             <QuickAction width={quickActionWidth} icon="bell.fill" label="Напоминания" onPress={() => router.push('/reminders' as any)} />
             <QuickAction width={quickActionWidth} icon="book.closed.fill" label="Знания" onPress={() => router.push('/knowledge' as any)} />
             <QuickAction width={quickActionWidth} icon="building.2.fill" label="Клиники" onPress={() => router.push('/marketplace' as any)} />

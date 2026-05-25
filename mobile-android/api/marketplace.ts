@@ -42,3 +42,41 @@ export async function getCities(): Promise<string[]> {
   const data = await apiJson<{ cities: string[] }>('/api/marketplace/cities');
   return data.cities || [];
 }
+
+export type DiscoveredCompany = {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  website?: string;
+  source: 'catalog' | 'openstreetmap' | 'web';
+  sourceUrl?: string;
+  isVerified: boolean;
+};
+
+export type MarketplaceAISearchResult = {
+  response: string;
+  companies: DiscoveredCompany[];
+  catalogCount: number;
+  osmCount: number;
+  webCount: number;
+};
+
+export async function searchMarketplaceWithAI(params: {
+  message: string;
+  city?: string;
+  includeWeb?: boolean;
+}): Promise<MarketplaceAISearchResult> {
+  return await apiJson<MarketplaceAISearchResult>('/api/marketplace/ai-search', {
+    method: 'POST',
+    body: JSON.stringify({
+      message: params.message,
+      city: params.city,
+      includeWeb: params.includeWeb !== false,
+    }),
+    timeoutMs: 45000,
+  });
+}

@@ -75,6 +75,39 @@ const availableFunctions = {
   }
 }
 
+type AssistantAction =
+  | { type: 'select_doctor'; doctorId: string; date?: string | null }
+  | { type: 'select_slot'; doctorId: string; scheduledAt: string }
+  | { type: 'confirm_booking' }
+  | { type: 'cancel_booking' }
+
+type AssistantDoctor = {
+  id: string
+  name: string
+  email?: string | null
+  specialization: string
+  experience?: number | null
+  clinic?: string | null
+  phone?: string | null
+  consultationFee?: number | null
+}
+
+type AssistantSlot = {
+  time: string
+  timeString: string
+  available: boolean
+}
+
+type PendingBooking = {
+  doctorId: string
+  doctorName: string
+  specialization?: string | null
+  scheduledAt: string
+  timeString: string
+  appointmentType: string
+  notes?: string | null
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('[AI-ASSISTANT] Starting request processing')
@@ -85,7 +118,7 @@ export async function POST(request: NextRequest) {
       prismaType: typeof prisma 
     })
     
-    const { message, history, documentIds, ragScope } = await request.json()
+    const { message, history, documentIds, ragScope, action, pendingBooking } = await request.json()
     console.log('[AI-ASSISTANT] Request data:', { 
       message: message?.substring(0, 100), 
       hasHistory: !!history,
@@ -141,6 +174,22 @@ export async function POST(request: NextRequest) {
 
     const normalizedDocumentIds: string[] =
       Array.isArray(documentIds) ? documentIds.filter((x) => typeof x === 'string' && x.trim().length > 0) : []
+
+    const projectAction = await handleProjectActionIntent({
+      message,
+      userId,
+      action,
+      pendingBooking,
+    })
+
+    if (projectAction) {
+      return NextResponse.json({
+        response: projectAction.message,
+        functionResult: projectAction.data,
+        functionName: projectAction.functionName,
+        timestamp: new Date().toISOString()
+      })
+    }
 
     const effectiveRagScope: 'none' | 'attached' | 'all' =
       ragScope === 'all' || ragScope === 'attached' || ragScope === 'none'
@@ -220,6 +269,480 @@ function isCarePlanIntent(message: string) {
     /план|пошагов|что делать дальше|следующие шаги|напоминан|reminder|задач/i.test(t) &&
     !/не делай|не создавай|без напоминаний/i.test(t)
   )
+}
+
+function isYesIntent(message: string) {
+  return /^(да|ага|ок|okay|yes|подтверждаю|запиши|давай|согласен|согласна)([.! ]|$)/i.test(message.trim())
+}
+
+function isNoIntent(message: string) {
+  return /^(нет|не надо|отмена|отмени|cancel|стоп)([.! ]|$)/i.test(message.trim())
+}
+
+function isDoctorIntent(message: string) {
+  return /врач|доктор|специалист|терапевт|кардиолог|невролог|эндокринолог|при[её]м|запис/i.test(message)
+}
+
+function isBookingIntent(message: string) {
+  return /запис|при[её]м|свободн|слот|время|расписан/i.test(message)
+}
+
+function extractAppointmentType(message: string) {
+  if (/повторн|контрольн/i.test(message)) return 'follow_up'
+  if (/планов|профилактич/i.test(message)) return 'routine'
+  if (/срочн|экстрен/i.test(message)) return 'emergency'
+  return 'consultation'
+}
+
+function extractDateFromMessage(message: string): string | null {
+  const dateMatch = message.match(/(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?|(завтра|послезавтра|сегодня)/i)
+  if (!dateMatch) return null
+
+  if (dateMatch[4]) {
+    const d = new Date()
+    const word = dateMatch[4].toLowerCase()
+    if (word === 'завтра') d.setDate(d.getDate() + 1)
+    if (word === 'послезавтра') d.setDate(d.getDate() + 2)
+    return d.toISOString().slice(0, 10)
+  }
+
+  if (dateMatch[1] && dateMatch[2]) {
+    const day = dateMatch[1].padStart(2, '0')
+    const month = dateMatch[2].padStart(2, '0')
+    const rawYear = dateMatch[3] || String(new Date().getFullYear())
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear
+    return `${year}-${month}-${day}`
+  }
+
+  return null
+}
+
+function extractTimeFromMessage(message: string): string | null {
+  const timeMatch = message.match(/(?:в\s*)?(\d{1,2})(?::|\.)(\d{2})/)
+  if (!timeMatch) return null
+  const hour = Number(timeMatch[1])
+  const minute = Number(timeMatch[2])
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function extractSpecializationFromMessage(message: string): string | null {
+  if (/терапевт|семейн/i.test(message)) return 'Терапевт'
+  if (/кардиолог|сердц/i.test(message)) return 'Кардиолог'
+  if (/невролог|головн/i.test(message)) return 'Невролог'
+  if (/эндокринолог|диабет|гормон/i.test(message)) return 'Эндокринолог'
+  if (/гинеколог/i.test(message)) return 'Гинеколог'
+  if (/дерматолог|кож/i.test(message)) return 'Дерматолог'
+  return null
+}
+
+function formatDoctorForAssistant(doctor: any): AssistantDoctor {
+  return {
+    id: doctor.id,
+    name: doctor.user?.name || 'Врач',
+    email: doctor.user?.email || null,
+    specialization: doctor.specialization,
+    experience: doctor.experience,
+    clinic: doctor.clinic,
+    phone: doctor.phone,
+    consultationFee: doctor.consultationFee,
+  }
+}
+
+function formatDoctorLine(doctor: AssistantDoctor, index: number) {
+  const details = [
+    doctor.specialization,
+    doctor.clinic ? `клиника: ${doctor.clinic}` : null,
+    typeof doctor.experience === 'number' ? `стаж ${doctor.experience} лет` : null,
+  ].filter(Boolean).join(', ')
+  return `${index + 1}. ${doctor.name}${details ? ` — ${details}` : ''}`
+}
+
+async function findAssistantDoctors(params: { specialization?: string | null; doctorId?: string | null; query?: string | null }) {
+  const doctors = await prisma.doctorProfile.findMany({
+    where: {
+      isActive: true,
+      ...(params.doctorId ? { id: params.doctorId } : {}),
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+          email: true,
+        }
+      }
+    },
+    orderBy: {
+      user: {
+        name: 'asc',
+      }
+    },
+    take: params.doctorId ? 1 : 30,
+  })
+
+  const specialization = params.specialization?.toLowerCase()
+  const query = params.query?.toLowerCase()
+
+  return doctors
+    .filter((doctor) => {
+      if (specialization && !doctor.specialization.toLowerCase().includes(specialization)) return false
+      if (query) {
+        const haystack = `${doctor.user?.name || ''} ${doctor.specialization || ''} ${doctor.clinic || ''}`.toLowerCase()
+        if (!haystack.includes(query)) return false
+      }
+      return true
+    })
+    .map(formatDoctorForAssistant)
+}
+
+function makeDateTime(date: string, time: string) {
+  return new Date(`${date}T${time}:00`)
+}
+
+function formatSlotTime(date: Date) {
+  return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
+async function getAssistantSlots(doctorId: string, date: string): Promise<AssistantSlot[]> {
+  const selectedDate = new Date(date)
+  if (Number.isNaN(selectedDate.getTime())) return []
+
+  const startOfDay = new Date(selectedDate)
+  startOfDay.setHours(9, 0, 0, 0)
+
+  const endOfDay = new Date(selectedDate)
+  endOfDay.setHours(21, 0, 0, 0)
+
+  const bookedAppointments = await prisma.appointment.findMany({
+    where: {
+      doctorId,
+      scheduledAt: {
+        gte: startOfDay,
+        lt: endOfDay,
+      },
+      status: {
+        in: ['scheduled', 'confirmed'],
+      },
+    },
+    select: { scheduledAt: true },
+  })
+
+  const booked = new Set(bookedAppointments.map((a) => new Date(a.scheduledAt).getTime()))
+  const slots: AssistantSlot[] = []
+  const current = new Date(startOfDay)
+  const now = new Date()
+
+  while (current < endOfDay) {
+    if (current > now) {
+      const isBooked = booked.has(current.getTime())
+      slots.push({
+        time: current.toISOString(),
+        timeString: formatSlotTime(current),
+        available: !isBooked,
+      })
+    }
+    current.setMinutes(current.getMinutes() + 15)
+  }
+
+  return slots
+}
+
+function buildPendingBooking(doctor: AssistantDoctor, scheduledAt: string, appointmentType: string, notes?: string | null): PendingBooking {
+  const date = new Date(scheduledAt)
+  return {
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    specialization: doctor.specialization,
+    scheduledAt,
+    timeString: formatSlotTime(date),
+    appointmentType,
+    notes: notes || null,
+  }
+}
+
+function isPendingBooking(value: any): value is PendingBooking {
+  return Boolean(
+    value &&
+    typeof value.doctorId === 'string' &&
+    typeof value.doctorName === 'string' &&
+    typeof value.scheduledAt === 'string' &&
+    typeof value.appointmentType === 'string'
+  )
+}
+
+async function createAppointmentFromPending(userId: string, pending: PendingBooking) {
+  const doctor = await prisma.doctorProfile.findFirst({
+    where: { id: pending.doctorId, isActive: true },
+    include: {
+      user: { select: { name: true, email: true } }
+    }
+  })
+
+  if (!doctor) throw new Error('Врач не найден или больше недоступен для записи')
+
+  const patient = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, name: true, email: true }
+  })
+
+  if (!patient || patient.role !== 'PATIENT') {
+    throw new Error('Только пациенты могут записываться на прием')
+  }
+
+  const appointmentDate = new Date(pending.scheduledAt)
+  if (Number.isNaN(appointmentDate.getTime())) throw new Error('Некорректное время записи')
+  if (appointmentDate <= new Date()) throw new Error('Нельзя записаться на прошедшее время')
+
+  const hour = appointmentDate.getHours()
+  if (hour < 9 || hour >= 21) throw new Error('Запись возможна только с 9:00 до 21:00')
+
+  const minutes = appointmentDate.getMinutes()
+  if (minutes % 15 !== 0) throw new Error('Время записи должно быть кратно 15 минутам')
+
+  const existingAppointment = await prisma.appointment.findFirst({
+    where: {
+      doctorId: pending.doctorId,
+      scheduledAt: appointmentDate,
+      status: { in: ['scheduled', 'confirmed'] },
+    }
+  })
+
+  if (existingAppointment) throw new Error('Это время уже занято')
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      doctorId: pending.doctorId,
+      patientId: userId,
+      patientName: patient.name,
+      patientEmail: patient.email,
+      appointmentType: pending.appointmentType || 'consultation',
+      scheduledAt: appointmentDate,
+      duration: 15,
+      status: 'scheduled',
+      notes: pending.notes || null,
+    },
+    include: {
+      doctor: {
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            }
+          }
+        }
+      }
+    }
+  })
+
+  try {
+    const pref = await prisma.reminderPreference.findUnique({
+      where: { userId },
+      select: { email: true, push: true, sms: true },
+    })
+    const channels = [pref?.email ? 'EMAIL' : null, pref?.push ? 'PUSH' : null, pref?.sms ? 'SMS' : null].filter(Boolean)
+    const reminderChannels = channels.length ? channels : ['PUSH']
+
+    const pre48 = new Date(appointmentDate.getTime() - 48 * 60 * 60 * 1000)
+    if (pre48.getTime() > Date.now()) {
+      await prisma.reminder.create({
+        data: {
+          userId,
+          title: 'Подготовка к приёму: заполните анкету',
+          description: 'За 24–48 часов до приёма заполните анкету. Откройте: /my-appointments',
+          dueAt: pre48,
+          recurrence: 'NONE',
+          channels: reminderChannels,
+        }
+      })
+    }
+
+    const pre2 = new Date(appointmentDate.getTime() - 2 * 60 * 60 * 1000)
+    if (pre2.getTime() > Date.now()) {
+      await prisma.reminder.create({
+        data: {
+          userId,
+          title: 'Приём скоро',
+          description: 'Через 2 часа приём. Откройте: /my-appointments',
+          dueAt: pre2,
+          recurrence: 'NONE',
+          channels: reminderChannels,
+        }
+      })
+    }
+
+    const post24 = new Date(appointmentDate.getTime() + 24 * 60 * 60 * 1000)
+    if (post24.getTime() > Date.now()) {
+      await prisma.reminder.create({
+        data: {
+          userId,
+          title: 'После приёма',
+          description: 'Добавьте кратко самочувствие/итоги визита в дневник и проверьте назначения. Откройте: /diary',
+          dueAt: post24,
+          recurrence: 'NONE',
+          channels: reminderChannels,
+        }
+      })
+    }
+  } catch (e) {
+    console.warn('[AI-ASSISTANT] Failed to create appointment reminders', e)
+  }
+
+  return appointment
+}
+
+async function handleProjectActionIntent(input: {
+  message: string
+  userId: string
+  action?: AssistantAction
+  pendingBooking?: PendingBooking
+}): Promise<{ message: string; data: any; functionName: string } | null> {
+  const { message, userId, action } = input
+  const pendingBooking = isPendingBooking(input.pendingBooking) ? input.pendingBooking : null
+
+  if (action?.type === 'cancel_booking' || (pendingBooking && isNoIntent(message))) {
+    return {
+      functionName: 'cancel_booking',
+      message: 'Хорошо, запись не создаю. Можно выбрать другого врача или другое время.',
+      data: { action: 'booking_cancelled' },
+    }
+  }
+
+  if (action?.type === 'confirm_booking' || (pendingBooking && isYesIntent(message))) {
+    if (!pendingBooking) {
+      return {
+        functionName: 'confirm_booking',
+        message: 'Не вижу выбранного слота для подтверждения. Сначала выберите врача и время.',
+        data: { action: 'booking_missing' },
+      }
+    }
+
+    try {
+      const appointment = await createAppointmentFromPending(userId, pendingBooking)
+      const scheduledAt = new Date(appointment.scheduledAt)
+      return {
+        functionName: 'book_appointment',
+        message: `Запись создана: ${scheduledAt.toLocaleDateString('ru-RU')} в ${formatSlotTime(scheduledAt)}, врач ${appointment.doctor.user.name}. Она появится в разделе «Мои записи».`,
+        data: {
+          action: 'appointment_created',
+          appointment,
+        },
+      }
+    } catch (e) {
+      return {
+        functionName: 'book_appointment',
+        message: e instanceof Error ? e.message : 'Не удалось создать запись. Попробуйте выбрать другой слот.',
+        data: { action: 'appointment_error', pendingBooking },
+      }
+    }
+  }
+
+  if (action?.type === 'select_slot') {
+    const doctors = await findAssistantDoctors({ doctorId: action.doctorId })
+    const doctor = doctors[0]
+    if (!doctor) {
+      return {
+        functionName: 'select_slot',
+        message: 'Врач не найден. Попробуйте выбрать врача заново.',
+        data: { action: 'doctor_missing' },
+      }
+    }
+
+    const pending = buildPendingBooking(doctor, action.scheduledAt, extractAppointmentType(message))
+    const date = new Date(action.scheduledAt)
+    return {
+      functionName: 'select_slot',
+      message: `Подтвердите запись: ${doctor.name}, ${doctor.specialization}, ${date.toLocaleDateString('ru-RU')} в ${pending.timeString}. Записать?`,
+      data: {
+        action: 'booking_pending',
+        pendingBooking: pending,
+      },
+    }
+  }
+
+  if (action?.type === 'select_doctor') {
+    const doctors = await findAssistantDoctors({ doctorId: action.doctorId })
+    const doctor = doctors[0]
+    if (!doctor) {
+      return {
+        functionName: 'select_doctor',
+        message: 'Врач не найден. Попробуйте выбрать врача заново.',
+        data: { action: 'doctor_missing' },
+      }
+    }
+
+    const date = action.date || extractDateFromMessage(message)
+    if (!date) {
+      return {
+        functionName: 'select_doctor',
+        message: `Вы выбрали ${doctor.name}. На какую дату показать свободное время? Например: «завтра» или «10.06».`,
+        data: { action: 'date_required', doctors: [doctor] },
+      }
+    }
+
+    const slots = (await getAssistantSlots(doctor.id, date)).filter((slot) => slot.available).slice(0, 8)
+    return {
+      functionName: 'get_available_slots',
+      message: slots.length
+        ? `Свободное время у ${doctor.name} на ${new Date(date).toLocaleDateString('ru-RU')}: ${slots.map((s) => s.timeString).join(', ')}. Выберите слот.`
+        : `На ${new Date(date).toLocaleDateString('ru-RU')} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
+      data: { action: 'slots', doctors: [doctor], slots, date },
+    }
+  }
+
+  if (!isDoctorIntent(message)) return null
+
+  const specialization = extractSpecializationFromMessage(message)
+  const date = extractDateFromMessage(message)
+  const time = extractTimeFromMessage(message)
+  const appointmentType = extractAppointmentType(message)
+  const wantsBooking = isBookingIntent(message)
+  const doctors = await findAssistantDoctors({ specialization })
+
+  if (doctors.length === 0) {
+    return {
+      functionName: 'get_doctors',
+      message: specialization
+        ? `В каталоге пока нет активных врачей по специализации «${specialization}».`
+        : 'В системе пока нет активных врачей для записи.',
+      data: { action: 'doctors', doctors: [] },
+    }
+  }
+
+  if (!wantsBooking || !date) {
+    const visible = doctors.slice(0, 8)
+    const extra = wantsBooking ? '\n\nВыберите врача, затем я покажу свободные слоты. Можно также написать дату: «завтра» или «10.06».' : ''
+    return {
+      functionName: 'get_doctors',
+      message: `Нашёл врачей:\n${visible.map(formatDoctorLine).join('\n')}${extra}`,
+      data: { action: 'doctors', doctors: visible, date },
+    }
+  }
+
+  const doctor = doctors[0]
+  const slots = (await getAssistantSlots(doctor.id, date)).filter((slot) => slot.available)
+
+  if (time) {
+    const requestedAt = makeDateTime(date, time)
+    const matchingSlot = slots.find((slot) => new Date(slot.time).getTime() === requestedAt.getTime())
+    if (matchingSlot) {
+      const pending = buildPendingBooking(doctor, matchingSlot.time, appointmentType)
+      return {
+        functionName: 'select_slot',
+        message: `Могу записать к ${doctor.name} на ${new Date(matchingSlot.time).toLocaleDateString('ru-RU')} в ${matchingSlot.timeString}. Подтвердить запись?`,
+        data: { action: 'booking_pending', doctors: [doctor], pendingBooking: pending },
+      }
+    }
+  }
+
+  const visibleSlots = slots.slice(0, 8)
+  return {
+    functionName: 'get_available_slots',
+    message: visibleSlots.length
+      ? `Свободное время у ${doctor.name} на ${new Date(date).toLocaleDateString('ru-RU')}: ${visibleSlots.map((s) => s.timeString).join(', ')}. Выберите удобный слот.`
+      : `На ${new Date(date).toLocaleDateString('ru-RU')} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
+    data: { action: 'slots', doctors: [doctor], slots: visibleSlots, date },
+  }
 }
 
 function safeJsonParse(text: string) {

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { sendAIMessage, type AIMessage, type AIChatRequest } from '../api/ai';
+import { sendAIMessage, type AIMessage, type AIChatRequest, type AssistantAction, type PendingBooking } from '../api/ai';
 import { getDocuments, type DocumentSummary } from '../api/documents';
 import { useAuthStore } from '../state/authStore';
 import { setAuthToken } from '../api/client';
@@ -58,6 +58,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
   const [availableDocuments, setAvailableDocuments] = useState<AttachedDocument[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -106,8 +107,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     setSelectedDocuments((prev) => prev.filter((id) => id !== documentId));
   };
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isLoading || !token) return;
+  const sendChatMessage = useCallback(async (content: string, action?: AssistantAction) => {
+    if (!content.trim() || isLoading || !token) return;
 
     const attachedDocs = selectedDocuments
       .map((id) => availableDocuments.find((doc) => doc.id === id)!)
@@ -116,7 +117,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     const userMessage: AIMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: content.trim(),
       timestamp: new Date().toISOString(),
       attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined,
     };
@@ -135,6 +136,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         history: messages.slice(-10), // Последние 10 сообщений для контекста
         documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
         ragScope: selectedDocuments.length > 0 ? 'attached' : 'all', // RAG по прикрепленным или по всем данным
+        action,
+        pendingBooking,
       };
 
       const data = await sendAIMessage(request);
@@ -149,6 +152,15 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         sources: Array.isArray(data.sources) ? data.sources : undefined,
       };
 
+      const nextPending = data.functionResult?.pendingBooking || null;
+      if (
+        data.functionResult?.action === 'appointment_created' ||
+        data.functionResult?.action === 'booking_cancelled'
+      ) {
+        setPendingBooking(null);
+      } else {
+        setPendingBooking(nextPending);
+      }
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
       const errorMessage: AIMessage = {
@@ -161,7 +173,16 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, token, selectedDocuments, availableDocuments, messages]);
+  }, [isLoading, token, selectedDocuments, availableDocuments, messages, pendingBooking]);
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || isLoading || !token) return;
+    await sendChatMessage(input.trim());
+  }, [input, isLoading, token, sendChatMessage]);
+
+  const handleAction = useCallback(async (label: string, action: AssistantAction) => {
+    await sendChatMessage(label, action);
+  }, [sendChatMessage]);
 
   const clearChat = () => {
     setMessages([
@@ -175,6 +196,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     ]);
     setSelectedDocuments([]);
     setShowDocumentSelector(false);
+    setPendingBooking(null);
   };
 
   const getFunctionLabel = (functionName?: string): string => {
@@ -263,6 +285,76 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                   <AppText variant="caption" style={{ color: isUser ? '#fff' : theme.colors.text }}>
                     Запись успешно создана! Проверьте раздел "Записи".
                   </AppText>
+                )}
+                {item.functionName === 'get_doctors' && Array.isArray(item.functionResult?.doctors) && (
+                  <View style={{ gap: theme.spacing.sm }}>
+                    {item.functionResult.doctors.map((doctor: any) => (
+                      <AppCard key={doctor.id} variant="surface" style={{ padding: theme.spacing.sm, gap: 4 }}>
+                        <AppText variant="bodyStrong">{doctor.name}</AppText>
+                        <AppText variant="caption" color="mutedText">
+                          {doctor.specialization}
+                          {doctor.clinic ? `, ${doctor.clinic}` : ''}
+                        </AppText>
+                        <AppButton
+                          title="Выбрать врача"
+                          size="sm"
+                          variant="secondary"
+                          onPress={() =>
+                            handleAction(`Выбрать врача ${doctor.name}`, {
+                              type: 'select_doctor',
+                              doctorId: doctor.id,
+                              date: item.functionResult?.date || null,
+                            })
+                          }
+                          disabled={isLoading}
+                        />
+                      </AppCard>
+                    ))}
+                  </View>
+                )}
+                {item.functionName === 'get_available_slots' && Array.isArray(item.functionResult?.slots) && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                    {item.functionResult.slots.map((slot: any) => (
+                      <AppButton
+                        key={slot.time}
+                        title={slot.timeString}
+                        size="sm"
+                        variant="secondary"
+                        onPress={() =>
+                          handleAction(`Выбрать ${slot.timeString}`, {
+                            type: 'select_slot',
+                            doctorId: item.functionResult?.doctors?.[0]?.id,
+                            scheduledAt: slot.time,
+                          })
+                        }
+                        disabled={isLoading || !item.functionResult?.doctors?.[0]?.id}
+                      />
+                    ))}
+                  </View>
+                )}
+                {item.functionResult?.action === 'booking_pending' && item.functionResult?.pendingBooking && (
+                  <View style={{ gap: theme.spacing.sm }}>
+                    <AppText variant="caption" color="mutedText">
+                      {new Date(item.functionResult.pendingBooking.scheduledAt).toLocaleDateString('ru-RU')} в{' '}
+                      {item.functionResult.pendingBooking.timeString}
+                    </AppText>
+                    <View style={{ flexDirection: 'row', gap: theme.spacing.xs }}>
+                      <AppButton
+                        title="Подтвердить"
+                        size="sm"
+                        variant="primary"
+                        onPress={() => handleAction('Подтверждаю запись', { type: 'confirm_booking' })}
+                        disabled={isLoading}
+                      />
+                      <AppButton
+                        title="Отмена"
+                        size="sm"
+                        variant="secondary"
+                        onPress={() => handleAction('Отмена записи', { type: 'cancel_booking' })}
+                        disabled={isLoading}
+                      />
+                    </View>
+                  </View>
                 )}
               </View>
             )}

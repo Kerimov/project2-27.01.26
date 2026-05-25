@@ -22,11 +22,29 @@ export type AIMessage = {
   }>;
 };
 
+export type AssistantAction =
+  | { type: 'select_doctor'; doctorId: string; date?: string | null }
+  | { type: 'select_slot'; doctorId: string; scheduledAt: string }
+  | { type: 'confirm_booking' }
+  | { type: 'cancel_booking' };
+
+export type PendingBooking = {
+  doctorId: string;
+  doctorName: string;
+  specialization?: string | null;
+  scheduledAt: string;
+  timeString: string;
+  appointmentType: string;
+  notes?: string | null;
+};
+
 export type AIChatRequest = {
   message: string;
   history?: AIMessage[];
   documentIds?: string[];
   ragScope?: 'none' | 'attached' | 'all';
+  action?: AssistantAction;
+  pendingBooking?: PendingBooking | null;
 };
 
 export type AIChatResponse = {

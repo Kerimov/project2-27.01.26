@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger'
 import { generateCompaniesWithAI } from '@/lib/ai-companies-generator'
 import { isOllamaConfigured } from '@/lib/ollama'
 import { filterFallbackCompanies } from '@/lib/marketplace-fallback'
+import { citiesMatch } from '@/lib/marketplace-city'
 
 // Этот маршрут читает request.url (query-параметры), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался рендерить его статически на этапе билда.
@@ -46,83 +47,63 @@ export async function GET(request: NextRequest) {
     // Собираем все условия в массив для правильного объединения
     const conditions: any[] = []
 
-    if (city && city !== 'all') {
-      // Нормализуем название города
-      const normalizeCityName = (name: string) => {
-        return name
-          .toLowerCase()
-          .replace(/^г\.?\s*/i, '')
-          .replace(/\s+город.*$/i, '')
-          .trim()
-      }
-      
-      const normalizedCity = normalizeCityName(city)
-      
-      // Специальные случаи для городов с разными названиями
-      const cityMappings: Record<string, string[]> = {
-        'санкт-петербург': ['санкт-петербург', 'спб', 'петербург', 'ленинград'],
-        'москва': ['москва', 'мск'],
-        'нижний новгород': ['нижний новгород', 'нн', 'нижний'],
-        'ростов-на-дону': ['ростов-на-дону', 'ростов'],
-        'набережные челны': ['набережные челны', 'челны']
-      }
-      
-      const cityVariants = cityMappings[normalizedCity] || [normalizedCity]
-      
-      // Создаем условия для поиска по городу
-      const cityConditions = cityVariants.map(variant => ({
-        city: {
-          contains: variant,
-          mode: 'insensitive' as const
-        }
-      }))
-      
-      conditions.push({ OR: cityConditions })
-    }
+    const cityFilter = city && city !== 'all' ? city : null
+    // Фильтр по городу — в памяти (SQLite не поддерживает mode: 'insensitive' в Prisma)
 
     if (verified === 'true') {
       where.isVerified = true
     }
 
-    if (search) {
-      conditions.push({
-        OR: [
-          { name: { contains: search, mode: 'insensitive' as const } },
-          { description: { contains: search, mode: 'insensitive' as const } }
-        ]
-      })
-    }
+    const searchFilter = search?.trim() || null
+    // Поиск по названию — в памяти (SQLite + mode: 'insensitive' не поддерживается)
 
-    // Объединяем все условия через AND
     if (conditions.length > 0) {
       where.AND = conditions
     }
 
-    let [companiesData, total] = await Promise.all([
-      prisma.company.findMany({
-        where,
-        include: {
-          products: {
-            where: { isAvailable: true },
-            take: 3
-          },
-          _count: {
-            select: { 
-              recommendations: true,
-              products: true
-            }
-          }
+    const companyInclude = {
+      products: {
+        where: { isAvailable: true },
+        take: 3,
+      },
+      _count: {
+        select: {
+          recommendations: true,
+          products: true,
         },
-        orderBy: [
-          { isVerified: 'desc' },
-          { rating: 'desc' },
-          { name: 'asc' }
-        ],
-        take: limit * 2, // Берем больше для последующей сортировки по расстоянию
-        skip: offset
-      }),
-      prisma.company.count({ where })
-    ])
+      },
+    } as const
+
+    let companiesData = await prisma.company.findMany({
+      where,
+      include: companyInclude,
+      orderBy: [
+        { isVerified: 'desc' },
+        { rating: 'desc' },
+        { name: 'asc' },
+      ],
+      ...(cityFilter || searchFilter || lat || lng
+        ? {}
+        : { take: limit, skip: offset }),
+    })
+
+    if (cityFilter) {
+      companiesData = companiesData.filter((c) => citiesMatch(c.city, cityFilter))
+    }
+
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase()
+      companiesData = companiesData.filter((c) => {
+        const haystack = `${c.name} ${c.description ?? ''} ${c.city ?? ''}`.toLowerCase()
+        return haystack.includes(q)
+      })
+    }
+
+    let total = companiesData.length
+
+    if (!cityFilter && !searchFilter && !lat && !lng) {
+      total = await prisma.company.count({ where })
+    }
 
     // Если компаний нет или их мало, и указан город, генерируем через Ollama
     if (total === 0 && city && city !== 'all' && isOllamaConfigured()) {
@@ -199,34 +180,26 @@ export async function GET(request: NextRequest) {
         logger.info(`[COMPANIES] Сохранено ${savedCompanies.length} новых компаний в базу`)
 
         // Обновляем данные из базы с учетом новых компаний
-        const [updatedCompaniesData, updatedTotal] = await Promise.all([
-          prisma.company.findMany({
-            where,
-            include: {
-              products: {
-                where: { isAvailable: true },
-                take: 3
-              },
-              _count: {
-                select: { 
-                  recommendations: true,
-                  products: true
-                }
-              }
-            },
-            orderBy: [
-              { isVerified: 'desc' },
-              { rating: 'desc' },
-              { name: 'asc' }
-            ],
-            take: limit * 2,
-            skip: offset
-          }),
-          prisma.company.count({ where })
-        ])
-
-        companiesData = updatedCompaniesData
-        total = updatedTotal
+        companiesData = await prisma.company.findMany({
+          where,
+          include: companyInclude,
+          orderBy: [
+            { isVerified: 'desc' },
+            { rating: 'desc' },
+            { name: 'asc' },
+          ],
+        })
+        if (cityFilter) {
+          companiesData = companiesData.filter((c) => citiesMatch(c.city, cityFilter))
+        }
+        if (searchFilter) {
+          const q = searchFilter.toLowerCase()
+          companiesData = companiesData.filter((c) => {
+            const haystack = `${c.name} ${c.description ?? ''} ${c.city ?? ''}`.toLowerCase()
+            return haystack.includes(q)
+          })
+        }
+        total = companiesData.length
       } catch (aiError) {
         logger.error('[COMPANIES] Ошибка генерации компаний через Ollama:', aiError)
         // Продолжаем с пустым списком, если генерация не удалась
@@ -234,7 +207,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (total === 0) {
-      const fallback = filterFallbackCompanies({ type, city, verified, search, limit, offset })
+      const fallback = filterFallbackCompanies({ type, city: cityFilter, verified, search, limit, offset })
       return NextResponse.json({
         companies: fallback.companies,
         total: fallback.total,
@@ -244,14 +217,27 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Если есть координаты пользователя, вычисляем расстояние и сортируем
     let companies = companiesData
+
+    if (cityFilter && companies.length === 0) {
+      const fallback = filterFallbackCompanies({ type, city: cityFilter, verified, search, limit, offset })
+      return NextResponse.json({
+        companies: fallback.companies,
+        total: fallback.total,
+        limit,
+        offset,
+        source: 'fallback',
+      })
+    }
+
+    const MAX_DISTANCE_KM = 120
+
     if (lat && lng) {
       const userLat = parseFloat(lat)
       const userLng = parseFloat(lng)
-      
-      companies = companiesData
-        .map(company => {
+
+      companies = companies
+        .map((company) => {
           if (company.coordinates && typeof company.coordinates === 'object') {
             const coords = company.coordinates as { lat: number; lng: number }
             const distance = calculateDistance(userLat, userLng, coords.lat, coords.lng)
@@ -259,14 +245,23 @@ export async function GET(request: NextRequest) {
           }
           return { ...company, distance: Infinity }
         })
+        .filter((company) => {
+          if (!cityFilter) return true
+          if (!citiesMatch(company.city, cityFilter)) return false
+          return company.distance <= MAX_DISTANCE_KM
+        })
         .sort((a, b) => {
-          // Сначала по расстоянию, потом по рейтингу
           if (Math.abs(a.distance - b.distance) < 0.1) {
             return (b.rating || 0) - (a.rating || 0)
           }
           return a.distance - b.distance
         })
-        .slice(0, limit) // Берем только нужное количество
+        .slice(0, limit)
+    } else if (cityFilter) {
+      companies = companies.slice(0, limit)
+      total = companies.length
+    } else {
+      companies = companies.slice(0, limit)
     }
 
     return NextResponse.json({

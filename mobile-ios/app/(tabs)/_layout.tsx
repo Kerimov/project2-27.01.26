@@ -80,10 +80,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="diary"
+        options={{
+          title: 'Дневник',
+          tabBarIcon: ({ color, focused }) => <IconSymbol size={focused ? 27 : 24} name="book.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="care-plan"
         options={{
-          title: 'План',
-          tabBarIcon: ({ color, focused }) => <IconSymbol size={focused ? 27 : 24} name="checkmark.circle.fill" color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -94,12 +100,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="medications"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="diary"
         options={{
           href: null,
         }}

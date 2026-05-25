@@ -29,13 +29,12 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    // Пробуем разные варианты названия города
-    const city = data.address?.city || 
-                data.address?.town || 
-                data.address?.village ||
-                data.address?.municipality ||
-                data.address?.county ||
-                data.address?.state
+    // Только населённый пункт; область/регион не подставляем как «город»
+    const city =
+      data.address?.city ||
+      data.address?.town ||
+      data.address?.village ||
+      data.address?.municipality
 
     // Нормализуем название города
     const normalizedCity = city ? city

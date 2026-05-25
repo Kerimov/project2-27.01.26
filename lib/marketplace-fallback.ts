@@ -1,3 +1,5 @@
+import { citiesMatch } from '@/lib/marketplace-city'
+
 export const fallbackCompanies = [
   {
     id: 'fallback-invitro',
@@ -98,14 +100,14 @@ export function filterFallbackCompanies(params: {
   offset?: number
 }) {
   const type = params.type && params.type !== 'all' ? params.type : null
-  const city = params.city && params.city !== 'all' ? params.city.toLowerCase().trim() : null
+  const city = params.city && params.city !== 'all' ? params.city : null
   const search = params.search?.toLowerCase().trim()
   const verifiedOnly = params.verified === 'true'
 
   const filtered = fallbackCompanies.filter((company) => {
     if (type && company.type !== type) return false
     if (verifiedOnly && !company.isVerified) return false
-    if (city && !company.city.toLowerCase().includes(city)) return false
+    if (city && !citiesMatch(company.city, city)) return false
     if (search) {
       const haystack = `${company.name} ${company.description ?? ''} ${company.city ?? ''}`.toLowerCase()
       if (!haystack.includes(search)) return false

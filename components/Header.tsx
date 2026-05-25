@@ -64,8 +64,7 @@ export function Header() {
                 <>
                   <Link href="/documents" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Документы</Link>
                   <Link href="/analyses" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Анализы</Link>
-                  <Link href="/medications" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Лекарства</Link>
-                  <Link href="/care-plan" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">План</Link>
+                  <Link href="/diary" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Дневник</Link>
                   <Link href="/marketplace" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Маркетплейс</Link>
                   <Link href="/profile" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Профиль</Link>
                   <Link href="/knowledge-base" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-1">
@@ -99,9 +98,11 @@ export function Header() {
                 </Link>
                 
                 {/* Настройки */}
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-5 w-5" />
-                </Button>
+                <Link href="/settings" title="Настройки">
+                  <Button variant="ghost" size="icon" aria-label="Настройки">
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </Link>
                 
                 {/* Личный кабинет */}
                 <Link href={isDoctor ? "/doctor" : "/dashboard"}>
@@ -163,8 +164,7 @@ export function Header() {
                   <>
                     <Link href="/documents" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Документы</Link>
                     <Link href="/analyses" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Анализы</Link>
-                    <Link href="/medications" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Лекарства</Link>
-                    <Link href="/care-plan" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>План</Link>
+                    <Link href="/diary" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Дневник</Link>
                     <Link href="/marketplace" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
                       <Building2 className="h-4 w-4" />
                       Маркетплейс
@@ -203,6 +203,10 @@ export function Header() {
                 user ? (
                   <>
                     {/* Кнопка "Назад" убрана из мобильного меню; показывается в разделах */}
+                    <Link href="/settings" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+                      <Settings className="h-4 w-4" />
+                      Настройки
+                    </Link>
                     <Link href={isDoctor ? "/doctor" : "/dashboard"} onClick={() => setMobileMenuOpen(false)}>
                       <Button className="w-full">
                         <User className="mr-2 h-4 w-4" />

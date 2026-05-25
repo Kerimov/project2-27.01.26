@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { matchCityFromList, formatCityLabel } from '@/lib/marketplace-city'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import {
   ShoppingBag, Dumbbell, UtensilsCrossed, Search, CheckCircle2 
 } from 'lucide-react'
 import Link from 'next/link'
+import { MarketplaceAIChat, type DiscoveredCompany } from '@/components/MarketplaceAIChat'
 
 interface Company {
   id: string
@@ -63,8 +65,31 @@ export default function CompaniesPage() {
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
+  const [aiResults, setAiResults] = useState<DiscoveredCompany[]>([])
+  const fetchSeq = useRef(0)
 
-  const fetchCompanies = async () => {
+  const cityForAi = cityFilter || detectedCity || undefined
+
+  const sourceBadge: Record<string, string> = {
+    catalog: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    openstreetmap: 'bg-sky-100 text-sky-800 border-sky-200',
+    web: 'bg-violet-100 text-violet-800 border-violet-200',
+  }
+  const sourceLabel: Record<string, string> = {
+    catalog: 'Каталог',
+    openstreetmap: 'Карта',
+    web: 'Интернет',
+  }
+
+  const isExternalCompany = (id: string) => id.startsWith('web:') || id.startsWith('osm:')
+
+  const resolveCityForFilter = useCallback(
+    (detected: string) => matchCityFromList(detected, availableCities) || formatCityLabel(detected),
+    [availableCities]
+  )
+
+  const fetchCompanies = useCallback(async () => {
+    const seq = ++fetchSeq.current
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -80,8 +105,6 @@ export default function CompaniesPage() {
       params.append('limit', '20')
 
       const url = `/api/marketplace/companies?${params}`
-      console.log('🔍 Запрос компаний:', url)
-      
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -89,19 +112,23 @@ export default function CompaniesPage() {
       }
 
       const data = await response.json()
-      console.log('📊 Получено компаний:', data.companies?.length || 0, 'из', data.total || 0)
+      if (seq !== fetchSeq.current) return
       setCompanies(data.companies || [])
       setTotal(data.total || 0)
     } catch (error) {
       console.error('Error fetching companies:', error)
+      if (seq === fetchSeq.current) {
+        setCompanies([])
+        setTotal(0)
+      }
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
-  }
+  }, [selectedType, cityFilter, searchQuery, verifiedOnly, userCoordinates])
 
   useEffect(() => {
     fetchCompanies()
-  }, [selectedType, cityFilter, verifiedOnly])
+  }, [fetchCompanies])
 
   // Загружаем список доступных городов
   useEffect(() => {
@@ -153,82 +180,22 @@ export default function CompaniesPage() {
                 console.log('🌍 Геокодирование ответ:', data)
                 
                 const city = data.city || data.rawCity
-                console.log('🏙️ Определен город:', city)
-                
+
                 if (city) {
-                  // Нормализуем название города для поиска
-                  const normalizeCityName = (name: string) => {
-                    return name
-                      .toLowerCase()
-                      .replace(/^г\.?\s*/i, '') // убираем "г." в начале
-                      .replace(/\s+город.*$/i, '') // убираем " город" в конце
-                      .replace(/[-\s]/g, '') // убираем дефисы и пробелы
-                      .trim()
-                  }
-                  
-                  const normalizedCity = normalizeCityName(city)
-                  
-                  // Ищем похожий город в списке доступных
-                  const matchedCity = availableCities.find(c => {
-                    const normalizedAvailable = normalizeCityName(c)
-                    return normalizedAvailable === normalizedCity ||
-                           normalizedAvailable.includes(normalizedCity) ||
-                           normalizedCity.includes(normalizedAvailable)
-                  })
-                  
-                  // Также проверяем специальные случаи (Санкт-Петербург = СПб = Петербург)
-                  const cityAliases: Record<string, string[]> = {
-                    'санкт-петербург': ['спб', 'петербург', 'ленинград'],
-                    'москва': ['мск'],
-                    'нижний новгород': ['нн', 'нижний'],
-                    'ростов-на-дону': ['ростов'],
-                    'набережные челны': ['челны']
-                  }
-                  
-                  let finalCity = matchedCity
-                  if (!finalCity && cityAliases[normalizedCity]) {
-                    const aliases = cityAliases[normalizedCity]
-                    for (const alias of aliases) {
-                      const found = availableCities.find(c => 
-                        normalizeCityName(c).includes(alias) || 
-                        alias.includes(normalizeCityName(c))
-                      )
-                      if (found) {
-                        finalCity = found
-                        break
-                      }
-                    }
-                  }
-                  
-                  if (finalCity) {
-                    console.log('✅ Найден совпадающий город:', finalCity)
-                    setCityFilter(finalCity)
-                    setDetectedCity(finalCity)
-                    setLocationDetected(true)
-                  } else {
-                    console.log('⚠️ Город не найден в списке, используем:', city)
-                    // Используем определенный город, даже если его нет в списке
-                    // API будет искать по contains, так что это должно работать
-                    setCityFilter(city)
-                    setDetectedCity(city)
-                    setLocationDetected(true)
-                  }
+                  const cityToUse = resolveCityForFilter(city)
+                  setCityFilter(cityToUse)
+                  setDetectedCity(cityToUse)
+                  setLocationDetected(true)
                 } else {
-                  console.log('⚠️ Город не определен из геокодирования')
-                  // Даже если город не определен, используем координаты для сортировки
                   setDetectedCity('Координаты определены')
                   setLocationDetected(true)
                 }
-                
-                // Обновляем список компаний с учетом координат
-                await fetchCompanies()
               } catch (geocodeError) {
                 console.error('❌ Ошибка геокодирования:', geocodeError)
                 // Даже если геокодирование не удалось, используем координаты для сортировки
                 setDetectedCity('Координаты определены')
                 setLocationDetected(true)
                 setUserCoordinates({ lat: latitude, lng: longitude })
-                await fetchCompanies()
               } finally {
                 // Всегда останавливаем индикатор загрузки
                 setDetectingLocation(false)
@@ -306,58 +273,13 @@ export default function CompaniesPage() {
       }
       
       if (data.city) {
-        // Нормализуем название города
-        const normalizeCityName = (name: string) => {
-          return name
-            .toLowerCase()
-            .replace(/^г\.?\s*/i, '')
-            .replace(/\s+город.*$/i, '')
-            .replace(/[-\s]/g, '')
-            .trim()
-        }
-        
-        const normalizedCity = normalizeCityName(data.city)
-        
-        // Ищем похожий город в списке доступных
-        const matchedCity = availableCities.find(c => {
-          const normalizedAvailable = normalizeCityName(c)
-          return normalizedAvailable === normalizedCity ||
-                 normalizedAvailable.includes(normalizedCity) ||
-                 normalizedCity.includes(normalizedAvailable)
-        })
-        
-        // Специальные случаи
-        const cityAliases: Record<string, string[]> = {
-          'санкт-петербург': ['спб', 'петербург', 'ленинград'],
-          'москва': ['мск'],
-          'нижний новгород': ['нн', 'нижний'],
-          'ростов-на-дону': ['ростов'],
-          'набережные челны': ['челны']
-        }
-        
-        let finalCity = matchedCity
-        if (!finalCity && cityAliases[normalizedCity]) {
-          const aliases = cityAliases[normalizedCity]
-          for (const alias of aliases) {
-            const found = availableCities.find(c => 
-              normalizeCityName(c).includes(alias) || 
-              alias.includes(normalizeCityName(c))
-            )
-            if (found) {
-              finalCity = found
-              break
-            }
-          }
-        }
-        
-        const cityToUse = finalCity || data.city
+        const cityToUse = resolveCityForFilter(data.city)
         setCityFilter(cityToUse)
         setDetectedCity(cityToUse)
         setLocationDetected(true)
         if (data.coordinates) {
           setUserCoordinates(data.coordinates)
         }
-        await fetchCompanies()
         return true
       }
       
@@ -445,6 +367,92 @@ export default function CompaniesPage() {
             </div>
           )}
         </div>
+
+        {/* AI-поиск по каталогу и интернету */}
+        <div className="mb-8">
+          <MarketplaceAIChat cityHint={cityForAi} onResults={setAiResults} />
+        </div>
+
+        {aiResults.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-2">Результаты AI-поиска</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Каталог, OpenStreetMap и открытые источники в интернете
+            </p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {aiResults.map((company) => {
+                const typeInfo = companyTypes[company.type as keyof typeof companyTypes] || companyTypes.OTHER
+                const IconComponent = typeInfo.icon
+                const external = isExternalCompany(company.id)
+                const href = external
+                  ? company.sourceUrl || company.website || '#'
+                  : `/marketplace/companies/${company.id}`
+
+                const card = (
+                  <Card className="group hover:shadow-medical-lg transition-all duration-300 border-0 shadow-medical glass-effect h-full">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className={`p-2 rounded-lg ${typeInfo.color}`}>
+                          <IconComponent className="w-5 h-5" />
+                        </div>
+                        <Badge variant="outline" className={sourceBadge[company.source] || ''}>
+                          {sourceLabel[company.source] || company.source}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                        {company.name}
+                      </CardTitle>
+                      <Badge variant="outline" className={`${typeInfo.color} border w-fit`}>
+                        {typeInfo.label}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
+                      {company.description && (
+                        <p className="line-clamp-2">{company.description}</p>
+                      )}
+                      {(company.address || company.city) && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">
+                            {[company.address, company.city].filter(Boolean).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      {company.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 shrink-0" />
+                          <span>{company.phone}</span>
+                        </div>
+                      )}
+                      <span className="text-blue-600 font-medium inline-block">
+                        {external ? 'Открыть сайт →' : 'Подробнее →'}
+                      </span>
+                    </CardContent>
+                  </Card>
+                )
+
+                if (external) {
+                  return (
+                    <a
+                      key={company.id}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      {card}
+                    </a>
+                  )
+                }
+                return (
+                  <Link key={company.id} href={href}>
+                    {card}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Фильтры */}
         <div className="mb-8">
@@ -603,7 +611,11 @@ export default function CompaniesPage() {
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Компании не найдены</h3>
-            <p className="text-muted-foreground">Попробуйте изменить параметры поиска</p>
+            <p className="text-muted-foreground">
+              {cityFilter
+                ? `В городе «${cityFilter}» пока нет клиник в каталоге. Выберите другой город или сбросьте фильтр.`
+                : 'Попробуйте изменить параметры поиска'}
+            </p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

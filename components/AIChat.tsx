@@ -30,6 +30,22 @@ interface AttachedDocument {
   studyType?: string
 }
 
+type AssistantAction =
+  | { type: 'select_doctor'; doctorId: string; date?: string | null }
+  | { type: 'select_slot'; doctorId: string; scheduledAt: string }
+  | { type: 'confirm_booking' }
+  | { type: 'cancel_booking' }
+
+type PendingBooking = {
+  doctorId: string
+  doctorName: string
+  specialization?: string | null
+  scheduledAt: string
+  timeString: string
+  appointmentType: string
+  notes?: string | null
+}
+
 export function AIChat() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
@@ -45,6 +61,7 @@ export function AIChat() {
   const [availableDocuments, setAvailableDocuments] = useState<AttachedDocument[]>([])
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
   const [showDocumentSelector, setShowDocumentSelector] = useState(false)
+  const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -91,8 +108,8 @@ export function AIChat() {
     setSelectedDocuments(prev => prev.filter(id => id !== documentId))
   }
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+  const sendChatMessage = async (content: string, action?: AssistantAction) => {
+    if (!content.trim() || isLoading) return
 
     const attachedDocs = selectedDocuments.map(id => 
       availableDocuments.find(doc => doc.id === id)!
@@ -101,7 +118,7 @@ export function AIChat() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: content.trim(),
       timestamp: new Date(),
       attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined
     }
@@ -127,7 +144,9 @@ export function AIChat() {
           message: userMessage.content,
           history: messages,
           documentIds: selectedDocuments, // опционально: уточнить источники
-          ragScope: 'all' // RAG по всем данным пользователя: документы + анализы + дневник + база знаний
+          ragScope: selectedDocuments.length > 0 ? 'attached' : 'all',
+          action,
+          pendingBooking
         })
       })
 
@@ -142,6 +161,12 @@ export function AIChat() {
           functionResult: data.functionResult,
           functionName: data.functionName,
           sources: Array.isArray(data.sources) ? data.sources : undefined
+        }
+        const nextPending = data.functionResult?.pendingBooking || null
+        if (data.functionResult?.action === 'appointment_created' || data.functionResult?.action === 'booking_cancelled') {
+          setPendingBooking(null)
+        } else {
+          setPendingBooking(nextPending)
         }
         setMessages(prev => [...prev, assistantMessage])
       } else {
@@ -158,6 +183,15 @@ export function AIChat() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return
+    await sendChatMessage(input.trim())
+  }
+
+  const handleAction = async (label: string, action: AssistantAction) => {
+    await sendChatMessage(label, action)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -178,6 +212,7 @@ export function AIChat() {
     ])
     setSelectedDocuments([])
     setShowDocumentSelector(false)
+    setPendingBooking(null)
   }
 
   const getFunctionLabel = (functionName: string): string => {
@@ -294,8 +329,84 @@ export function AIChat() {
                       </div>
                     )}
                     {message.functionName === 'get_doctors' && message.functionResult && (
-                      <div className="text-xs text-orange-600">
-                        Найдено {message.functionResult.length} врачей.
+                      <div className="space-y-2 text-xs text-orange-700">
+                        <div>Найдено {message.functionResult.doctors?.length ?? message.functionResult.length ?? 0} врачей.</div>
+                        {Array.isArray(message.functionResult.doctors) && message.functionResult.doctors.map((doctor: any) => (
+                          <div key={doctor.id} className="rounded-md border bg-background/80 p-2 text-foreground">
+                            <div className="font-medium">{doctor.name}</div>
+                            <div className="text-muted-foreground">{doctor.specialization}{doctor.clinic ? `, ${doctor.clinic}` : ''}</div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-2 h-7 text-xs"
+                              onClick={() => handleAction(`Выбрать врача ${doctor.name}`, {
+                                type: 'select_doctor',
+                                doctorId: doctor.id,
+                                date: message.functionResult.date || null
+                              })}
+                              disabled={isLoading}
+                            >
+                              Выбрать врача
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {message.functionName === 'get_available_slots' && message.functionResult && (
+                      <div className="space-y-2 text-xs text-blue-700">
+                        <div>Выберите свободное время:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(message.functionResult.slots || []).map((slot: any) => (
+                            <Button
+                              key={slot.time}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => handleAction(`Выбрать ${slot.timeString}`, {
+                                type: 'select_slot',
+                                doctorId: message.functionResult.doctors?.[0]?.id,
+                                scheduledAt: slot.time
+                              })}
+                              disabled={isLoading || !message.functionResult.doctors?.[0]?.id}
+                            >
+                              {slot.timeString}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {(message.functionResult?.action === 'booking_pending') && (
+                      <div className="space-y-2 text-xs text-green-700">
+                        <div className="rounded-md border bg-background/80 p-2 text-foreground">
+                          <div className="font-medium">{message.functionResult.pendingBooking?.doctorName}</div>
+                          <div className="text-muted-foreground">
+                            {new Date(message.functionResult.pendingBooking?.scheduledAt).toLocaleDateString('ru-RU')} в {message.functionResult.pendingBooking?.timeString}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => handleAction('Подтверждаю запись', { type: 'confirm_booking' })}
+                            disabled={isLoading}
+                          >
+                            Подтвердить
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleAction('Отмена записи', { type: 'cancel_booking' })}
+                            disabled={isLoading}
+                          >
+                            Отмена
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'appointment_created' && (
+                      <div className="text-xs text-green-600">
+                        Запись успешно создана! Проверьте раздел "Мои записи".
                       </div>
                     )}
                     {message.functionName === 'get_appointments' && message.functionResult && (
