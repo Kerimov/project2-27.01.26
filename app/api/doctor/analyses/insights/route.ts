@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 import { getAIConfig } from '@/lib/ai-medical-parser'
+import { callOllamaChat } from '@/lib/ollama'
 
 // Использует request.url и заголовки/cookie, поэтому помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
@@ -58,23 +59,16 @@ export async function GET(request: NextRequest) {
 
     const ai = getAIConfig()
     let insights = ''
-    if (ai?.provider === 'openai' && ai.apiKey) {
+    if (ai?.provider === 'ollama') {
       try {
-        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ai.apiKey}` },
-          body: JSON.stringify({
-            model: ai.model || 'gpt-4o-mini-2024-07-18',
-            temperature: 0,
-            messages: [
-              { role: 'system', content: 'Ты медицинский ассистент. Суммаризируй динамику показателей анализов. Коротко, по-русски. Выдели ухудшения/улучшения, перечисли риски и рекомендации. Структура: Итог, Улучшения, Ухудшения, Риски, Рекомендации.' },
-              { role: 'user', content: `Данные анализов по датам:\n${summaryInput}` }
-            ]
-          })
+        insights = await callOllamaChat({
+          system:
+            'Ты медицинский ассистент. Суммаризируй динамику показателей анализов. Коротко, по-русски. Выдели ухудшения/улучшения, перечисли риски и рекомендации. Структура: Итог, Улучшения, Ухудшения, Риски, Рекомендации.',
+          user: `Данные анализов по датам:\n${summaryInput}`,
+          temperature: 0,
+          model: ai.model,
         })
-        const json = await resp.json().catch(() => ({} as any))
-        insights = json?.choices?.[0]?.message?.content || ''
-      } catch (e) {
+      } catch {
         insights = ''
       }
     }

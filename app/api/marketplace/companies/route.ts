@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { generateCompaniesWithAI } from '@/lib/ai-companies-generator'
+import { isOllamaConfigured } from '@/lib/ollama'
 
 // Этот маршрут читает request.url (query-параметры), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался рендерить его статически на этапе билда.
@@ -122,10 +123,10 @@ export async function GET(request: NextRequest) {
       prisma.company.count({ where })
     ])
 
-    // Если компаний нет или их мало, и указан город, генерируем через OpenAI
-    if (total === 0 && city && city !== 'all' && process.env.OPENAI_API_KEY) {
+    // Если компаний нет или их мало, и указан город, генерируем через Ollama
+    if (total === 0 && city && city !== 'all' && isOllamaConfigured()) {
       try {
-        logger.info(`[COMPANIES] Генерация компаний через OpenAI для города: ${city}, тип: ${type || 'all'}`)
+        logger.info(`[COMPANIES] Генерация компаний через Ollama для города: ${city}, тип: ${type || 'all'}`)
         
         // Определяем типы компаний для генерации
         const typesToGenerate = type && type !== 'all' 
@@ -134,14 +135,14 @@ export async function GET(request: NextRequest) {
         
         logger.info(`[COMPANIES] Типы для генерации: ${typesToGenerate.join(', ')}`)
         
-        // Генерируем компании через OpenAI
+        // Генерируем компании через Ollama
         const generatedCompanies = await generateCompaniesWithAI(
           city,
           typesToGenerate,
           Math.max(limit, 10) // Генерируем минимум 10 компаний
         )
 
-        logger.info(`[COMPANIES] Сгенерировано ${generatedCompanies.length} компаний через OpenAI`)
+        logger.info(`[COMPANIES] Сгенерировано ${generatedCompanies.length} компаний через Ollama`)
 
         // Сохраняем сгенерированные компании в базу данных
         const savedCompanies = []
@@ -226,7 +227,7 @@ export async function GET(request: NextRequest) {
         companiesData = updatedCompaniesData
         total = updatedTotal
       } catch (aiError) {
-        logger.error('[COMPANIES] Ошибка генерации компаний через OpenAI:', aiError)
+        logger.error('[COMPANIES] Ошибка генерации компаний через Ollama:', aiError)
         // Продолжаем с пустым списком, если генерация не удалась
       }
     }

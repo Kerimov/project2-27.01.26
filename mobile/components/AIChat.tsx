@@ -28,7 +28,12 @@ type AttachedDocument = {
   studyType?: string;
 };
 
-export function AIChat() {
+type AIChatProps = {
+  initialDocumentIds?: string[];
+  autoOpen?: boolean;
+};
+
+export function AIChat({ initialDocumentIds, autoOpen }: AIChatProps = {}) {
   const router = useRouter();
   const { token } = useAuthStore();
   const theme = useAppTheme();
@@ -55,6 +60,13 @@ export function AIChat() {
       setAuthToken(token);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (initialDocumentIds?.length) {
+      setSelectedDocuments(initialDocumentIds);
+      if (autoOpen) setIsOpen(true);
+    }
+  }, [initialDocumentIds, autoOpen]);
 
   useEffect(() => {
     if (isOpen && availableDocuments.length === 0 && token) {

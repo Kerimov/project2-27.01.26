@@ -107,3 +107,28 @@ export async function updateCarePlanTask(
 export async function deleteCarePlanTask(id: string): Promise<void> {
   await apiJson(`/api/care-plan/tasks/${id}`, { method: 'DELETE' });
 }
+
+export interface PendingApprovalTask {
+  id: string;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  doctorName?: string | null;
+  protocolKey?: string | null;
+}
+
+export async function getPendingApprovals(): Promise<PendingApprovalTask[]> {
+  const data = await apiJson<{ tasks: PendingApprovalTask[] }>('/api/care-plan/approvals');
+  return data.tasks || [];
+}
+
+export async function decideApproval(
+  taskId: string,
+  decision: 'approve' | 'reject',
+  reason?: string
+): Promise<void> {
+  await apiJson('/api/care-plan/approvals', {
+    method: 'POST',
+    body: JSON.stringify({ taskId, decision, reason }),
+  });
+}

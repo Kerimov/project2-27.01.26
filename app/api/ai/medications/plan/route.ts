@@ -1,48 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 
 export const dynamic = 'force-dynamic'
-
-function getOpenAIApiKey() {
-  return process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-}
-
-function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || 'gpt-4o-mini'
-}
-
-async function callOpenAIJson(system: string, user: string) {
-  const apiKey = getOpenAIApiKey()
-  if (!apiKey) throw new Error('OPENAI_API_KEY is missing')
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: getOpenAIModel(),
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.2,
-      response_format: { type: 'json_object' }
-    })
-  })
-
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => '')
-    throw new Error(`OpenAI API error: ${resp.status} - ${err}`)
-  }
-  const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.trim().length === 0) throw new Error('OpenAI returned empty response')
-  return text
-}
 
 function normName(s: string) {
   return (s || '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -119,7 +81,7 @@ export async function POST(request: NextRequest) {
     })
 
     // LLM enrichment (optional)
-    if (getOpenAIApiKey()) {
+    if (isOllamaConfigured()) {
       try {
         const system = [
           'Ты — медицинский ассистент по лекарствам.',
@@ -133,7 +95,7 @@ export async function POST(request: NextRequest) {
         ].join('\n')
 
         const user = `Список лекарств пациента:\n${JSON.stringify(meds, null, 2)}\n\nТекущее базовое расписание:\n${JSON.stringify(schedule, null, 2)}\n\nВерни улучшенный JSON. В times используй формат "HH:MM". Не выдумывай дозировки.`
-        const txt = await callOpenAIJson(system, user)
+        const txt = await callOllamaJson(system, user)
         const parsed = JSON.parse(txt)
         if (Array.isArray(parsed?.warnings)) warnings.push(...parsed.warnings)
         if (Array.isArray(parsed?.schedule)) schedule = parsed.schedule
@@ -196,13 +158,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ result: resultBase, usedLLM: true })
       } catch (e) {
         // fall back to rules below
-        console.warn('[med-plan] OpenAI failed, fallback rules:', e)
+        console.warn('[med-plan] Ollama failed, fallback rules:', e)
       }
     }
 
     // rules-only result
     const result: any = {
-      tldr: 'Расписание сформировано (без OpenAI).',
+      tldr: 'Расписание сформировано (без Ollama).',
       warnings: warnings.slice(0, 12),
       schedule,
       disclaimer: 'Это не медицинская рекомендация. Опасные взаимодействия нужно подтверждать у врача/фармацевта.'

@@ -1,51 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
 export const dynamic = 'force-dynamic'
-
-function getOpenAIApiKey() {
-  return process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-}
-
-function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || 'gpt-4o-mini'
-}
-
-async function callOpenAIJson(system: string, user: string) {
-  const apiKey = getOpenAIApiKey()
-  if (!apiKey) throw new Error('OPENAI_API_KEY is missing')
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: getOpenAIModel(),
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.2,
-      response_format: { type: 'json_object' }
-    })
-  })
-
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => '')
-    throw new Error(`OpenAI API error: ${resp.status} - ${err}`)
-  }
-
-  const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('OpenAI returned empty response')
-  }
-  return text
-}
 
 function toNumber(v: any): number | null {
   if (v === null || v === undefined) return null
@@ -257,7 +216,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If no key, return rules-only
-    if (!getOpenAIApiKey()) {
+    if (!isOllamaConfigured()) {
       return NextResponse.json({ result: baseResult, usedLLM: false })
     }
 
@@ -270,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     const user = `Данные пользователя (агрегаты недели и корреляции):\n${JSON.stringify(baseResult, null, 2)}\n\nСформируй JSON с полями:\n- tldr (string)\n- whatInfluenced (string[] до 6)\n- hypotheses (array ровно 2 объекта: {hypothesis,evidence,experiment})\n- questionsToImprove (string[] до 5)\n- redFlags (string[] до 5)\n- nextSteps (string[] до 6)\nСохрани численные значения r/n если они есть (не выдумывай).`
 
-    const text = await callOpenAIJson(system, user)
+    const text = await callOllamaJson(system, user)
     const parsed = JSON.parse(text)
 
     const merged = {

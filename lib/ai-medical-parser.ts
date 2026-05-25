@@ -2,7 +2,7 @@
  * AI-POWERED МЕДИЦИНСКИЙ ПАРСЕР
  * 
  * Универсальное решение для распознавания ЛЮБЫХ медицинских анализов
- * с использованием Large Language Models (OpenAI GPT-4, Claude и др.)
+ * с использованием Large Language Models (Ollama, Claude и др.)
  * 
  * Преимущества:
  * - Работает с любыми форматами лабораторий
@@ -13,9 +13,10 @@
 
 import { ParsedMedicalData } from './ocr'
 import { logger } from './logger'
+import { callOllamaChat, getOllamaModel } from './ollama'
 
 interface AIParserConfig {
-  provider: 'openai' | 'anthropic' | 'local'
+  provider: 'ollama' | 'anthropic' | 'local'
   apiKey?: string
   model?: string
 }
@@ -90,8 +91,8 @@ export async function parseWithAI(
     let response: string
     
     switch (config.provider) {
-      case 'openai':
-        response = await parseWithOpenAI(ocrText, config)
+      case 'ollama':
+        response = await parseWithOllama(ocrText, config)
         break
       
       case 'anthropic':
@@ -130,52 +131,22 @@ export async function parseWithAI(
 }
 
 /**
- * Парсинг через OpenAI API (GPT-4)
+ * Парсинг через Ollama (локальная LLM)
  */
-async function parseWithOpenAI(
+async function parseWithOllama(
   ocrText: string,
   config: AIParserConfig
 ): Promise<string> {
-  if (!config.apiKey) {
-    throw new Error('OpenAI API key is required')
-  }
-  
-  const model = config.model || 'gpt-4o-mini' // Используем более дешевую модель
-  
-  logger.info('Calling OpenAI API', 'AI-PARSER', { model })
-  
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: MEDICAL_EXTRACTION_PROMPT
-        },
-        {
-          role: 'user',
-          content: `Проанализируй следующий медицинский документ:\n\n${ocrText}`
-        }
-      ],
-      temperature: 0.1, // Низкая температура для точности
-      response_format: { type: 'json_object' } // Принудительный JSON
-    })
+  const model = config.model || getOllamaModel()
+  logger.info('Calling Ollama API', 'AI-PARSER', { model })
+  const content = await callOllamaChat({
+    system: MEDICAL_EXTRACTION_PROMPT,
+    user: `Проанализируй следующий медицинский документ:\n\n${ocrText}`,
+    temperature: 0.1,
+    model,
+    responseFormat: { type: 'json_object' },
   })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`)
-  }
-  
-  const result = await response.json()
-  const content = result.choices[0].message.content
-  
-  logger.info('OpenAI response received', 'AI-PARSER')
+  logger.info('Ollama response received', 'AI-PARSER')
   return content
 }
 
@@ -273,31 +244,21 @@ async function parseWithLocalModel(
  * Получение конфигурации из переменных окружения
  */
 export function getAIConfig(): AIParserConfig | null {
-  // Приоритет: OpenAI > Anthropic > Local
-  if (process.env.OPENAI_API_KEY) {
-    return {
-      provider: 'openai',
-      apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
+  if (process.env.OLLAMA_DISABLED === 'true') {
+    if (process.env.ANTHROPIC_API_KEY) {
+      return {
+        provider: 'anthropic',
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+      }
     }
+    return null
   }
-  
-  if (process.env.ANTHROPIC_API_KEY) {
-    return {
-      provider: 'anthropic',
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
-    }
+
+  return {
+    provider: 'ollama',
+    model: getOllamaModel(),
   }
-  
-  if (process.env.USE_LOCAL_LLM === 'true') {
-    return {
-      provider: 'local',
-      model: process.env.LOCAL_LLM_MODEL || 'llama3.2'
-    }
-  }
-  
-  return null
 }
 
 /**
@@ -356,28 +317,15 @@ export async function generateAnalysisComments(input: {
 
   try {
     switch (config.provider) {
-      case 'openai': {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
-          },
-          body: JSON.stringify({
-            model: config.model || 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Данные анализа (JSON):\n${userContent}` }
-            ],
-            temperature: 0.3
+      case 'ollama': {
+        return (
+          await callOllamaChat({
+            system: systemPrompt,
+            user: `Данные анализа (JSON):\n${userContent}`,
+            temperature: 0.3,
+            model: config.model,
           })
-        })
-        if (!response.ok) {
-          const err = await response.text()
-          throw new Error(`OpenAI error: ${response.status} ${err}`)
-        }
-        const json = await response.json()
-        return json.choices?.[0]?.message?.content?.trim() || 'Комментарий недоступен.'
+        ).trim() || 'Комментарий недоступен.'
       }
       case 'anthropic': {
         const response = await fetch('https://api.anthropic.com/v1/messages', {

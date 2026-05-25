@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
 export const dynamic = 'force-dynamic'
@@ -11,45 +12,6 @@ function getToken(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie')
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
   return cookies.token || null
-}
-
-function getOpenAIApiKey() {
-  return process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-}
-
-function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || 'gpt-4o-mini'
-}
-
-async function callOpenAIJson(system: string, user: string) {
-  const apiKey = getOpenAIApiKey()
-  if (!apiKey) throw new Error('OPENAI_API_KEY is missing')
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: getOpenAIModel(),
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.2,
-      response_format: { type: 'json_object' }
-    })
-  })
-
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => '')
-    throw new Error(`OpenAI API error: ${resp.status} - ${err}`)
-  }
-  const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.trim().length === 0) throw new Error('OpenAI returned empty response')
-  return text
 }
 
 function safeJsonParse(text: string) {
@@ -106,7 +68,7 @@ export async function POST(request: NextRequest) {
         })
       : []
 
-    if (!getOpenAIApiKey()) {
+    if (!isOllamaConfigured()) {
       // fallback: minimal checks without AI
       const name = candidate.medication.toLowerCase()
       const dup = activePres.some((p) => p.medication.toLowerCase() === name) || meds.some((m) => (m.name || '').toLowerCase() === name)
@@ -114,7 +76,7 @@ export async function POST(request: NextRequest) {
         ok: true,
         mode: 'fallback',
         warnings: dup ? [{ severity: 'medium', title: 'Возможный дубль', details: 'Похоже, препарат уже есть у пациента (по названию). Проверьте дозировку/дубли.' }] : [],
-        note: 'AI выключен (нет OPENAI_API_KEY). Показана упрощённая проверка.'
+        note: 'AI выключен (нет Ollama). Показана упрощённая проверка.'
       })
     }
 
@@ -139,7 +101,7 @@ export async function POST(request: NextRequest) {
       2
     )
 
-    const text = await callOpenAIJson(system, user)
+    const text = await callOllamaJson(system, user)
     const parsed = safeJsonParse(text)
 
     const warnings = Array.isArray(parsed?.warnings) ? parsed.warnings : []

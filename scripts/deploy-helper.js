@@ -74,7 +74,8 @@ async function main() {
   console.log('JWT_SECRET =', jwtSecret);
   console.log('DATABASE_URL = [из шага 4]');
   console.log('NEXT_PUBLIC_ADMIN_EMAILS = admin@example.com');
-  console.log('OPENAI_API_KEY = [ваш OpenAI ключ]');
+  console.log('OLLAMA_BASE_URL = http://127.0.0.1:11434');
+  console.log('OLLAMA_MODEL = llama3.2');
   console.log('OCR_SPACE_API_KEY = [ваш OCR ключ] (опционально)');
   console.log('NEXTAUTH_URL = https://medical-xxx.vercel.app');
   console.log('');

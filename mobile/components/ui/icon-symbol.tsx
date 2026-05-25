@@ -25,6 +25,7 @@ const MAPPING = {
   calendar: 'calendar-today',
   'pills.fill': 'medication',
   'book.fill': 'menu-book',
+  'bell.fill': 'notifications',
   'person.fill': 'person',
   // Actions
   plus: 'add',

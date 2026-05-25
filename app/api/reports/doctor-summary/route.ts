@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
 export const dynamic = 'force-dynamic'
@@ -11,53 +12,6 @@ function getToken(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie')
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
   return cookies.token || null
-}
-
-function getOpenAIApiKey() {
-  return process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-}
-
-function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || 'gpt-4o-mini'
-}
-
-async function callOpenAIChat(params: {
-  system: string
-  user: string
-  temperature?: number
-  responseFormat?: { type: 'json_object' }
-}) {
-  const apiKey = getOpenAIApiKey()
-  if (!apiKey) throw new Error('OPENAI_API_KEY is missing')
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: getOpenAIModel(),
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user }
-      ],
-      temperature: params.temperature ?? 0.2,
-      ...(params.responseFormat ? { response_format: params.responseFormat } : {})
-    })
-  })
-
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => '')
-    throw new Error(`OpenAI API error: ${resp.status} - ${err}`)
-  }
-
-  const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('OpenAI returned empty response')
-  }
-  return text
 }
 
 function safeJsonParse(text: string) {
@@ -273,8 +227,8 @@ export async function POST(request: NextRequest) {
     const generatedAtIso = new Date().toISOString()
 
     let summary: any = null
-    const openaiKey = getOpenAIApiKey()
-    if (openaiKey) {
+    const ollamaReady = isOllamaConfigured()
+    if (ollamaReady) {
       const systemPrompt = `Ты — медицинский ассистент. Составь "1 страницу к приёму" для врача.
 
 ОГРАНИЧЕНИЯ:
@@ -313,7 +267,7 @@ export async function POST(request: NextRequest) {
 ${JSON.stringify(compactAnalyses, null, 2)}
 `
 
-      const text = await callOpenAIChat({
+      const text = await callOllamaChat({
         system: systemPrompt,
         user: userPrompt,
         temperature: 0.2,

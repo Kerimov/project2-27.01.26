@@ -8,13 +8,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
-import { getDocuments, uploadDocument, type DocumentSummary } from '../../api/documents';
+import { getDocuments, uploadDocument, deleteDocument, type DocumentSummary } from '../../api/documents';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
+import { AppButton } from '@/components/ui/AppButton';
 import { AppFAB } from '@/components/ui/AppFAB';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppScreen } from '@/components/ui/AppScreen';
@@ -152,6 +154,25 @@ export default function DocumentsScreen() {
     }
   };
 
+  const handlePickPdf = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        await handleUpload(
+          asset.uri,
+          asset.name || 'document.pdf',
+          asset.mimeType || 'application/pdf'
+        );
+      }
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.message || 'Не удалось выбрать файл');
+    }
+  };
+
   const showUploadOptions = () => {
     Alert.alert(
       'Добавить документ',
@@ -159,9 +180,28 @@ export default function DocumentsScreen() {
       [
         { text: 'Камера', onPress: handleTakePhoto },
         { text: 'Галерея', onPress: handlePickImage },
+        { text: 'PDF / файл', onPress: handlePickPdf },
         { text: 'Отмена', style: 'cancel' },
       ]
     );
+  };
+
+  const handleDelete = (item: DocumentSummary) => {
+    Alert.alert('Удалить документ', `Удалить «${item.fileName}»? Действие необратимо.`, [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteDocument(item.id);
+            await loadDocuments();
+          } catch (e: any) {
+            Alert.alert('Ошибка', e?.message || 'Не удалось удалить документ');
+          }
+        },
+      },
+    ]);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -171,27 +211,38 @@ export default function DocumentsScreen() {
   };
 
   const renderItem = ({ item }: { item: DocumentSummary }) => (
-    <Pressable onPress={() => router.push(`/document/${item.id}` as any)}>
-      {({ pressed }) => (
-        <AppCard style={{ padding: theme.spacing.lg, opacity: pressed ? 0.95 : 1 }}>
-          <AppText variant="h3">{item.fileName}</AppText>
-          <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-            {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
-          </AppText>
-          {item.studyType ? (
+    <AppCard style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
+      <Pressable onPress={() => router.push(`/document/${item.id}` as any)}>
+        {({ pressed }) => (
+          <View style={{ opacity: pressed ? 0.95 : 1 }}>
+            <AppText variant="h3">{item.fileName}</AppText>
             <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
-              {item.studyType}
+              {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
             </AppText>
-          ) : null}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.md }}>
-            {item.parsed ? <AppChip label="Обработан" tone="primary" /> : <AppChip label="Обрабатывается…" />}
-            {typeof item.ocrConfidence === 'number' ? (
-              <AppChip label={`OCR: ${Math.round(item.ocrConfidence * 100)}%`} />
+            {item.studyType ? (
+              <AppText variant="caption" color="mutedText" style={{ marginTop: theme.spacing.xs }}>
+                {item.studyType}
+              </AppText>
             ) : null}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.md }}>
+              {item.parsed ? <AppChip label="Обработан" tone="primary" /> : <AppChip label="Обрабатывается…" />}
+              {typeof item.ocrConfidence === 'number' ? (
+                <AppChip label={`OCR: ${Math.round(item.ocrConfidence * 100)}%`} />
+              ) : null}
+            </View>
           </View>
-        </AppCard>
-      )}
-    </Pressable>
+        )}
+      </Pressable>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <AppButton
+          title="Открыть"
+          variant="secondary"
+          size="sm"
+          onPress={() => router.push(`/document/${item.id}` as any)}
+        />
+        <AppButton title="Удалить" variant="danger" size="sm" onPress={() => handleDelete(item)} />
+      </View>
+    </AppCard>
   );
 
   if (loading && !items.length) {

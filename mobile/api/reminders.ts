@@ -30,6 +30,28 @@ export async function getReminders(patientId?: string): Promise<Reminder[]> {
   return await apiJson<Reminder[]>(url);
 }
 
+export async function updateReminder(
+  id: string,
+  data: Partial<{
+    title: string;
+    description: string;
+    dueAt: string;
+    recurrence: ReminderRecurrence;
+    channels: ReminderChannel[];
+    patientId: string;
+  }>
+): Promise<Reminder> {
+  return await apiJson<Reminder>(`/api/reminders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteReminder(id: string, patientId?: string): Promise<void> {
+  const q = patientId ? `?patientId=${patientId}` : '';
+  await apiJson(`/api/reminders/${id}${q}`, { method: 'DELETE' });
+}
+
 export async function createReminder(
   title: string,
   dueAt: string, // ISO date

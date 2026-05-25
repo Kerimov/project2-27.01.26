@@ -1,21 +1,56 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
- * Для Android-эмулятора localhost на ПК доступен как 10.0.2.2
- * (иначе запросы уходят в "localhost" самого эмулятора).
- *
- * Для реального телефона задайте EXPO_PUBLIC_API_BASE_URL, например:
- * EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000
+ * Базовый URL API:
+ * - EXPO_PUBLIC_API_BASE_URL — явный override
+ * - dev + Expo Go: IP Metro (debuggerHost), тот же что в QR
+ * - Android-эмулятор: 10.0.2.2
+ * - iOS Simulator: localhost
  */
-function getDefaultBaseUrl() {
-  const fromEnv = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (fromEnv) return fromEnv;
+function hostFromExpoDebugger(): string | null {
+  const debuggerHost =
+    Constants.expoGoConfig?.debuggerHost ??
+    Constants.expoConfig?.hostUri ??
+    (Constants as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost;
+  if (!debuggerHost) return null;
+  const host = debuggerHost.split(':')[0]?.trim();
+  return host || null;
+}
+
+function getDefaultBaseUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+
+  // iOS Simulator / Android Emulator
+  if (!Constants.isDevice) {
+    if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+    return 'http://localhost:3000';
+  }
+
+  // Физическое устройство: IP Metro (тот же, что в QR Expo)
+  const lanHost = hostFromExpoDebugger();
+  if (lanHost && lanHost !== 'localhost' && lanHost !== '127.0.0.1') {
+    return `http://${lanHost}:3000`;
+  }
 
   if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
   return 'http://localhost:3000';
 }
 
 export const API_BASE_URL = getDefaultBaseUrl();
+
+function buildRequestHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extra,
+  };
+  // localtunnel показывает interstitial без этого заголовка
+  if (API_BASE_URL.includes('loca.lt')) {
+    headers['Bypass-Tunnel-Reminder'] = 'true';
+  }
+  return headers;
+}
 
 let authToken: string | null = null;
 
@@ -41,10 +76,7 @@ export async function apiJson<T>(
   const timeoutMs = init?.timeoutMs ?? 15000;
   const { controller, clear } = withTimeout(timeoutMs);
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(init?.headers as any),
-  };
+  const headers = buildRequestHeaders(init?.headers as Record<string, string> | undefined);
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
   try {
@@ -68,6 +100,14 @@ export async function apiJson<T>(
     }
 
     return payload as T;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'Failed to fetch' || msg.includes('Network request failed')) {
+      throw new Error(
+        `Нет связи с API (${API_BASE_URL}). Запустите Next.js и туннель, перезагрузите Expo (клавиша r).`
+      );
+    }
+    throw e;
   } finally {
     clear();
   }

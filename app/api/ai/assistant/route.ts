@@ -1,59 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
-
-function getOpenAIApiKey() {
-  return process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-}
-
-function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || 'gpt-4o-mini'
-}
-
-async function callOpenAIChat(params: {
-  system: string
-  user: string
-  temperature?: number
-  responseFormat?: { type: 'json_object' }
-}) {
-  const apiKey = getOpenAIApiKey()
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is missing')
-  }
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: getOpenAIModel(),
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user }
-      ],
-      temperature: params.temperature ?? 0.3,
-      ...(params.responseFormat ? { response_format: params.responseFormat } : {})
-    })
-  })
-
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => '')
-    throw new Error(`OpenAI API error: ${resp.status} - ${err}`)
-  }
-
-  const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('OpenAI returned empty response')
-  }
-  return text
-}
 
 // Определяем функции, которые может выполнять AI ассистент
 const availableFunctions = {
@@ -126,7 +78,7 @@ const availableFunctions = {
 export async function POST(request: NextRequest) {
   try {
     console.log('[AI-ASSISTANT] Starting request processing')
-    console.log('[AI-ASSISTANT] OpenAI key present:', !!getOpenAIApiKey())
+    console.log('[AI-ASSISTANT] Ollama key present:', !!isOllamaConfigured())
     console.log('[AI-ASSISTANT] Prisma client status:', { 
       isPrismaAvailable: !!prisma,
       hasDoctorProfileModel: !!prisma?.doctorProfile,
@@ -307,11 +259,11 @@ function normalizeChannels(channels: any): string[] {
 async function createCarePlanFromDocuments(userId: string, message: string, documentIds: string[]) {
   const rag = await buildRagContext(userId, message, documentIds)
 
-  const openaiKey = getOpenAIApiKey()
-  if (!openaiKey) {
+  const ollamaReady = isOllamaConfigured()
+  if (!ollamaReady) {
     return {
       message:
-        'Чтобы сформировать план действий и создать напоминания, нужен ключ OpenAI.\n\nДобавьте в `.env.local`:\n- OPENAI_API_KEY=...\n(опционально) OPENAI_MODEL=gpt-4o-mini\n\nИ перезапустите `npm run dev`.',
+        'AI отключён (OLLAMA_DISABLED=true). Запустите Ollama: `ollama serve`, установите модель: `ollama pull llama3.2`, перезапустите `npm run dev`.',
       data: null,
       sources: rag.sources
     }
@@ -347,7 +299,7 @@ async function createCarePlanFromDocuments(userId: string, message: string, docu
 
   let text: string
   try {
-    text = await callOpenAIChat({
+    text = await callOllamaChat({
       system: systemPrompt,
       user: userBlock,
       temperature: 0.2,
@@ -357,9 +309,7 @@ async function createCarePlanFromDocuments(userId: string, message: string, docu
     const msg = e instanceof Error ? e.message : String(e)
     return {
       message:
-        msg.includes('unsupported_country_region_territory')
-          ? 'OpenAI недоступен для текущего региона/окружения (ошибка unsupported_country_region_territory). Нужен доступный регион/прокси/другой провайдер.'
-          : 'Не удалось получить ответ от OpenAI для плана действий. Попробуйте позже.',
+        'Не удалось получить ответ от Ollama для плана действий. Проверьте `ollama serve` и модель: `ollama pull llama3.2`.',
       data: { error: msg },
       sources: rag.sources
     }
@@ -1434,9 +1384,9 @@ async function generateAIResponse(
         ? await buildRagContext(userId, message, documentIds)
         : { sources: [], contextText: '' }
 
-  // Используем OpenAI если доступен
-  const openaiKey = getOpenAIApiKey()
-  if (openaiKey) {
+  // Используем Ollama если доступен
+  const ollamaReady = isOllamaConfigured()
+  if (ollamaReady) {
     try {
       const systemPrompt = `Ты — персональный медицинский ассистент.
 
@@ -1463,27 +1413,27 @@ async function generateAIResponse(
           ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}\nВопрос пациента: ${message}`
           : `Вопрос пациента: ${message}`
 
-      const text = await callOpenAIChat({
+      const text = await callOllamaChat({
         system: systemPrompt,
         user: userBlock,
         temperature: 0.5
       })
       return { response: text, sources: rag.sources }
     } catch (error: any) {
-      console.error('OpenAI error:', error)
+      console.error('Ollama error:', error)
       
-      // Обрабатываем различные типы ошибок OpenAI
+      // Обрабатываем различные типы ошибок Ollama
       const errorMessage = error?.message || String(error)
       let userMessage = ''
       
-      if (errorMessage.includes('insufficient_quota') || errorMessage.includes('quota')) {
-        userMessage = '⚠️ У вашего OpenAI API ключа закончилась квота или не настроен биллинг.\n\nПроверьте:\n• Баланс на счету OpenAI\n• Настройки биллинга в https://platform.openai.com/account/billing\n• Лимиты использования API\n\nПосле пополнения баланса AI функции заработают автоматически.'
-      } else if (errorMessage.includes('invalid_api_key') || errorMessage.includes('401')) {
-        userMessage = '⚠️ OpenAI API ключ недействителен или истек.\n\nПроверьте:\n• Правильность ключа в `.env.local`\n• Активность ключа в https://platform.openai.com/api-keys\n• Не был ли ключ отозван\n\nОбновите OPENAI_API_KEY и перезапустите сервер.'
-      } else if (errorMessage.includes('429')) {
-        userMessage = '⚠️ Превышен лимит запросов к OpenAI API.\n\nПопробуйте:\n• Подождать несколько секунд и повторить запрос\n• Проверить лимиты в https://platform.openai.com/account/limits\n• Обновить тарифный план при необходимости'
+      if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        userMessage =
+          '⚠️ Модель Ollama не найдена.\n\nВыполните: `ollama pull llama3.2` (или укажите OLLAMA_MODEL в `.env.local`).'
+      } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
+        userMessage =
+          '⚠️ Ollama недоступна.\n\nЗапустите: `ollama serve` и проверьте OLLAMA_BASE_URL (по умолчанию http://127.0.0.1:11434).'
       } else {
-        userMessage = `⚠️ Ошибка при обращении к OpenAI API: ${errorMessage}\n\nПопробуйте позже или проверьте настройки API ключа.`
+        userMessage = `⚠️ Ошибка Ollama: ${errorMessage}\n\nПроверьте, что сервер запущен и модель установлена.`
       }
       
       // Если есть источники, показываем их вместе с ошибкой
@@ -1539,14 +1489,14 @@ async function generateAIResponse(
     }
   }
 
-  // Если есть источники, но OpenAI не настроен — скажем прямо и покажем, что нашли
+  // Если есть источники, но Ollama не настроен — скажем прямо и покажем, что нашли
   if (rag.sources.length > 0) {
     return {
       response:
-        `Я вижу ваши данные, но AI сейчас не настроен (нет OPENAI_API_KEY).\n\nЯ могу использовать эти источники:\n${rag.sources
+        `Я вижу ваши данные, но AI сейчас не настроен (нет Ollama).\n\nЯ могу использовать эти источники:\n${rag.sources
           .slice(0, 3)
           .map((s, idx) => `- SOURCE ${idx + 1}: ${s.label}${s.url ? ` (${s.url})` : ''}`)
-          .join('\n')}\n\nДобавьте OPENAI_API_KEY — и я смогу сделать полноценный разбор по документам.`,
+          .join('\n')}\n\nДобавьте Ollama — и я смогу сделать полноценный разбор по документам.`,
       sources: rag.sources
     }
   }

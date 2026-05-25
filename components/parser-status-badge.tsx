@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface ParserStatus {
   available: boolean
-  provider: 'openai' | 'anthropic' | 'local' | 'regex'
+  provider: 'ollama' | 'anthropic' | 'local' | 'regex'
   model?: string
   message: string
 }
@@ -34,7 +34,7 @@ export function ParserStatusBadge() {
 
   const getIcon = () => {
     switch (status.provider) {
-      case 'openai':
+      case 'ollama':
       case 'anthropic':
         return <Sparkles className="h-3 w-3" />
       case 'local':
@@ -50,8 +50,8 @@ export function ParserStatusBadge() {
 
   const getLabel = () => {
     switch (status.provider) {
-      case 'openai':
-        return `AI: OpenAI ${status.model || ''}`
+      case 'ollama':
+        return `AI: Ollama ${status.model || ''}`
       case 'anthropic':
         return `AI: Claude ${status.model || ''}`
       case 'local':

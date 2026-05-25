@@ -156,7 +156,7 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          router.replace('/login' as any);
+          router.replace('/' as any);
         },
       },
     ]);
@@ -264,6 +264,17 @@ export default function ProfileScreen() {
             </AppSection>
           </AppCard>
  
+          <AppCard>
+            <AppSection title="Сервисы" subtitle="Как на веб-версии">
+              <View style={{ gap: theme.spacing.sm }}>
+                <AppButton title="Аналитика" variant="secondary" onPress={() => router.push('/analytics' as any)} fullWidth />
+                <AppButton title="База знаний" variant="secondary" onPress={() => router.push('/knowledge' as any)} fullWidth />
+                <AppButton title="Маркетплейс клиник" variant="secondary" onPress={() => router.push('/marketplace' as any)} fullWidth />
+                <AppButton title="Помощь и FAQ" variant="secondary" onPress={() => router.push('/help' as any)} fullWidth />
+              </View>
+            </AppSection>
+          </AppCard>
+
           <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
             <AppButton
               title="Сохранить"

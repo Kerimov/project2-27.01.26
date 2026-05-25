@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "prisma generate && next build",
     "build:win": "taskkill /F /IM node.exe || exit 0 && prisma generate && next build",
     "start": "next start",
@@ -18,7 +18,8 @@
     "db:seed": "node prisma/seed.js",
     "cleanup:recs": "node scripts/cleanup-duplicate-recommendations.js",
     "generate:jwt": "node scripts/generate-jwt-secret.js",
-    "deploy:help": "node scripts/deploy-helper.js"
+    "deploy:help": "node scripts/deploy-helper.js",
+    "check:ollama": "node scripts/check-ollama.js"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
@@ -36,8 +37,9 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.378.0",
     "next": "^14.2.0",
-    "openai": "^6.2.0",
+    "pdf-to-img": "^6.1.0",
     "postcss": "^8.4.38",
+    "tesseract.js": "^6.0.1",
     "prisma": "^6.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -52,7 +54,6 @@
     "@types/js-cookie": "^3.0.6",
     "@types/jsonwebtoken": "^9.0.6",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.0",
-    "tesseract.js": "^6.0.1"
+    "eslint-config-next": "14.2.0"
   }
 }

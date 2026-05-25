@@ -29,8 +29,10 @@ export default function DashboardScreen() {
     analysesCount: 0,
     documentsCount: 0,
     upcomingAppointments: 0,
+    avgSleep: null as number | null,
     latestAnalysis: null as any,
     upcomingAppointmentsList: [] as any[],
+    diaryTrend: [] as { day: string; sleep?: number }[],
   });
 
   useEffect(() => {
@@ -63,11 +65,13 @@ export default function DashboardScreen() {
           : null;
 
       setStats({
-        analysesCount: analyses.length,
-        documentsCount: documents.length,
-        upcomingAppointments: upcoming.length,
+        analysesCount: analytics?.kpi?.analysesCount ?? analyses.length,
+        documentsCount: analytics?.kpi?.documentsCount ?? documents.length,
+        upcomingAppointments: analytics?.kpi?.upcomingAppointments ?? upcoming.length,
+        avgSleep: analytics?.kpi?.avgSleep ?? null,
         latestAnalysis,
         upcomingAppointmentsList: upcoming,
+        diaryTrend: analytics?.trend ?? [],
       });
     } catch (e: any) {
       console.error('Dashboard load error:', e);
@@ -159,6 +163,31 @@ export default function DashboardScreen() {
             </AppCard>
           </View>
 
+          {stats.avgSleep != null ? (
+            <AppCard>
+              <AppText variant="caption" color="mutedText">
+                Средний сон за период
+              </AppText>
+              <AppText variant="h3" style={{ marginTop: 4 }}>
+                {stats.avgSleep.toFixed(1)} ч
+              </AppText>
+            </AppCard>
+          ) : null}
+
+          <AppButton title="Подробная аналитика" variant="secondary" onPress={() => router.push('/analytics' as any)} />
+
+          {stats.diaryTrend.length > 0 ? (
+            <AppSection title="Динамика дневника" subtitle="Сон по дням (последние записи)">
+              <AppCard>
+                {stats.diaryTrend.slice(-7).map((p) => (
+                  <AppText key={p.day} variant="caption" color="mutedText" style={{ marginBottom: 4 }}>
+                    {p.day}: {p.sleep != null ? `${p.sleep} ч` : '—'}
+                  </AppText>
+                ))}
+              </AppCard>
+            </AppSection>
+          ) : null}
+
           {/* Последний анализ */}
           {stats.latestAnalysis ? (
             <AppSection title="Последний анализ">
@@ -196,7 +225,7 @@ export default function DashboardScreen() {
                       {formatDateTime(apt.scheduledAt)}
                     </AppText>
                     <View style={{ marginTop: theme.spacing.md }}>
-                      <AppButton title="Открыть" onPress={() => router.push('/appointments' as any)} />
+                      <AppButton title="Открыть" onPress={() => router.push(`/appointment/${apt.id}` as any)} />
                     </View>
                   </AppCard>
                 ))}
@@ -242,6 +271,36 @@ export default function DashboardScreen() {
                 icon="book.fill"
                 label="Дневник"
                 onPress={() => router.push('/diary' as any)}
+              />
+              <QuickAction
+                width={quickActionWidth}
+                icon="bell.fill"
+                label="Напоминания"
+                onPress={() => router.push('/reminders' as any)}
+              />
+              <QuickAction
+                width={quickActionWidth}
+                icon="chart.bar.fill"
+                label="Аналитика"
+                onPress={() => router.push('/analytics' as any)}
+              />
+              <QuickAction
+                width={quickActionWidth}
+                icon="book.closed.fill"
+                label="База знаний"
+                onPress={() => router.push('/knowledge' as any)}
+              />
+              <QuickAction
+                width={quickActionWidth}
+                icon="building.2.fill"
+                label="Маркетплейс"
+                onPress={() => router.push('/marketplace' as any)}
+              />
+              <QuickAction
+                width={quickActionWidth}
+                icon="questionmark.circle.fill"
+                label="Помощь"
+                onPress={() => router.push('/help' as any)}
               />
             </View>
           </AppSection>

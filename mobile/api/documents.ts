@@ -120,3 +120,22 @@ export async function uploadDocument(
 export async function deleteDocument(id: string): Promise<void> {
   await apiJson(`/api/documents/${id}`, { method: 'DELETE' });
 }
+
+export async function reviewDocument(
+  id: string,
+  patch: {
+    studyType?: string;
+    studyDate?: string;
+    laboratory?: string;
+    doctor?: string;
+    findings?: string;
+    rawText?: string;
+    indicators?: MedicalIndicator[];
+  }
+): Promise<DocumentDetail> {
+  const res = await apiJson<DocumentResponse>(`/api/documents/${id}/review`, {
+    method: 'POST',
+    body: JSON.stringify({ patch }),
+  });
+  return res.document;
+}

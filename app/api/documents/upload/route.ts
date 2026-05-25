@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { DocumentCategory } from '@/lib/documents'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
@@ -118,10 +119,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Запускаем асинхронную обработку OCR (не блокируем ответ)
-    processDocumentOCR(document.id).catch(err => {
-      console.error('OCR processing error:', err)
-    })
+    // Асинхронная обработка OCR (не блокируем ответ клиенту)
+    void processDocumentOCR(document.id)
 
     return NextResponse.json({
       message: 'Файл успешно загружен',
@@ -143,226 +142,258 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Асинхронная обработка OCR
+const OCR_PROCESS_TIMEOUT_MS = 180_000
+
+async function resolveAIConfigForOCR() {
+  const { getAIConfig } = await import('@/lib/ai-medical-parser')
+  const { isOllamaReachable } = await import('@/lib/ollama')
+  const config = getAIConfig()
+  if (!config) return null
+  if (config.provider === 'ollama') {
+    const reachable = await isOllamaReachable()
+    if (!reachable) {
+      console.warn('[OCR] Ollama не запущена (ollama serve) — парсинг без AI')
+      return null
+    }
+  }
+  return config
+}
+
+/** Сохранить распознанный текст и распарсить показатели (общий шаг для OCR.space / Tesseract / Vision) */
+async function persistOcrResult(
+  documentId: string,
+  ocrResult: { text: string; confidence: number },
+  sourceLabel: string
+) {
+  const { parseMedicalData } = await import('@/lib/ocr')
+  const { parseWithAI } = await import('@/lib/ai-medical-parser')
+
+  let medicalData
+  const aiConfig = await resolveAIConfigForOCR()
+
+  if (aiConfig) {
+    try {
+      console.log(`[OCR] Using AI parser (${aiConfig.provider}) after ${sourceLabel}...`)
+      medicalData = await parseWithAI(ocrResult.text, aiConfig)
+    } catch (aiError) {
+      console.warn('[OCR] AI parsing failed, falling back to regex:', aiError)
+      medicalData = parseMedicalData(ocrResult.text)
+    }
+    try {
+      const regexData = parseMedicalData(ocrResult.text)
+      if (regexData?.indicators?.length) {
+        const byName = new Map<string, any>()
+        ;(medicalData?.indicators || []).forEach((i: any) => i?.name && byName.set(i.name.toLowerCase(), i))
+        regexData.indicators.forEach((i: any) => {
+          const key = i?.name?.toLowerCase()
+          if (key && !byName.has(key)) byName.set(key, i)
+        })
+        medicalData.indicators = Array.from(byName.values())
+      }
+    } catch (mergeErr) {
+      console.warn('[OCR] Unable to merge AI and regex indicators:', mergeErr)
+    }
+  } else {
+    medicalData = parseMedicalData(ocrResult.text)
+  }
+
+  try {
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        rawText: ocrResult.text,
+        ocrConfidence: ocrResult.confidence,
+        studyType: medicalData.studyType,
+        studyDate: medicalData.studyDate,
+        laboratory: medicalData.laboratory,
+        doctor: medicalData.doctor,
+        findings: medicalData.findings,
+        indicators: medicalData.indicators ?? undefined,
+        parsed: true,
+      },
+    })
+    await saveAnalysisFromDocument(documentId).catch((err) => {
+      console.error(`[OCR] saveAnalysisFromDocument error for ${documentId}:`, err)
+    })
+    console.log(`[OCR] ${sourceLabel} completed successfully for document ${documentId}`)
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      console.warn(`[OCR] Document ${documentId} was removed before update (${sourceLabel}). Skipping.`)
+      return
+    }
+    throw e
+  }
+}
+
+async function tryTesseractPdfOcr(documentId: string, fileUrl: string): Promise<boolean> {
+  try {
+    const { performTesseractPdfOCR } = await import('@/lib/pdf-tesseract')
+    const ocrResult = await performTesseractPdfOCR(fileUrl)
+    await persistOcrResult(documentId, ocrResult, 'Tesseract PDF')
+    return true
+  } catch (e) {
+    console.error('[OCR] Tesseract PDF failed:', e)
+    return false
+  }
+}
+
+async function applyMockOcrResult(documentId: string, reason?: string) {
+  const note = reason
+    ? `OCR завершён с демо-данными: ${reason}`
+    : 'Демонстрационные данные. Для реального распознавания проверьте OCR_SPACE_API_KEY и Ollama.'
+  const mockData = {
+    rawText: note,
+    ocrConfidence: 0.5,
+    studyType: 'Общий анализ крови',
+    studyDate: new Date(),
+    laboratory: 'Demo-Lab',
+    doctor: 'Demo Doctor',
+    findings: note,
+    parsed: true,
+    indicators: [
+      { name: 'Гемоглобин (HGB)', value: 140, unit: 'г/л', referenceMin: 120, referenceMax: 160, isNormal: true },
+      { name: 'Лейкоциты (WBC)', value: 6.0, unit: 'тыс/мкл', referenceMin: 4.0, referenceMax: 9.0, isNormal: true },
+    ],
+  }
+  try {
+    await prisma.document.update({ where: { id: documentId }, data: mockData })
+    await saveAnalysisFromDocument(documentId).catch((err) => {
+      console.error(`[OCR] saveAnalysisFromDocument mock error for ${documentId}:`, err)
+    })
+    console.warn(`[OCR] Mock/fallback saved for document ${documentId}`)
+  } catch (e: any) {
+    if (e?.code === 'P2025') return
+    throw e
+  }
+}
+
+// Асинхронная обработка OCR — всегда завершается (parsed=true), иначе в приложении «Обрабатывается…» бесконечно
 async function processDocumentOCR(documentId: string) {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('OCR_TIMEOUT')), OCR_PROCESS_TIMEOUT_MS)
+  })
+  try {
+    await Promise.race([processDocumentOCRInner(documentId), timeout])
+  } catch (error) {
+    console.error(`[OCR] Pipeline failed for ${documentId}:`, error)
+    await applyMockOcrResult(
+      documentId,
+      error instanceof Error ? error.message : 'unknown error'
+    )
+  }
+}
+
+async function processDocumentOCRInner(documentId: string) {
   console.log(`[OCR] Starting processing for document ${documentId}`)
-  
+
   const document = await prisma.document.findUnique({ where: { id: documentId } })
   if (!document) return
 
+  const isImage = document.fileType.includes('image')
+  const isPDF = document.fileType.includes('pdf')
+
+  if (!isImage && !isPDF) {
+    console.log(`[OCR] Unsupported file type: ${document.fileType}`)
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        parsed: true,
+        rawText: '',
+        ocrConfidence: 0,
+        findings: `Тип «${document.fileType}» не поддерживается для автоматического OCR.`,
+      },
+    })
+    return
+  }
+
+  const {
+    performOCRSpace,
+    isFileTooLargeForOcrSpace,
+    isOcrSpaceSizeError,
+    isOcrSpacePageLimitError,
+    describeOcrSpaceLimits,
+    approximateDataUrlBytes,
+    OCR_SPACE_MAX_BYTES,
+  } = await import('@/lib/ocr-space')
+  const storedKb = Math.round(approximateDataUrlBytes(document.fileUrl) / 1024)
+  console.log(
+    `[OCR] ${document.fileName}: fileSize=${document.fileSize} B, data-url≈${storedKb} KB, type=${document.fileType}`
+  )
+
+  if (isPDF && isFileTooLargeForOcrSpace(document.fileUrl)) {
+    const kb = Math.round(OCR_SPACE_MAX_BYTES / 1024)
+    console.log(`[OCR] PDF data-url ≈${storedKb} KB > ${kb} KB — OCR.space пропущен, Tesseract`)
+    if (await tryTesseractPdfOcr(documentId, document.fileUrl)) return
+    await applyMockOcrResult(documentId, 'Tesseract PDF не распознал большой PDF')
+    return
+  }
+
   try {
-    // Проверяем, является ли файл изображением или PDF
-    const isImage = document.fileType.includes('image')
-    const isPDF = document.fileType.includes('pdf')
-    
-    if (!isImage && !isPDF) {
-      console.log(`[OCR] Skipping OCR for file type: ${document.fileType}`)
+    console.log('[OCR] Starting OCR.space processing...')
+    const ocrResult = await performOCRSpace(document.fileUrl)
+    await persistOcrResult(documentId, ocrResult, 'OCR.space')
+    return
+  } catch (error) {
+    const ocrErr = error instanceof Error ? error.message : String(error)
+    console.error('[OCR] OCR.space failed:', ocrErr)
+    if (isPDF && isOcrSpacePageLimitError(error)) {
+      console.warn(`[OCR] Возможная причина: ${describeOcrSpaceLimits()}`)
+    }
+
+    if (isPDF && isOcrSpaceSizeError(error)) {
+      console.log('[OCR] OCR.space size limit — fallback to Tesseract PDF')
+      if (await tryTesseractPdfOcr(documentId, document.fileUrl)) return
+      await applyMockOcrResult(documentId, `Tesseract PDF: ${ocrErr}`)
       return
     }
 
-    // Реальный OCR через OCR.space ✅ РАБОТАЕТ!
-    const { performOCRSpace } = await import('@/lib/ocr-space')
-    const { parseMedicalData } = await import('@/lib/ocr')
-    const { parseWithAI, getAIConfig } = await import('@/lib/ai-medical-parser')
-    
+    console.error('[OCR] Trying Ollama Vision before mock:', ocrErr)
     try {
-      console.log('[OCR] Starting OCR.space processing...')
-      const ocrResult = await performOCRSpace(document.fileUrl)
-      
-      // УМНЫЙ ПАРСИНГ: сначала пробуем AI, потом fallback на regex
-      let medicalData
-      const aiConfig = getAIConfig()
-      
-      if (aiConfig) {
-        // 🤖 AI-ПАРСЕР: Универсальное распознавание любых форматов
-        try {
-          console.log(`[OCR] Using AI parser (${aiConfig.provider})...`)
-          medicalData = await parseWithAI(ocrResult.text, aiConfig)
-          console.log(`[OCR] ✅ AI parsing successful! Extracted ${medicalData.indicators.length} indicators`)
-        } catch (aiError) {
-          console.warn('[OCR] ⚠️ AI parsing failed, falling back to regex parser:', aiError)
-          medicalData = parseMedicalData(ocrResult.text)
-        }
-        // Дополнительный шаг: объединяем с regex-результатами, чтобы добрать пропущенные показатели
-        try {
-          const regexData = parseMedicalData(ocrResult.text)
-          if (regexData?.indicators?.length) {
-            const byName = new Map<string, any>()
-            ;(medicalData?.indicators || []).forEach((i: any) => i?.name && byName.set(i.name.toLowerCase(), i))
-            regexData.indicators.forEach((i: any) => {
-              const key = i?.name?.toLowerCase()
-              if (key && !byName.has(key)) byName.set(key, i)
-            })
-            medicalData.indicators = Array.from(byName.values())
-          }
-        } catch (mergeErr) {
-          console.warn('[OCR] Unable to merge AI and regex indicators:', mergeErr)
-        }
-      } else {
-        // 📝 REGEX-ПАРСЕР: Базовое распознавание (работает только с некоторыми форматами)
-        console.log('[OCR] No AI config found, using regex parser')
-        console.log('[OCR] 💡 Tip: Add OPENAI_API_KEY to .env.local for universal parsing')
-        medicalData = parseMedicalData(ocrResult.text)
-      }
-      
-      try {
-        await prisma.document.update({
-          where: { id: documentId },
-          data: {
-            rawText: ocrResult.text,
-            ocrConfidence: ocrResult.confidence,
-            studyType: medicalData.studyType,
-            studyDate: medicalData.studyDate,
-            laboratory: medicalData.laboratory,
-            doctor: medicalData.doctor,
-            findings: medicalData.findings,
-            indicators: medicalData.indicators ?? undefined,
-            parsed: true
-          }
+      const aiConfig = await resolveAIConfigForOCR()
+      const { isOllamaVisionAvailable, callOllamaVision, fetchImageAsBase64 } = await import('@/lib/ollama')
+      const visionOk = await isOllamaVisionAvailable()
+      if (aiConfig?.provider === 'ollama' && visionOk && document.fileType.startsWith('image/')) {
+        const imageBase64 = await fetchImageAsBase64(document.fileUrl)
+        const extractedText = await callOllamaVision({
+          imageBase64,
+          prompt:
+            'Распознай весь текст на этом медицинском изображении (русский язык). Ответь только распознанным текстом.',
         })
-
-        // Сохраняем анализ как структурированную запись
-        console.log(`[OCR] Calling saveAnalysisFromDocument for document ${documentId}`)
-        await saveAnalysisFromDocument(documentId).catch((err) => {
-          console.error(`[OCR] Error in saveAnalysisFromDocument for ${documentId}:`, err)
-        })
-      } catch (e: any) {
-        if (e?.code === 'P2025') {
-          console.warn(`[OCR] Document ${documentId} was removed before update (real OCR). Skipping.`)
+        if (extractedText?.trim()) {
+          await persistOcrResult(
+            documentId,
+            { text: extractedText.trim(), confidence: 0.9 },
+            'Ollama Vision'
+          )
           return
         }
-        throw e
+      } else if (document.fileType.startsWith('image/') && !visionOk) {
+        console.warn(
+          `[OCR] Vision пропущен: нет модели ${process.env.OLLAMA_VISION_MODEL || 'llava'}. Выполните: ollama pull llava`
+        )
       }
-      
-      console.log(`[OCR] OCR.space completed successfully for document ${documentId}`)
+    } catch (visionError) {
+      console.error('[OCR] Ollama Vision attempt failed:', visionError)
+    }
+      const { isOllamaVisionAvailable: checkVision } = await import('@/lib/ollama')
+      const hasVisionModel = await checkVision()
+      if (isPDF) {
+        console.log('[OCR] PDF fallback to Tesseract after OCR.space error')
+        if (await tryTesseractPdfOcr(documentId, document.fileUrl)) return
+      }
+
+      const visionHint = document.fileType.includes('pdf')
+        ? `PDF: OCR.space — ${ocrErr}; Tesseract не помог`
+        : `OCR.space: ${ocrErr}`
+      const visionPart = document.fileType.startsWith('image/')
+        ? hasVisionModel
+          ? 'Ollama Vision не извлекла текст'
+          : `нет модели ${process.env.OLLAMA_VISION_MODEL || 'llava'} — выполните: ollama pull llava`
+        : 'для PDF Vision не используется'
+      await applyMockOcrResult(documentId, `${visionHint}. ${visionPart}`)
       return
-    } catch (error) {
-      console.error('[OCR] OCR.space failed, trying OpenAI Vision before mock:', error)
-      // Попытка №2: Используем OpenAI Vision для извлечения текста с изображения
-      try {
-        const aiConfig = getAIConfig()
-        // Используем Vision только для изображений
-        if (aiConfig?.provider === 'openai' && aiConfig.apiKey && document.fileType.startsWith('image/')) {
-          const model = aiConfig.model || 'gpt-4o-mini'
-          const visionResp = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${aiConfig.apiKey}`
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: 'system', content: 'Извлеки ПЛОСКИЙ текст из медицинского документа на изображении. Отвечай только текстом без форматирования и без комментариев.' },
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: 'Распознай текст на этом изображении (русский язык).' },
-                    { type: 'image_url', image_url: { url: document.fileUrl } }
-                  ]
-                }
-              ],
-              temperature: 0
-            })
-          })
-
-          if (!visionResp.ok) {
-            const errText = await visionResp.text()
-            throw new Error(`OpenAI Vision error: ${visionResp.status} - ${errText}`)
-          }
-
-          const visionJson = await visionResp.json()
-          const extractedText: string = visionJson.choices?.[0]?.message?.content || ''
-
-          if (extractedText && extractedText.trim().length > 0) {
-            // Парсим медицинские данные из извлеченного текста (AI > regex fallback внутри)
-            let medicalData
-            try {
-              medicalData = await parseWithAI(extractedText, aiConfig)
-            } catch (aiParseErr) {
-              console.warn('[OCR] AI parsing after Vision failed, fallback to regex:', aiParseErr)
-              const { parseMedicalData } = await import('@/lib/ocr')
-              medicalData = parseMedicalData(extractedText)
-            }
-
-            // Аналогично объединяем показатели с regex-парсером, чтобы добрать пропущенные
-            try {
-              const regexData = parseMedicalData(extractedText)
-              if (regexData?.indicators?.length) {
-                const byName = new Map<string, any>()
-                ;(medicalData?.indicators || []).forEach((i: any) => i?.name && byName.set(i.name.toLowerCase(), i))
-                regexData.indicators.forEach((i: any) => {
-                  const key = i?.name?.toLowerCase()
-                  if (key && !byName.has(key)) byName.set(key, i)
-                })
-                medicalData.indicators = Array.from(byName.values())
-              }
-            } catch (mergeErr) {
-              console.warn('[OCR] Unable to merge AI and regex indicators (vision):', mergeErr)
-            }
-
-            try {
-              await prisma.document.update({
-                where: { id: documentId },
-                data: {
-                  rawText: extractedText,
-                  ocrConfidence: 0.9,
-                  studyType: medicalData.studyType,
-                  studyDate: medicalData.studyDate,
-                  laboratory: medicalData.laboratory,
-                  doctor: medicalData.doctor,
-                  findings: medicalData.findings,
-                  indicators: medicalData.indicators ?? undefined,
-                  parsed: true
-                }
-              })
-              await saveAnalysisFromDocument(documentId)
-              console.log(`[OCR] OpenAI Vision completed successfully for document ${documentId}`)
-              return
-            } catch (e: any) {
-              if (e?.code === 'P2025') {
-                console.warn(`[OCR] Document ${documentId} was removed before update (vision). Skipping.`)
-                return
-              }
-              throw e
-            }
-          }
-        }
-      } catch (visionError) {
-        console.error('[OCR] OpenAI Vision attempt failed:', visionError)
-      }
-      // Если ни OCR.space, ни OpenAI Vision не сработали — используем mock-данные как резерв
-    }
-    
-    // Мок-данные (минимальные), чтобы интерфейс продолжал работать в демонстрационном режиме
-    const mockData = {
-      rawText: 'DEMO MOCK: Анализ не распознан OCR, использованы демонстрационные данные.',
-      ocrConfidence: 0.5,
-      studyType: 'Общий анализ крови',
-      studyDate: new Date(),
-      laboratory: 'Demo-Lab',
-      doctor: 'Demo Doctor',
-      findings: 'Демонстрационные данные. Для реального распознавания настройте OCR ключ.',
-      parsed: true,
-      indicators: [
-        { name: 'Гемоглобин (HGB)', value: 140, unit: 'г/л', referenceMin: 120, referenceMax: 160, isNormal: true },
-        { name: 'Лейкоциты (WBC)', value: 6.0, unit: 'тыс/мкл', referenceMin: 4.0, referenceMax: 9.0, isNormal: true }
-      ]
     }
 
-    try {
-      await prisma.document.update({ where: { id: documentId }, data: mockData })
-      await saveAnalysisFromDocument(documentId)
-      console.warn(`[OCR] Real OCR failed; mock data saved for document ${documentId}`)
-      return
-    } catch (e: any) {
-      if (e?.code === 'P2025') {
-        console.warn(`[OCR] Document ${documentId} was removed before mock update. Skipping.`)
-        return
-      }
-      throw e
-    }
-    
     /* Для продакшена - интеграция с Google Cloud Vision:
     
     const vision = require('@google-cloud/vision')
@@ -383,19 +414,6 @@ async function processDocumentOCR(documentId: string) {
       parsed: true
     })
     */
-    
-  } catch (error) {
-    console.error(`[OCR] Error processing document ${documentId}:`, error)
-    try {
-      await prisma.document.update({ where: { id: documentId }, data: { parsed: false, ocrConfidence: 0 } })
-    } catch (e: any) {
-      if (e?.code === 'P2025') {
-        console.warn(`[OCR] Document ${documentId} was removed before error-state update. Skipping.`)
-        return
-      }
-      throw e
-    }
-  }
 }
 
 // Создать запись анализа из данных документа

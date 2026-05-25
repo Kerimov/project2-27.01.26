@@ -22,3 +22,14 @@ export async function login(email: string, password: string): Promise<LoginRespo
   });
 }
 
+export async function register(
+  email: string,
+  password: string,
+  name: string
+): Promise<LoginResponse> {
+  return await apiJson<LoginResponse>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, name }),
+  });
+}
+

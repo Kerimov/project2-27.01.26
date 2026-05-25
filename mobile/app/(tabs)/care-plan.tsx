@@ -12,8 +12,11 @@ import {
   getCarePlanTasks,
   updateCarePlanTask,
   deleteCarePlanTask,
+  getPendingApprovals,
+  decideApproval,
   type CarePlanTask,
   type CarePlanTaskStatus,
+  type PendingApprovalTask,
 } from '../../api/care-plan';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
@@ -21,6 +24,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppFAB } from '@/components/ui/AppFAB';
 import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function CarePlanScreen() {
@@ -30,6 +34,8 @@ export default function CarePlanScreen() {
   const { maxWidth } = useMaxContentWidth();
 
   const [tasks, setTasks] = useState<CarePlanTask[]>([]);
+  const [pending, setPending] = useState<PendingApprovalTask[]>([]);
+  const [busyApprovalId, setBusyApprovalId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<CarePlanTaskStatus | null>(null);
@@ -38,8 +44,12 @@ export default function CarePlanScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getCarePlanTasks(filter || undefined);
+      const [data, approvals] = await Promise.all([
+        getCarePlanTasks(filter || undefined, true),
+        getPendingApprovals().catch(() => []),
+      ]);
       setTasks(data);
+      setPending(approvals);
     } catch (e: any) {
       setError(e?.message || 'Не удалось загрузить задачи');
     } finally {
@@ -69,7 +79,7 @@ export default function CarePlanScreen() {
         { text: 'Отмена', style: 'cancel' },
         {
           text: 'Отложить',
-          onPress: async (reason) => {
+          onPress: async (reason?: string) => {
             if (!reason || reason.trim().length < 3) {
               Alert.alert('Ошибка', 'Причина должна содержать минимум 3 символа');
               return;
@@ -100,6 +110,19 @@ export default function CarePlanScreen() {
       await loadTasks();
     } catch (e: any) {
       Alert.alert('Ошибка', e?.message || 'Не удалось возобновить задачу');
+    }
+  };
+
+  const handleApproval = async (taskId: string, decision: 'approve' | 'reject', reason?: string) => {
+    try {
+      setBusyApprovalId(taskId);
+      await decideApproval(taskId, decision, reason);
+      Alert.alert('Готово', decision === 'approve' ? 'План принят' : 'План отклонён');
+      await loadTasks();
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.message || 'Не удалось обработать');
+    } finally {
+      setBusyApprovalId(null);
     }
   };
 
@@ -236,6 +259,58 @@ export default function CarePlanScreen() {
           gap: theme.spacing.md,
           paddingBottom: pad.vertical + 24,
         }}
+        ListHeaderComponent={
+          pending.length > 0 ? (
+            <View style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+              <AppText variant="h3">Согласование от врача</AppText>
+              {pending.map((p) => (
+                <AppCard key={p.id} style={{ padding: theme.spacing.lg, gap: 8 }}>
+                  <AppText variant="bodyStrong">{p.title}</AppText>
+                  {p.doctorName ? (
+                    <AppText variant="caption" color="mutedText">
+                      Доктор: {p.doctorName}
+                    </AppText>
+                  ) : null}
+                  {p.description ? (
+                    <AppText variant="caption" color="mutedText">
+                      {p.description}
+                    </AppText>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    <AppButton
+                      title="Принять"
+                      size="sm"
+                      disabled={busyApprovalId === p.id}
+                      onPress={() => handleApproval(p.id, 'approve')}
+                    />
+                    <AppButton
+                      title="Отклонить"
+                      size="sm"
+                      variant="secondary"
+                      disabled={busyApprovalId === p.id}
+                      onPress={() => {
+                        Alert.prompt('Отклонение', 'Причина (мин. 3 символа)', [
+                          { text: 'Отмена', style: 'cancel' },
+                          {
+                            text: 'Отклонить',
+                            style: 'destructive',
+                            onPress: (reason?: string) => {
+                              if (!reason || reason.trim().length < 3) {
+                                Alert.alert('Ошибка', 'Укажите причину');
+                                return;
+                              }
+                              handleApproval(p.id, 'reject', reason.trim());
+                            },
+                          },
+                        ]);
+                      }}
+                    />
+                  </View>
+                </AppCard>
+              ))}
+            </View>
+          ) : null
+        }
         renderItem={renderItem}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -256,6 +331,7 @@ export default function CarePlanScreen() {
           </AppCard>
         </View>
       ) : null}
+      <AppFAB icon="plus" onPress={() => router.push('/care-plan/create' as any)} />
     </AppScreen>
   );
 }

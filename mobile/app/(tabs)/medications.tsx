@@ -12,6 +12,7 @@ import {
   deleteMedication,
   type PatientMedication,
 } from '../../api/medications';
+import { generateMedicationPlan } from '../../api/ai-medications';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding, useMaxContentWidth } from '@/design/responsive';
 import { AppCard } from '@/components/ui/AppCard';
@@ -19,6 +20,8 @@ import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppFAB } from '@/components/ui/AppFAB';
+import { PatientSwitcher } from '../../components/PatientSwitcher';
+import { useCaretakerStore } from '../../state/caretakerStore';
 import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function MedicationsScreen() {
@@ -27,22 +30,24 @@ export default function MedicationsScreen() {
   const pad = useContentPadding();
   const { maxWidth } = useMaxContentWidth();
 
+  const { selectedPatientId } = useCaretakerStore();
   const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
 
   const loadMedications = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getMedications();
+      const data = await getMedications(selectedPatientId || undefined);
       setMedications(data);
     } catch (e: any) {
       setError(e?.message || 'Не удалось загрузить лекарства');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedPatientId]);
 
   useEffect(() => {
     loadMedications();
@@ -141,8 +146,29 @@ export default function MedicationsScreen() {
     );
   }
 
+  const onAiPlan = async () => {
+    try {
+      setPlanLoading(true);
+      const res = await generateMedicationPlan(selectedPatientId || undefined);
+      const text = res.tldr || res.message || JSON.stringify(res.schedule || res, null, 2);
+      Alert.alert('AI-план приёма', text);
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.message || 'Не удалось сгенерировать план');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
   return (
     <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+      <PatientSwitcher />
+      <AppButton
+        title="AI: план приёма лекарств"
+        variant="secondary"
+        loading={planLoading}
+        onPress={onAiPlan}
+        style={{ marginBottom: theme.spacing.sm }}
+      />
       <FlatList
         data={medications}
         keyExtractor={(item) => item.id}

@@ -17,8 +17,8 @@ npm install
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/medical?schema=public"
 JWT_SECRET="change-me"
-OPENAI_API_KEY="sk-..."
-OPENAI_MODEL="gpt-4o-mini"
+OLLAMA_BASE_URL="http://127.0.0.1:11434"
+OLLAMA_MODEL="llama3.2"
 ```
 
 ### 3) Синхронизировать схему БД и сгенерировать Prisma Client

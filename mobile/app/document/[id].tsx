@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { getDocument, type DocumentDetail } from '../../api/documents';
+import { getDocument, deleteDocument, reviewDocument, type DocumentDetail, type MedicalIndicator } from '../../api/documents';
+import { AIChat } from '../../components/AIChat';
 import { getAnalyses, type AnalysisSummary } from '../../api/analyses';
 import { setAuthToken } from '../../api/client';
 import { useAuthStore } from '../../state/authStore';
@@ -13,6 +15,8 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
+import { AppInput } from '@/components/ui/AppInput';
+import { openDocumentFile, isImageFileUrl } from '../../utils/openDocumentFile';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +28,16 @@ export default function DocumentDetailScreen() {
   const [linkedAnalyses, setLinkedAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [openingFile, setOpeningFile] = useState(false);
+  const [edits, setEdits] = useState<{
+    studyType: string;
+    studyDate: string;
+    laboratory: string;
+    doctor: string;
+    indicators: MedicalIndicator[];
+  }>({ studyType: '', studyDate: '', laboratory: '', doctor: '', indicators: [] });
 
   useEffect(() => {
     if (!id) return;
@@ -36,7 +50,14 @@ export default function DocumentDetailScreen() {
         const doc = await getDocument(String(id));
         if (mounted) {
           setDocument(doc);
-          
+          setEdits({
+            studyType: doc.studyType || '',
+            studyDate: doc.studyDate ? new Date(doc.studyDate).toISOString().slice(0, 10) : '',
+            laboratory: doc.laboratory || '',
+            doctor: doc.doctor || '',
+            indicators: doc.indicators ? [...doc.indicators] : [],
+          });
+
           // Загружаем анализы, связанные с этим документом
           const linked = await getAnalyses(doc.id);
           setLinkedAnalyses(linked);
@@ -62,11 +83,18 @@ export default function DocumentDetailScreen() {
     [document?.studyDate]
   );
 
-  const handleOpenFile = () => {
-    if (document?.fileUrl) {
-      Linking.openURL(document.fileUrl).catch((err) =>
-        console.error('Failed to open file:', err)
-      );
+  const handleOpenFile = async () => {
+    if (!document?.fileUrl) return;
+    try {
+      setOpeningFile(true);
+      await openDocumentFile(document.fileUrl, {
+        fileName: document.fileName,
+        documentId: document.id,
+      });
+    } catch (e: any) {
+      Alert.alert('Не удалось открыть файл', e?.message || 'Попробуйте снова');
+    } finally {
+      setOpeningFile(false);
     }
   };
 
@@ -115,7 +143,15 @@ export default function DocumentDetailScreen() {
         title={document.fileName}
         subtitle={uploadedAt ? `Загружен: ${uploadedAt}` : undefined}
         headerRight={
-          document.fileUrl ? <AppButton title="Открыть" variant="secondary" size="sm" onPress={handleOpenFile} /> : null
+          document.fileUrl ? (
+            <AppButton
+              title={openingFile ? '…' : 'Открыть'}
+              variant="secondary"
+              size="sm"
+              disabled={openingFile}
+              onPress={handleOpenFile}
+            />
+          ) : null
         }>
         <AppCard style={{ gap: theme.spacing.sm }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -131,6 +167,18 @@ export default function DocumentDetailScreen() {
           {document.laboratory ? <AppText variant="caption" color="mutedText">Лаборатория: {document.laboratory}</AppText> : null}
           {document.doctor ? <AppText variant="caption" color="mutedText">Врач: {document.doctor}</AppText> : null}
         </AppCard>
+
+        {document.fileUrl && isImageFileUrl(document.fileUrl, document.fileType) ? (
+          <AppSection title="Просмотр">
+            <AppCard style={{ overflow: 'hidden', padding: 0 }}>
+              <Image
+                source={{ uri: document.fileUrl }}
+                style={{ width: '100%', height: 320 }}
+                contentFit="contain"
+              />
+            </AppCard>
+          </AppSection>
+        ) : null}
 
         {document.findings ? (
           <AppSection title="Заключение">
@@ -217,7 +265,102 @@ export default function DocumentDetailScreen() {
             </AppCard>
           </AppSection>
         ) : null}
+
+        <AppSection
+          title="Проверка OCR"
+          subtitle="Исправьте распознанные поля и сохраните"
+          headerRight={
+            <AppButton
+              title={editMode ? 'Отмена' : 'Редактировать'}
+              variant="secondary"
+              size="sm"
+              onPress={() => setEditMode((v) => !v)}
+            />
+          }>
+          {editMode ? (
+            <AppCard style={{ gap: theme.spacing.md }}>
+              <AppInput label="Тип исследования" value={edits.studyType} onChangeText={(t) => setEdits((e) => ({ ...e, studyType: t }))} />
+              <AppInput label="Дата (ГГГГ-ММ-ДД)" value={edits.studyDate} onChangeText={(t) => setEdits((e) => ({ ...e, studyDate: t }))} />
+              <AppInput label="Лаборатория" value={edits.laboratory} onChangeText={(t) => setEdits((e) => ({ ...e, laboratory: t }))} />
+              <AppInput label="Врач" value={edits.doctor} onChangeText={(t) => setEdits((e) => ({ ...e, doctor: t }))} />
+              {edits.indicators.map((ind, idx) => (
+                <View key={`${ind.name}-${idx}`} style={{ gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 8 }}>
+                  <AppInput
+                    label="Показатель"
+                    value={String(ind.name)}
+                    onChangeText={(t) => {
+                      const next = [...edits.indicators];
+                      next[idx] = { ...next[idx], name: t };
+                      setEdits((e) => ({ ...e, indicators: next }));
+                    }}
+                  />
+                  <AppInput
+                    label="Значение"
+                    value={String(ind.value)}
+                    onChangeText={(t) => {
+                      const next = [...edits.indicators];
+                      next[idx] = { ...next[idx], value: t };
+                      setEdits((e) => ({ ...e, indicators: next }));
+                    }}
+                  />
+                </View>
+              ))}
+              <AppButton
+                title="Сохранить исправления"
+                loading={saving}
+                onPress={async () => {
+                  try {
+                    setSaving(true);
+                    const updated = await reviewDocument(String(id), {
+                      studyType: edits.studyType || undefined,
+                      studyDate: edits.studyDate || undefined,
+                      laboratory: edits.laboratory || undefined,
+                      doctor: edits.doctor || undefined,
+                      indicators: edits.indicators,
+                    });
+                    setDocument(updated);
+                    setEditMode(false);
+                    Alert.alert('Готово', 'Документ обновлён');
+                  } catch (e: any) {
+                    Alert.alert('Ошибка', e?.message || 'Не удалось сохранить');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              />
+            </AppCard>
+          ) : (
+            <AppCard>
+              <AppText variant="caption" color="mutedText">
+                Нажмите «Редактировать», чтобы поправить OCR перед созданием анализа.
+              </AppText>
+            </AppCard>
+          )}
+        </AppSection>
+
+        <AppButton
+          title="Удалить документ"
+          variant="danger"
+          onPress={() => {
+            Alert.alert('Удалить документ', 'Действие необратимо.', [
+              { text: 'Отмена', style: 'cancel' },
+              {
+                text: 'Удалить',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deleteDocument(String(id));
+                    router.back();
+                  } catch (e: any) {
+                    Alert.alert('Ошибка', e?.message || 'Не удалось удалить');
+                  }
+                },
+              },
+            ]);
+          }}
+        />
       </AppSection>
+      <AIChat initialDocumentIds={[String(id)]} />
     </AppScreen>
   );
 }

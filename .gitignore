@@ -35,3 +35,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local tooling / binaries
+.local-node/
+*.traineddata
+/scripts/bin/
+mobile/expo-qr*.png
+

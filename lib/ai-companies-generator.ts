@@ -1,6 +1,8 @@
 /**
- * Генерация списка клиник и лабораторий через OpenAI
+ * Генерация списка клиник и лабораторий через Ollama
  */
+
+import { callOllamaChat, isOllamaConfigured } from './ollama'
 
 interface GeneratedCompany {
   name: string
@@ -23,10 +25,8 @@ export async function generateCompaniesWithAI(
   types: string[] = ['CLINIC', 'LABORATORY'],
   count: number = 10
 ): Promise<GeneratedCompany[]> {
-  const apiKey = process.env.OPENAI_API_KEY
-  
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY не настроен')
+  if (!isOllamaConfigured()) {
+    throw new Error('Ollama отключена (OLLAMA_DISABLED=true)')
   }
 
   const typesLabels: Record<string, string> = {
@@ -76,38 +76,18 @@ export async function generateCompaniesWithAI(
 ВАЖНО: Верни ТОЛЬКО JSON массив, без дополнительного текста или объяснений.`
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'Ты эксперт по медицинским учреждениям России. Ты генерируешь только реальные, существующие компании с точными данными. Всегда отвечаешь валидным JSON массивом компаний.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3
+    const content = (
+      await callOllamaChat({
+        system:
+          'Ты эксперт по медицинским учреждениям России. Ты генерируешь только реальные, существующие компании с точными данными. Всегда отвечаешь валидным JSON массивом компаний.',
+        user: prompt,
+        temperature: 0.3,
+        responseFormat: { type: 'json_object' },
       })
-    })
+    ).trim()
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`OpenAI API error: ${response.status} - ${error}`)
-    }
-
-    const result = await response.json()
-    const content = result.choices[0].message.content.trim()
-    
-    console.log('[AI-COMPANIES] OpenAI response length:', content.length)
-    console.log('[AI-COMPANIES] OpenAI response preview:', content.substring(0, 200))
+    console.log('[AI-COMPANIES] Ollama response length:', content.length)
+    console.log('[AI-COMPANIES] Ollama response preview:', content.substring(0, 200))
     
     // Парсим JSON ответ
     let parsed: any
@@ -126,11 +106,11 @@ export async function generateCompaniesWithAI(
           if (jsonObjectMatch) {
             parsed = JSON.parse(jsonObjectMatch[0])
           } else {
-            throw new Error(`Не удалось извлечь JSON из ответа OpenAI: ${e}`)
+            throw new Error(`Не удалось извлечь JSON из ответа Ollama: ${e}`)
           }
         }
       } else {
-        throw new Error(`Не удалось найти JSON массив в ответе OpenAI: ${e}`)
+        throw new Error(`Не удалось найти JSON массив в ответе Ollama: ${e}`)
       }
     }
 
@@ -151,12 +131,12 @@ export async function generateCompaniesWithAI(
       
       if (companies.length === 0) {
         console.error('[AI-COMPANIES] Не удалось извлечь массив компаний из ответа:', parsed)
-        throw new Error('OpenAI вернул ответ в неожиданном формате')
+        throw new Error('Ollama вернул ответ в неожиданном формате')
       }
     }
 
     if (!Array.isArray(companies) || companies.length === 0) {
-      throw new Error('OpenAI вернул пустой массив компаний')
+      throw new Error('Ollama вернул пустой массив компаний')
     }
 
     // Валидация и нормализация данных

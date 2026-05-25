@@ -156,19 +156,27 @@ export default function AppointmentsScreen() {
         </AppText>
       ) : null}
 
-      {item.status !== 'cancelled' && item.status !== 'completed' && new Date(item.scheduledAt) >= new Date() ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.lg }}>
-          {!item.preVisit?.submittedAt ? (
-            <AppButton
-              title="Заполнить анкету"
-              size="sm"
-              variant="secondary"
-              onPress={() => router.push(`/pre-visit/${item.id}` as any)}
-            />
-          ) : null}
-          <AppButton title="Отменить" size="sm" variant="danger" onPress={() => handleCancel(item)} />
-        </View>
-      ) : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.lg }}>
+        <AppButton
+          title="Подробнее"
+          size="sm"
+          variant="secondary"
+          onPress={() => router.push(`/appointment/${item.id}` as any)}
+        />
+        {item.status !== 'cancelled' && item.status !== 'completed' && new Date(item.scheduledAt) >= new Date() ? (
+          <>
+            {!item.preVisit?.submittedAt ? (
+              <AppButton
+                title="Анкета"
+                size="sm"
+                variant="secondary"
+                onPress={() => router.push(`/pre-visit/${item.id}` as any)}
+              />
+            ) : null}
+            <AppButton title="Отменить" size="sm" variant="danger" onPress={() => handleCancel(item)} />
+          </>
+        ) : null}
+      </View>
     </AppCard>
   );
 

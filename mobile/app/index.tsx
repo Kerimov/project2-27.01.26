@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { API_BASE_URL } from '../api/client';
+import type { UserRole } from '../api/auth';
 import { useAuthStore } from '../state/authStore';
+
+function homeForRole(role?: UserRole): string {
+  if (role === 'DOCTOR') return '/doctor';
+  return '/(tabs)';
+}
 import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
@@ -24,13 +30,25 @@ export default function LoginScreen() {
   useEffect(() => {
     // Автовосстановление сессии
     bootstrap().then((ok) => {
-      if (ok) router.replace('/(tabs)');
+      if (!ok) return;
+      const role = useAuthStore.getState().user?.role;
+      if (role === 'ADMIN') {
+        Alert.alert('Админ-панель', 'Управление доступно в веб-версии (http://localhost:3000/admin).');
+        return;
+      }
+      router.replace(homeForRole(role) as any);
     });
   }, [bootstrap, router]);
 
   const onSubmit = async () => {
     const ok = await login(email.trim(), password);
-    if (ok) router.replace('/(tabs)');
+    if (!ok) return;
+    const role = useAuthStore.getState().user?.role;
+    if (role === 'ADMIN') {
+      Alert.alert('Админ-панель', 'Управление доступно в веб-версии (http://localhost:3000/admin).');
+      return;
+    }
+    router.replace(homeForRole(role) as any);
   };
 
   if (isBootstrapping) {
@@ -78,6 +96,12 @@ export default function LoginScreen() {
           ) : null}
 
           <AppButton title="Войти" loading={isLoading} onPress={onSubmit} fullWidth />
+          <AppButton
+            title="Регистрация"
+            variant="ghost"
+            onPress={() => router.push('/register' as any)}
+            fullWidth
+          />
         </View>
       </AppCard>
     </AppScreen>

@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { getDiaryEntries, deleteDiaryEntry, type DiaryEntry } from '../../api/diary';
+import { diaryWeeklyReview, diaryIndicatorLink } from '../../api/ai-diary';
 import { setAuthToken } from '../../api/client';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
@@ -17,6 +18,8 @@ import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppFAB } from '@/components/ui/AppFAB';
+import { PatientSwitcher } from '../../components/PatientSwitcher';
+import { useCaretakerStore } from '../../state/caretakerStore';
 import { AppScreen } from '@/components/ui/AppScreen';
 
 export default function DiaryScreen() {
@@ -26,9 +29,11 @@ export default function DiaryScreen() {
   const pad = useContentPadding();
   const { maxWidth } = useMaxContentWidth();
 
+  const { selectedPatientId } = useCaretakerStore();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -42,14 +47,17 @@ export default function DiaryScreen() {
       setLoading(true);
       setError(null);
       setAuthToken(token);
-      const data = await getDiaryEntries({ order: 'desc' });
+      const data = await getDiaryEntries({
+        order: 'desc',
+        patientId: selectedPatientId || undefined,
+      });
       setEntries(data);
     } catch (e: any) {
       setError(e?.message || 'Не удалось загрузить записи дневника');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, selectedPatientId]);
 
   useEffect(() => {
     loadEntries();
@@ -182,8 +190,50 @@ export default function DiaryScreen() {
     );
   }
 
+  const runWeeklyReview = async () => {
+    try {
+      setAiBusy(true);
+      const res = await diaryWeeklyReview({ patientId: selectedPatientId || undefined });
+      const text = res.review || res.summary || res.text || 'Нет данных';
+      Alert.alert('Обзор недели', text);
+    } catch (e: any) {
+      Alert.alert('Ошибка', e?.message || 'Не удалось получить обзор');
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const runIndicatorLink = () => {
+    Alert.prompt('Связь с показателями', 'Название показателя (например, сон)', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Анализ',
+        onPress: async (name?: string) => {
+          if (!name?.trim()) return;
+          try {
+            setAiBusy(true);
+            const res = await diaryIndicatorLink({
+              indicatorName: name.trim(),
+              patientId: selectedPatientId || undefined,
+            });
+            Alert.alert('Связь с анализами', res.summary || res.text || JSON.stringify(res.links || res));
+          } catch (e: any) {
+            Alert.alert('Ошибка', e?.message || 'Не удалось');
+          } finally {
+            setAiBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
+      <PatientSwitcher />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: theme.spacing.sm }}>
+        <AppButton title="AI: обзор недели" size="sm" variant="secondary" loading={aiBusy} onPress={runWeeklyReview} />
+        <AppButton title="AI: связь показателей" size="sm" variant="secondary" disabled={aiBusy} onPress={runIndicatorLink} />
+      </View>
       <FlatList
         data={entries}
         keyExtractor={(item) => item.id}

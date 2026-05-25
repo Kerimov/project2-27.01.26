@@ -67,8 +67,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Получаем токен из cookies
-    const token = request.cookies.get('token')?.value
+    const token = getToken(request)
     if (!token) {
       return NextResponse.json({ error: 'Токен не найден' }, { status: 401 })
     }

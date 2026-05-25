@@ -260,7 +260,7 @@ export default function DiaryPage() {
                 <div className="whitespace-pre-wrap">{weekly.tldr}</div>
                 {weeklyUsedLLM !== null && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    Режим: {weeklyUsedLLM ? 'с OpenAI' : 'без OpenAI (правила)'}
+                    Режим: {weeklyUsedLLM ? 'с Ollama' : 'без Ollama (правила)'}
                   </div>
                 )}
               </div>
@@ -383,7 +383,7 @@ export default function DiaryPage() {
                 <div className="whitespace-pre-wrap">{indicatorResult.tldr}</div>
                 {indicatorUsedLLM !== null && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    Режим: {indicatorUsedLLM ? 'с OpenAI' : 'без OpenAI (правила)'}
+                    Режим: {indicatorUsedLLM ? 'с Ollama' : 'без Ollama (правила)'}
                   </div>
                 )}
               </div>

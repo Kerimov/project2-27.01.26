@@ -44,9 +44,44 @@ export async function getAnalyses(documentId?: string): Promise<AnalysisSummary[
   }));
 }
 
+function normalizeResultsField(results: unknown): AnalysisDetail['results'] {
+  if (typeof results === 'string') {
+    try {
+      return JSON.parse(results) as AnalysisDetail['results'];
+    } catch {
+      return [] as AnalysisResultItem[];
+    }
+  }
+  return results as AnalysisDetail['results'];
+}
+
 export async function getAnalysis(id: string): Promise<AnalysisDetail> {
   const data = await apiJson<DetailResponse>(`/api/analyses/${id}`);
-  // results уже JSON.parse на бэке
+  return {
+    ...data.analysis,
+    results: normalizeResultsField(data.analysis.results),
+  };
+}
+
+export async function createAnalysis(payload: {
+  title: string;
+  type: string;
+  date: string;
+  results: Record<string, { value: string | number; unit?: string; normal?: boolean }>;
+  laboratory?: string;
+  doctor?: string;
+  normalRange?: string;
+  status?: string;
+  notes?: string;
+}): Promise<AnalysisDetail> {
+  const data = await apiJson<{ analysis: AnalysisDetail }>('/api/analyses', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
   return data.analysis;
+}
+
+export async function deleteAnalysis(id: string): Promise<void> {
+  await apiJson(`/api/analyses/${id}`, { method: 'DELETE' });
 }
 

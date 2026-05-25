@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json({
       available: false,
       provider: 'regex',
-      message: 'Используется базовый regex-парсер. Для универсального распознавания добавьте API ключ в .env.local'
+      message: 'Используется базовый regex-парсер. Запустите Ollama (ollama serve) и модель (ollama pull llama3.2)'
     })
   }
   
