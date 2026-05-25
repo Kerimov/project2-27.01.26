@@ -140,7 +140,7 @@ export default function PatientComparePage() {
   useEffect(()=>{ if (!active && indicatorList.length) setActive(indicatorList[0]) },[indicatorList])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>

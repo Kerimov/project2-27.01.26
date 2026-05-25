@@ -104,10 +104,10 @@ export default function DoctorPatients() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     )
@@ -118,7 +118,7 @@ export default function DoctorPatients() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -127,7 +127,7 @@ export default function DoctorPatients() {
               <h1 className="text-4xl font-bold text-gradient-brand">
                 Управление пациентами
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Всего пациентов: {patients.length}
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function DoctorPatients() {
           <CardContent className="pt-6">
             <div className="flex items-center space-x-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Поиск по имени, email или диагнозу..."
                   value={searchTerm}
@@ -185,13 +185,13 @@ export default function DoctorPatients() {
               <CardContent>
                 <div className="space-y-3">
                   {patient.phone && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Phone className="w-4 h-4" />
                       <span>{patient.phone}</span>
                     </div>
                   )}
                   
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Stethoscope className="w-4 h-4" />
                     <Badge className={getRecordTypeColor(patient.recordType)}>
                       {patient.recordType}
@@ -199,7 +199,7 @@ export default function DoctorPatients() {
                   </div>
 
                   {patient.appointmentCount && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4" />
                       <span>Записей: {patient.appointmentCount}</span>
                     </div>
@@ -208,19 +208,19 @@ export default function DoctorPatients() {
                   {patient.diagnosis && (
                     <div className="text-sm">
                       <span className="font-medium text-gray-700">Диагноз:</span>
-                      <p className="text-gray-600 mt-1">{patient.diagnosis}</p>
+                      <p className="text-muted-foreground mt-1">{patient.diagnosis}</p>
                     </div>
                   )}
 
                   {patient.nextVisit && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4" />
                       <span>Следующий визит: {new Date(patient.nextVisit).toLocaleDateString('ru-RU')}</span>
                     </div>
                   )}
 
                   <div className="flex items-center justify-between pt-3 border-t">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       Обновлено: {new Date(patient.updatedAt).toLocaleDateString('ru-RU')}
                     </span>
                     <div className="flex space-x-2">
@@ -246,10 +246,10 @@ export default function DoctorPatients() {
           <Card className="glass-effect border-0 shadow-medical">
             <CardContent className="text-center py-12">
               <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+              <h3 className="text-lg font-semibold text-muted-foreground mb-2">
                 {searchTerm ? 'Пациенты не найдены' : 'Пока нет пациентов'}
               </h3>
-              <p className="text-gray-500 mb-4">
+              <p className="text-muted-foreground mb-4">
                 {searchTerm 
                   ? 'Попробуйте изменить поисковый запрос'
                   : 'Добавьте первого пациента, чтобы начать работу'

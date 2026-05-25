@@ -71,7 +71,7 @@ export default function DoctorDocumentViewPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8 space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>

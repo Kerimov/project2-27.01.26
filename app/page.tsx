@@ -1,17 +1,16 @@
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Footer } from '@/components/Footer'
-import { 
-  Activity, 
-  Bell, 
-  Calendar, 
-  FileText, 
-  Heart, 
-  Shield, 
-  Smartphone,
+import {
+  Activity,
+  Bell,
+  Calendar,
+  CheckCircle2,
+  FileText,
+  HeartPulse,
+  Shield,
+  Sparkles,
   TrendingUp,
-  Users,
-  Zap
+  UploadCloud,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
@@ -31,211 +30,179 @@ export default function Home() {
       }
     }
   } catch {}
+
+  const features = [
+    {
+      icon: UploadCloud,
+      title: 'Документы и OCR',
+      text: 'Загружайте PDF и фото анализов, а система извлечёт показатели и сохранит историю.',
+    },
+    {
+      icon: Sparkles,
+      title: 'AI-разбор',
+      text: 'Понятные пояснения к отклонениям, динамике и дальнейшим шагам без медицинского жаргона.',
+    },
+    {
+      icon: Bell,
+      title: 'Напоминания',
+      text: 'Лекарства, повторные анализы и задачи ухода собраны в одном календаре.',
+    },
+    {
+      icon: Calendar,
+      title: 'Записи к врачам',
+      text: 'Планируйте визиты, храните историю приёмов и готовьте анкету перед консультацией.',
+    },
+    {
+      icon: TrendingUp,
+      title: 'Динамика показателей',
+      text: 'Смотрите изменения лабораторных значений во времени и оценивайте тренды.',
+    },
+    {
+      icon: Shield,
+      title: 'Личный медицинский контур',
+      text: 'Профиль, аллергии, цели и хронические состояния помогают персонализировать рекомендации.',
+    },
+  ]
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="web-page flex flex-col">
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="container py-20 md:py-32">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                ПМА — Ваше здоровье — наш приоритет
+        <section className="web-container">
+          <div className="web-hero grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="relative z-10 space-y-7">
+              <div className="web-kicker">
+                <Sparkles className="h-4 w-4" />
+                AI-помощник для личного здоровья
               </div>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-                Персональный Медицинский Ассистент
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground font-semibold">
-                ПМА — всё для заботы о вашем здоровье
-              </p>
-              <p className="text-xl text-muted-foreground">
-                Управляйте своим здоровьем легко и эффективно. Напоминания о лекарствах, запись к врачам, 
-                история анализов — всё в одном месте.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="space-y-4">
+                <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-6xl">
+                  Персональный медицинский ассистент
+                </h1>
+                <p className="max-w-2xl text-lg leading-8 text-muted-foreground md:text-xl">
+                  Светлый, спокойный интерфейс для документов, анализов, записей, напоминаний и понятных AI-рекомендаций.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <Link href="/register">
-                  <Button size="lg" className="text-lg">
+                  <Button size="lg" className="w-full sm:w-auto">
                     Начать бесплатно
                   </Button>
                 </Link>
-                <Link href="#features">
-                  <Button size="lg" variant="outline" className="text-lg">
-                    Узнать больше
+                <Link href="/login">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    Войти в кабинет
                   </Button>
                 </Link>
               </div>
-              <div className="flex items-center gap-8 pt-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <span>Безопасно</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  <span>10K+ пользователей</span>
-                </div>
+              <div className="grid gap-3 pt-2 text-sm text-muted-foreground sm:grid-cols-3">
+                {['Анализы', 'Документы', 'План ухода'].map((item) => (
+                  <div key={item} className="flex items-center gap-2 rounded-full bg-muted px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="relative">
-              <div className="aspect-square rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-12 flex items-center justify-center">
-                <Activity className="w-full h-full text-primary opacity-20" />
+
+            <div className="relative z-10">
+              <div className="web-card p-5">
+                <div className="rounded-3xl bg-muted p-5">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-muted-foreground">Сегодня</p>
+                      <p className="text-2xl font-extrabold">Состояние под контролем</p>
+                    </div>
+                    <div className="web-icon-bubble">
+                      <HeartPulse className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      ['Общий анализ крови', 'Норма', 'bg-green-100 text-green-800'],
+                      ['Приём терапевта', 'Завтра 12:30', 'bg-blue-100 text-blue-800'],
+                      ['Повторить ферритин', 'Через 2 недели', 'bg-purple-100 text-purple-800'],
+                    ].map(([title, status, cls]) => (
+                      <div key={title} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <Activity className="h-5 w-5 text-primary" />
+                          <span className="font-semibold">{title}</span>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${cls}`}>{status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="container py-20 bg-muted/30">
+        <section id="features" className="web-container pt-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Всё для вашего здоровья
+            <div className="web-kicker mx-auto mb-4">Возможности</div>
+            <h2 className="web-page-title">
+              Всё главное — в одном медицинском кабинете
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Современные инструменты для управления здоровьем в одном приложении
+            <p className="web-page-subtitle mx-auto">
+              Дизайн ориентирован на чтение: мягкие поверхности, крупные поля, понятные статусы и минимум визуального шума.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <Bell className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Напоминания о лекарствах</CardTitle>
-                <CardDescription>
-                  Никогда не забывайте принять лекарство вовремя с умными напоминаниями
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <Calendar className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Запись к врачам</CardTitle>
-                <CardDescription>
-                  Удобное планирование визитов и отслеживание предстоящих приемов
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <FileText className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>История анализов</CardTitle>
-                <CardDescription>
-                  Храните все медицинские документы и результаты анализов в одном месте
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <Heart className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Дневник здоровья</CardTitle>
-                <CardDescription>
-                  Отслеживайте симптомы, самочувствие и показатели здоровья ежедневно
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <TrendingUp className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Аналитика и графики</CardTitle>
-                <CardDescription>
-                  Визуализация данных о здоровье помогает лучше понять динамику
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border border-border hover:border-primary/40 transition-colors shadow-sm">
-              <CardHeader>
-                <Smartphone className="h-12 w-12 text-primary mb-4" />
-                <CardTitle>Мобильное приложение</CardTitle>
-                <CardDescription>
-                  Доступ к вашим данным в любое время с любого устройства
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            {features.map((feature) => {
+              const Icon = feature.icon
+              return (
+                <div key={feature.title} className="web-card web-card-hover p-6">
+                  <div className="web-icon-bubble mb-5">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="mb-2 text-xl font-extrabold">{feature.title}</h3>
+                  <p className="leading-7 text-muted-foreground">{feature.text}</p>
+                </div>
+              )
+            })}
           </div>
         </section>
 
-        {/* Why Choose Us */}
-        <section className="container py-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <h2 className="text-3xl md:text-5xl font-bold">
-                Почему выбирают нас?
-              </h2>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Shield className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2">Безопасность данных</h3>
-                    <p className="text-muted-foreground">
-                      Все данные шифруются и хранятся в соответствии с международными стандартами
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Zap className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2">Быстро и просто</h3>
-                    <p className="text-muted-foreground">
-                      Интуитивный интерфейс делает управление здоровьем максимально комфортным
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2">Поддержка 24/7</h3>
-                    <p className="text-muted-foreground">
-                      Наша команда всегда готова помочь вам с любыми вопросами
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <section className="web-container pt-4">
+          <div className="web-card grid gap-8 p-6 md:p-8 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <div className="web-kicker mb-4">Как работает</div>
+              <h2 className="text-3xl font-extrabold tracking-tight">От загрузки документа до плана действий</h2>
             </div>
-
-            <div className="relative">
-              <div className="aspect-square rounded-2xl bg-gradient-to-tr from-primary/20 via-transparent to-primary/10 p-12">
-                <div className="w-full h-full rounded-xl border-2 border-primary/20 flex items-center justify-center">
-                  <Heart className="w-32 h-32 text-primary" />
+            <div className="grid gap-4 md:grid-cols-3 lg:col-span-2">
+              {[
+                ['01', 'Загрузите анализ', 'PDF, фото или ручной ввод показателей.'],
+                ['02', 'Получите объяснение', 'AI выделит отклонения и переведёт результат на простой язык.'],
+                ['03', 'Следите за планом', 'Создавайте задачи, напоминания и контрольные сроки.'],
+              ].map(([step, title, text]) => (
+                <div key={step} className="rounded-2xl bg-muted p-5">
+                  <div className="mb-4 text-sm font-extrabold text-primary">{step}</div>
+                  <h3 className="mb-2 font-extrabold">{title}</h3>
+                  <p className="text-sm leading-6 text-muted-foreground">{text}</p>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="container py-20 bg-primary text-primary-foreground rounded-3xl my-20">
-          <div className="text-center space-y-6 py-12">
+        <section className="web-container">
+          <div className="rounded-[2rem] bg-primary px-6 py-14 text-center text-primary-foreground shadow-medical-lg md:px-10">
             <h2 className="text-3xl md:text-5xl font-bold">
-              Начните заботиться о своем здоровье уже сегодня
+              Начните заботиться о здоровье без перегруженного интерфейса
             </h2>
             <p className="text-xl opacity-90 max-w-2xl mx-auto">
-              Присоединяйтесь к тысячам людей, которые доверяют нам свое здоровье
+              Веб-кабинет и мобильные приложения теперь оформлены в единой спокойной системе.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-7">
               <Link href="/register">
                 <Button size="lg" variant="secondary" className="text-lg">
                   Создать аккаунт
                 </Button>
               </Link>
-              <Link href="/contact">
+              <Link href="/login">
                 <Button size="lg" variant="outline" className="text-lg bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
-                  Связаться с нами
+                  Войти
                 </Button>
               </Link>
             </div>

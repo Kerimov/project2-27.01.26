@@ -152,9 +152,9 @@ export default function MedicationsPage() {
 
   if (isLoading || loading) {
     return (
-      <div className="container mx-auto py-8 text-center">
+      <div className="web-container text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        <p className="mt-4 text-gray-600">Загрузка...</p>
+        <p className="mt-4 text-muted-foreground">Загрузка...</p>
       </div>
     )
   }
@@ -171,8 +171,8 @@ export default function MedicationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <div className="container mx-auto py-8 space-y-6">
+    <div className="web-page">
+      <div className="web-container space-y-6">
         <CaretakerPatientSwitcher selectedPatientId={patientId} onChange={setPatientAndPersist} />
         <div className="flex items-start justify-between gap-4">
           <div>

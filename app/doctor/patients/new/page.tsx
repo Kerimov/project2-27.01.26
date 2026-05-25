@@ -113,10 +113,10 @@ export default function NewPatient() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     )
@@ -127,7 +127,7 @@ export default function NewPatient() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -142,7 +142,7 @@ export default function NewPatient() {
               <h1 className="text-4xl font-bold text-gradient-brand">
                 Новый пациент
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Добавьте нового пациента в вашу базу
               </p>
             </div>
@@ -242,7 +242,7 @@ export default function NewPatient() {
                     placeholder="Введите лекарства по одному на строку"
                     rows={3}
                   />
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Введите каждое лекарство с новой строки
                   </p>
                 </div>

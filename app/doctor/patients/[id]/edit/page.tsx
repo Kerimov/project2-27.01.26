@@ -122,7 +122,7 @@ export default function DoctorPatientEditPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>

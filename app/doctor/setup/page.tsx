@@ -109,10 +109,10 @@ export default function DoctorSetup() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     )
@@ -123,7 +123,7 @@ export default function DoctorSetup() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -138,7 +138,7 @@ export default function DoctorSetup() {
               <h1 className="text-4xl font-bold text-gradient-brand">
                 Настройка профиля врача
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Заполните информацию для создания профиля врача
               </p>
             </div>
@@ -326,7 +326,7 @@ export default function DoctorSetup() {
                           onChange={(e) => handleWorkingHoursChange(day, 'start', e.target.value)}
                           className="w-32"
                         />
-                        <span className="text-gray-500">-</span>
+                        <span className="text-muted-foreground">-</span>
                         <Input
                           type="time"
                           value={hours.end}

@@ -124,8 +124,8 @@ export default function PreVisitPage({ params }: { params: { id: string } }) {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <div className="container mx-auto py-8 space-y-6">
+    <div className="web-page">
+      <div className="web-container space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Анкета перед визитом</h1>

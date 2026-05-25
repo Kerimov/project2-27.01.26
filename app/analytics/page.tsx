@@ -73,7 +73,7 @@ function ChartCard({ title, points, suffix = '', dual, pointsA, pointsB }: any) 
           <path d={path} stroke="#2563eb" fill="none" strokeWidth={2} />
           {pathB && <path d={pathB} stroke="#16a34a" fill="none" strokeWidth={2} />}
         </svg>
-        {suffix && <div className="text-xs text-gray-500">Единицы: {suffix}</div>}
+        {suffix && <div className="text-xs text-muted-foreground">Единицы: {suffix}</div>}
       </CardContent>
     </Card>
   )

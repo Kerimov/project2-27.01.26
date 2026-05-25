@@ -269,8 +269,8 @@ export default function MyAppointmentsPage() {
   const pastAppointments = appointments.filter(app => !isUpcoming(app.scheduledAt))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <main className="container py-8">
+    <div className="web-page">
+      <main className="web-container">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-6">
@@ -444,7 +444,7 @@ export default function MyAppointmentsPage() {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-gray-100 rounded-lg">
-                          <Stethoscope className="h-5 w-5 text-gray-600" />
+                          <Stethoscope className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div>
                           <h3 className="font-semibold text-lg">{appointment.doctor.user.name}</h3>
@@ -569,8 +569,8 @@ export default function MyAppointmentsPage() {
                           isSelected
                             ? 'bg-blue-500 text-white border-blue-500'
                             : isOccupied
-                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            ? 'bg-gray-100 text-muted-foreground border-gray-200 cursor-not-allowed'
+                            : 'bg-white text-gray-700 border-border hover:bg-muted/60'
                         }`}
                       >
                         {time}

@@ -219,10 +219,10 @@ export default function KnowledgeBasePage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     );
@@ -242,7 +242,7 @@ export default function KnowledgeBasePage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="web-page">
       <main className="container mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -250,21 +250,21 @@ export default function KnowledgeBasePage() {
               <BookOpen className="w-8 h-8" />
               База знаний
             </h1>
-            <p className="text-gray-600 mt-2">Управление медицинскими справочниками и нормативами</p>
+            <p className="text-muted-foreground mt-2">Управление медицинскими справочниками и нормативами</p>
           </div>
         </div>
 
         {/* Табы */}
         <div className="flex gap-4 border-b">
           <button
-            className={`px-4 py-2 font-medium ${activeTab === 'study-types' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'study-types' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-muted-foreground'}`}
             onClick={() => setActiveTab('study-types')}
           >
             <Stethoscope className="w-4 h-4 inline mr-2" />
             Типы исследований
           </button>
           <button
-            className={`px-4 py-2 font-medium ${activeTab === 'methodologies' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'methodologies' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-muted-foreground'}`}
             onClick={() => setActiveTab('methodologies')}
           >
             <FileText className="w-4 h-4 inline mr-2" />
@@ -275,7 +275,7 @@ export default function KnowledgeBasePage() {
         {/* Поиск и добавление */}
         <div className="flex gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input
               type="text"
               placeholder="Поиск..."
@@ -449,7 +449,7 @@ export default function KnowledgeBasePage() {
               <p>Загрузка...</p>
             ) : filteredStudyTypes.length === 0 ? (
               <Card>
-                <CardContent className="text-center py-8 text-gray-500">
+                <CardContent className="text-center py-8 text-muted-foreground">
                   Типы исследований не найдены. Создайте первый!
                 </CardContent>
               </Card>
@@ -484,7 +484,7 @@ export default function KnowledgeBasePage() {
                   </CardHeader>
                   {studyType.description && (
                     <CardContent>
-                      <p className="text-sm text-gray-600">{studyType.description}</p>
+                      <p className="text-sm text-muted-foreground">{studyType.description}</p>
                     </CardContent>
                   )}
                 </Card>
@@ -499,7 +499,7 @@ export default function KnowledgeBasePage() {
               <p>Загрузка...</p>
             ) : filteredMethodologies.length === 0 ? (
               <Card>
-                <CardContent className="text-center py-8 text-gray-500">
+                <CardContent className="text-center py-8 text-muted-foreground">
                   Методологии не найдены. Создайте первую!
                 </CardContent>
               </Card>

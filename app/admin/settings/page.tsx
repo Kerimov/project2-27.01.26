@@ -114,8 +114,8 @@ export default function AdminSettingsPage() {
   if (!user || !isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <main className="container py-8 max-w-2xl">
+    <div className="web-page">
+      <main className="web-container max-w-2xl">
         <Link
           href="/admin"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-6"

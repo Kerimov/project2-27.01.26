@@ -160,8 +160,8 @@ export default function AdminRemindersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <main className="container py-8">
+    <div className="web-page">
+      <main className="web-container">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-6">

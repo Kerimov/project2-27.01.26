@@ -224,7 +224,7 @@ export default function DiaryPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
+    <div className="web-page">
       <div className="container mx-auto p-6 space-y-6">
         <CaretakerPatientSwitcher selectedPatientId={patientId} onChange={setPatientAndPersist} />
         <div className="flex items-center justify-between">
@@ -597,7 +597,7 @@ export default function DiaryPage() {
               .map(e => (
               <div key={e.id} className="p-3 border rounded-lg flex flex-wrap items-center justify-between gap-2">
                 <div className="font-medium">{new Date(e.entryDate).toLocaleString()}</div>
-                <div className="text-sm text-gray-600 flex gap-4">
+                <div className="text-sm text-muted-foreground flex gap-4">
                   {e.mood != null && <span>Настроение: {e.mood}</span>}
                   {e.painScore != null && <span>Боль: {e.painScore}</span>}
                   {e.sleepHours != null && <span>Сон: {e.sleepHours}ч</span>}
@@ -621,7 +621,7 @@ export default function DiaryPage() {
               </div>
             ))}
             {!loading && entries.length === 0 && (
-              <div className="text-center text-gray-500">Записей пока нет</div>
+              <div className="text-center text-muted-foreground">Записей пока нет</div>
             )}
           </div>
         </CardContent>

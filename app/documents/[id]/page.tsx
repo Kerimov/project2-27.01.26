@@ -164,8 +164,8 @@ export default function DocumentViewPage() {
   const topIndicatorIssues = indicatorIssues.slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <main className="container py-8">
+    <div className="web-page">
+      <main className="web-container">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Health Summary */}
           {document.indicators && document.indicators.length > 0 && (

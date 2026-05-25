@@ -119,10 +119,10 @@ export default function CompanyDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка информации...</p>
+          <p className="mt-4 text-muted-foreground">Загрузка информации...</p>
         </div>
       </div>
     )
@@ -130,9 +130,9 @@ export default function CompanyDetailPage() {
 
   if (error || !company) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
-          <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">{error || 'Компания не найдена'}</h3>
           <Button onClick={() => router.back()} variant="outline">
             Вернуться назад
@@ -146,7 +146,7 @@ export default function CompanyDetailPage() {
   const IconComponent = typeInfo.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Кнопка назад */}
         <Button
@@ -204,7 +204,7 @@ export default function CompanyDetailPage() {
                     <div className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
                       <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Адрес</p>
+                        <p className="text-sm font-medium text-muted-foreground">Адрес</p>
                         <p className="text-sm">{company.address}{company.city && `, ${company.city}`}</p>
                       </div>
                     </div>
@@ -214,7 +214,7 @@ export default function CompanyDetailPage() {
                     <div className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
                       <Phone className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Телефон</p>
+                        <p className="text-sm font-medium text-muted-foreground">Телефон</p>
                         <a href={`tel:${company.phone}`} className="text-sm text-blue-600 hover:underline">
                           {company.phone}
                         </a>
@@ -226,7 +226,7 @@ export default function CompanyDetailPage() {
                     <div className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
                       <Mail className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Email</p>
+                        <p className="text-sm font-medium text-muted-foreground">Email</p>
                         <a href={`mailto:${company.email}`} className="text-sm text-blue-600 hover:underline">
                           {company.email}
                         </a>
@@ -238,7 +238,7 @@ export default function CompanyDetailPage() {
                     <div className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
                       <Globe className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Веб-сайт</p>
+                        <p className="text-sm font-medium text-muted-foreground">Веб-сайт</p>
                         <a 
                           href={company.website} 
                           target="_blank" 
@@ -357,7 +357,7 @@ export default function CompanyDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="bg-gray-200 rounded-lg h-48 flex items-center justify-center">
-                    <p className="text-gray-500">Карта: {company.coordinates.lat}, {company.coordinates.lng}</p>
+                    <p className="text-muted-foreground">Карта: {company.coordinates.lat}, {company.coordinates.lng}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2 text-center">
                     Интеграция с картами в разработке

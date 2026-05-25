@@ -158,10 +158,10 @@ export default function KnowledgeBasePage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     );
@@ -172,14 +172,14 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="web-page">
       <main className="container mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
             <BookOpen className="w-8 h-8 text-blue-600" />
             База знаний медицинских показателей
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-muted-foreground mt-2">
             Справочник видов исследований и нормативных диапазонов по различным методологиям
           </p>
         </div>
@@ -189,7 +189,7 @@ export default function KnowledgeBasePage() {
           <CardContent className="pt-6 space-y-4">
             <div className="flex gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                 <Input
                   type="text"
                   placeholder="Поиск по названию исследования или показателя..."
@@ -231,8 +231,8 @@ export default function KnowledgeBasePage() {
           </Card>
         ) : filteredStudyTypes.length === 0 ? (
           <Card>
-            <CardContent className="text-center py-8 text-gray-500">
-              <Info className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <CardContent className="text-center py-8 text-muted-foreground">
+              <Info className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <p>Исследования не найдены</p>
               <p className="text-sm mt-2">Попробуйте изменить параметры поиска</p>
             </CardContent>
@@ -249,18 +249,18 @@ export default function KnowledgeBasePage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         {expandedStudyType === studyType.id ? (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
                         )}
                         <CardTitle>{studyType.name}</CardTitle>
                       </div>
                 <div className="ml-7 mt-1 flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{studyType.category}</Badge>
                   {studyType.biomaterial && (
-                    <span className="text-xs text-gray-600">• Биоматериал: {studyType.biomaterial}</span>
+                    <span className="text-xs text-muted-foreground">• Биоматериал: {studyType.biomaterial}</span>
                   )}
-                  <span className="text-xs text-gray-600">• Показателей: {studyType.indicators.length}</span>
+                  <span className="text-xs text-muted-foreground">• Показателей: {studyType.indicators.length}</span>
                 </div>
                     </div>
                   </div>
@@ -271,21 +271,21 @@ export default function KnowledgeBasePage() {
                     {studyType.description && (
                       <div>
                         <h4 className="font-semibold text-sm text-gray-700 mb-1">Описание:</h4>
-                        <p className="text-sm text-gray-600">{studyType.description}</p>
+                        <p className="text-sm text-muted-foreground">{studyType.description}</p>
                       </div>
                     )}
 
                     {studyType.clinicalSignificance && (
                       <div>
                         <h4 className="font-semibold text-sm text-gray-700 mb-1">Клиническое значение:</h4>
-                        <p className="text-sm text-gray-600">{studyType.clinicalSignificance}</p>
+                        <p className="text-sm text-muted-foreground">{studyType.clinicalSignificance}</p>
                       </div>
                     )}
 
                     {studyType.preparation && (
                       <div>
                         <h4 className="font-semibold text-sm text-gray-700 mb-1">Подготовка к исследованию:</h4>
-                        <p className="text-sm text-gray-600">{studyType.preparation}</p>
+                        <p className="text-sm text-muted-foreground">{studyType.preparation}</p>
                       </div>
                     )}
 
@@ -302,16 +302,16 @@ export default function KnowledgeBasePage() {
                               <div>
                                 <div className="flex items-center gap-2">
                                   {expandedIndicator === indicator.id ? (
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
                                   ) : (
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                                   )}
                                   <span className="font-medium">{indicator.name}</span>
                                   {indicator.shortName && (
                                     <Badge variant="outline" className="text-xs">{indicator.shortName}</Badge>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-500 ml-6">Единица измерения: {indicator.unit}</p>
+                                <p className="text-sm text-muted-foreground ml-6">Единица измерения: {indicator.unit}</p>
                               </div>
                             </div>
 
@@ -320,28 +320,28 @@ export default function KnowledgeBasePage() {
                                 {indicator.description && (
                                   <div>
                                     <p className="text-sm font-medium text-gray-700">Описание:</p>
-                                    <p className="text-sm text-gray-600 mt-1">{indicator.description}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
                                   </div>
                                 )}
 
                                 {indicator.clinicalSignificance && (
                                   <div>
                                     <p className="text-sm font-medium text-gray-700">Клиническое значение:</p>
-                                    <p className="text-sm text-gray-600 mt-1">{indicator.clinicalSignificance}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{indicator.clinicalSignificance}</p>
                                   </div>
                                 )}
 
                                 {indicator.increasedMeaning && (
                                   <div>
                                     <p className="text-sm font-medium text-gray-700">Повышение показателя:</p>
-                                    <p className="text-sm text-gray-600 mt-1">{indicator.increasedMeaning}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{indicator.increasedMeaning}</p>
                                   </div>
                                 )}
 
                                 {indicator.decreasedMeaning && (
                                   <div>
                                     <p className="text-sm font-medium text-gray-700">Понижение показателя:</p>
-                                    <p className="text-sm text-gray-600 mt-1">{indicator.decreasedMeaning}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{indicator.decreasedMeaning}</p>
                                   </div>
                                 )}
 
@@ -386,7 +386,7 @@ export default function KnowledgeBasePage() {
                                               <Badge variant="secondary" className="mb-2">
                                                 {getMethodologyTypeName(range.methodology.type)}
                                               </Badge>
-                                              <p className="text-xs text-gray-600">
+                                              <p className="text-xs text-muted-foreground">
                                                 {range.methodology.name}
                                                 {range.methodology.organization && ` (${range.methodology.organization})`}
                                               </p>
@@ -394,16 +394,16 @@ export default function KnowledgeBasePage() {
                                           </div>
                                           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                                             <div>
-                                              <span className="text-gray-600">Пол: </span>
+                                              <span className="text-muted-foreground">Пол: </span>
                                               <span className="font-medium">{getGenderName(range.gender)}</span>
                                             </div>
                                             <div>
-                                              <span className="text-gray-600">Возраст: </span>
+                                              <span className="text-muted-foreground">Возраст: </span>
                                               <span className="font-medium">{getAgeGroup(range.ageGroupMin, range.ageGroupMax)}</span>
                                             </div>
                                             {range.minValue !== null && range.maxValue !== null && (
                                               <div className="col-span-2">
-                                                <span className="text-gray-600">Норма: </span>
+                                                <span className="text-muted-foreground">Норма: </span>
                                                 <span className="font-medium text-green-600">
                                                   {range.minValue} - {range.maxValue} {indicator.unit}
                                                 </span>
@@ -411,7 +411,7 @@ export default function KnowledgeBasePage() {
                                             )}
                                             {range.optimalMin !== null && range.optimalMax !== null && (
                                               <div className="col-span-2">
-                                                <span className="text-gray-600">Оптимально: </span>
+                                                <span className="text-muted-foreground">Оптимально: </span>
                                                 <span className="font-medium text-blue-600">
                                                   {range.optimalMin} - {range.optimalMax} {indicator.unit}
                                                 </span>
@@ -419,19 +419,19 @@ export default function KnowledgeBasePage() {
                                             )}
                                             {range.criticalLow !== null && (
                                               <div>
-                                                <span className="text-gray-600">Критически низкий: </span>
+                                                <span className="text-muted-foreground">Критически низкий: </span>
                                                 <span className="font-medium text-red-600">{'<'} {range.criticalLow}</span>
                                               </div>
                                             )}
                                             {range.criticalHigh !== null && (
                                               <div>
-                                                <span className="text-gray-600">Критически высокий: </span>
+                                                <span className="text-muted-foreground">Критически высокий: </span>
                                                 <span className="font-medium text-red-600">{'>'} {range.criticalHigh}</span>
                                               </div>
                                             )}
                                           </div>
                                           {range.note && (
-                                            <p className="mt-2 text-xs text-gray-500 italic">{range.note}</p>
+                                            <p className="mt-2 text-xs text-muted-foreground italic">{range.note}</p>
                                           )}
                                         </div>
                                       ))}

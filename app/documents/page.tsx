@@ -46,7 +46,7 @@ export default function DocumentsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set())
-  const pollTimersRef = useRef<Record<string, NodeJS.Timeout>>({})
+  const pollTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [dragActive, setDragActive] = useState(false)
@@ -236,8 +236,8 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <main className="container py-8">
+    <div className="web-page">
+      <main className="web-container">
         {/* Top toolbar (inside page, to avoid duplicate global header) */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -252,15 +252,33 @@ export default function DocumentsPage() {
           </div>
         </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Мои документы</h1>
-          <p className="text-muted-foreground">
-            Храните все медицинские документы в одном месте
-          </p>
+        <div className="web-hero mb-8">
+          <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="web-kicker mb-4">
+                <FileText className="h-4 w-4" />
+                Медицинский архив
+              </div>
+              <h1 className="web-page-title">Мои документы</h1>
+              <p className="web-page-subtitle">
+                Загружайте PDF, фото и файлы исследований. После распознавания документы связываются с анализами и AI-разбором.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="web-stat-card min-w-32 p-4">
+                <p className="text-muted-foreground">Всего</p>
+                <p className="text-2xl font-extrabold">{documents.length}</p>
+              </div>
+              <div className="web-stat-card min-w-32 p-4">
+                <p className="text-muted-foreground">Распознано</p>
+                <p className="text-2xl font-extrabold">{documents.filter((d) => d.parsed).length}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Upload Area */}
-        <Card className="mb-8">
+        <Card className="web-card mb-8">
           <CardHeader>
             <CardTitle>Загрузить документы</CardTitle>
             <CardDescription>
@@ -269,10 +287,10 @@ export default function DocumentsPage() {
           </CardHeader>
           <CardContent>
             <div
-              className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+              className={`rounded-3xl border-2 border-dashed p-12 text-center transition-colors ${
                 dragActive
                   ? 'border-primary bg-primary/5'
-                  : 'border-muted-foreground/25 hover:border-primary/50'
+                  : 'border-primary/20 bg-muted/40 hover:border-primary/50'
               }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -286,7 +304,9 @@ export default function DocumentsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Upload className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <div className="web-icon-bubble mx-auto h-14 w-14">
+                    <Upload className="h-7 w-7" />
+                  </div>
                   <div>
                     <p className="text-lg font-medium mb-2">
                       Перетащите файлы сюда или
@@ -316,7 +336,7 @@ export default function DocumentsPage() {
         </Card>
 
         {/* Filters and Search */}
-        <Card className="mb-6">
+        <Card className="web-card mb-6">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -359,9 +379,11 @@ export default function DocumentsPage() {
 
         {/* Documents List */}
         {filteredDocuments.length === 0 ? (
-          <Card>
+          <Card className="web-card">
             <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <div className="web-icon-bubble mx-auto mb-4 h-14 w-14">
+                <FileText className="h-7 w-7" />
+              </div>
               <p className="text-lg font-medium mb-2">Нет документов</p>
               <p className="text-muted-foreground">
                 Загрузите первый документ для начала работы
@@ -371,11 +393,13 @@ export default function DocumentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDocuments.map((doc) => (
-              <Card key={doc.id} className="hover:border-primary transition-colors">
-                <CardContent className="pt-6">
+              <Card key={doc.id} className="web-card web-card-hover">
+                <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      {getFileIcon(doc.fileType)}
+                      <div className="web-icon-bubble h-11 w-11 rounded-xl">
+                        {getFileIcon(doc.fileType)}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium truncate">{doc.fileName}</h3>
                         <p className="text-xs text-muted-foreground">

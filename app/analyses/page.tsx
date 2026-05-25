@@ -420,10 +420,10 @@ export default function AnalysesPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Необходима авторизация</h1>
-          <p className="text-gray-600 mb-4">Для просмотра анализов необходимо войти в систему</p>
+          <p className="text-muted-foreground mb-4">Для просмотра анализов необходимо войти в систему</p>
           <Link href="/login">
             <Button>Войти</Button>
           </Link>
@@ -434,10 +434,10 @@ export default function AnalysesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка анализов...</p>
+          <p className="mt-4 text-muted-foreground">Загрузка анализов...</p>
         </div>
       </div>
     )
@@ -445,10 +445,10 @@ export default function AnalysesPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4 text-red-600">Ошибка</h1>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-muted-foreground mb-4">{error}</p>
           <Button onClick={fetchAnalyses}>Попробовать снова</Button>
         </div>
       </div>
@@ -456,11 +456,16 @@ export default function AnalysesPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="web-container">
+      <div className="web-hero mb-8">
+        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Мои анализы</h1>
-          <p className="text-gray-600 mt-2">Просмотр и управление результатами анализов по категориям</p>
+          <div className="web-kicker mb-4">
+            <TrendingUp className="h-4 w-4" />
+            Лабораторные показатели
+          </div>
+          <h1 className="web-page-title">Мои анализы</h1>
+          <p className="web-page-subtitle">Просмотр, динамика и AI-интерпретация результатов по категориям.</p>
         </div>
             <Link href="/documents">
               <Button className="flex items-center gap-2">
@@ -468,11 +473,12 @@ export default function AnalysesPage() {
                 Добавить анализ
               </Button>
             </Link>
+        </div>
       </div>
 
       {/* Динамика показателей + AI */}
       {indicatorNames.length > 0 && (
-        <Card className="mb-8">
+        <Card className="web-card mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -487,7 +493,7 @@ export default function AnalysesPage() {
                 <select
                   value={selectedIndicator}
                   onChange={(e) => setSelectedIndicator(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full"
                 >
                   {indicatorNames.map((name) => (
                     <option key={name} value={name}>
@@ -520,7 +526,7 @@ export default function AnalysesPage() {
             </div>
 
             <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="lg:col-span-1">
+              <Card className="web-card lg:col-span-1">
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div>
@@ -538,12 +544,12 @@ export default function AnalysesPage() {
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-2">
+              <Card className="web-card lg:col-span-2">
                 <CardContent className="pt-6">
                   <div className="text-sm font-medium mb-2">История значений</div>
-                  <div className="max-h-56 overflow-auto border rounded-md">
+                  <div className="max-h-56 overflow-auto rounded-2xl border border-border">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-muted">
                         <tr>
                           <th className="text-left px-3 py-2">Дата</th>
                           <th className="text-left px-3 py-2">Значение</th>
@@ -570,7 +576,7 @@ export default function AnalysesPage() {
             {(aiTrend || aiTrendRaw || aiPlanText) && (
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {(aiTrend || aiTrendRaw) && (
-                  <Card>
+                  <Card className="web-card">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         ИИ‑интерпретация динамики
@@ -635,7 +641,7 @@ export default function AnalysesPage() {
                   </Card>
                 )}
                 {aiPlanText && (
-                  <Card>
+                  <Card className="web-card">
                     <CardHeader>
                       <CardTitle className="text-base">План действий → Напоминания</CardTitle>
                       <CardDescription>
@@ -661,7 +667,7 @@ export default function AnalysesPage() {
       <div className="mb-8 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Поиск по названию, типу или лаборатории..."
               value={searchTerm}
@@ -670,11 +676,11 @@ export default function AnalysesPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-400" />
+            <Filter className="h-4 w-4 text-muted-foreground" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="min-w-44"
             >
               <option value="all">Все статусы</option>
               <option value="normal">Норма</option>
@@ -686,22 +692,26 @@ export default function AnalysesPage() {
       </div>
 
       {analyses.length === 0 ? (
-            <Card>
+            <Card className="web-card">
               <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <div className="web-icon-bubble mx-auto mb-4 h-14 w-14">
+                  <FileText className="h-7 w-7" />
+                </div>
                 <h3 className="text-lg font-semibold mb-2">Анализы не найдены</h3>
-                <p className="text-gray-600 mb-4">Загрузите документ с анализом для автоматического распознавания</p>
+                <p className="text-muted-foreground mb-4">Загрузите документ с анализом для автоматического распознавания</p>
                 <Link href="/documents">
                   <Button>Загрузить документ</Button>
                 </Link>
               </CardContent>
             </Card>
       ) : categorizedAnalyses.length === 0 ? (
-        <Card>
+        <Card className="web-card">
           <CardContent className="text-center py-12">
-            <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <div className="web-icon-bubble mx-auto mb-4 h-14 w-14">
+              <Search className="h-7 w-7" />
+            </div>
             <h3 className="text-lg font-semibold mb-2">Ничего не найдено</h3>
-            <p className="text-gray-600 mb-4">Попробуйте изменить параметры поиска или загрузите новый документ</p>
+            <p className="text-muted-foreground mb-4">Попробуйте изменить параметры поиска или загрузите новый документ</p>
             <div className="flex gap-2 justify-center">
               <Button onClick={() => { setSearchTerm(''); setStatusFilter('all') }}>
                 Сбросить фильтры
@@ -720,17 +730,17 @@ export default function AnalysesPage() {
             const abnormalCount = category.analyses.filter(a => a.status !== 'normal').length
             
             return (
-              <Card key={category.name} className="overflow-hidden">
+              <Card key={category.name} className="web-card overflow-hidden">
                 <CardHeader 
-                  className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="cursor-pointer transition-colors hover:bg-muted/60"
                   onClick={() => toggleCategory(category.name)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                       )}
                       <div className={`p-2 rounded-lg ${category.color}`}>
                         {category.icon}
@@ -759,19 +769,19 @@ export default function AnalysesPage() {
                       {category.analyses.map((analysis) => {
                         const results = parseAnalysisResults(analysis.results)
                         return (
-                          <Card key={analysis.id} className="border-l-4 border-l-primary/20 hover:shadow-md transition-shadow">
-                            <CardContent className="pt-4">
+                          <Card key={analysis.id} className="web-card border-l-4 border-l-primary/25 shadow-none transition-shadow hover:shadow-medical">
+                            <CardContent className="p-5">
                               <div className="flex justify-between items-start mb-3">
                                 <div>
                                   <h4 className="font-semibold text-lg">{analysis.title}</h4>
-                                  <p className="text-sm text-gray-600">{analysis.type}</p>
+                                  <p className="text-sm text-muted-foreground">{analysis.type}</p>
                                 </div>
                                 <Badge className={getStatusColor(analysis.status)}>
                                   {getStatusText(analysis.status)}
                                 </Badge>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm text-gray-600">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4" />
                                   <span>{formatDate(analysis.date)}</span>
@@ -804,7 +814,7 @@ export default function AnalysesPage() {
                                     ))}
                                   </div>
                                   {Object.keys(results).length > 4 && (
-                                    <p className="text-xs text-gray-500 mt-2">
+                                    <p className="text-xs text-muted-foreground mt-2">
                                       И еще {Object.keys(results).length - 4} показателей...
                                     </p>
                                   )}
@@ -814,7 +824,7 @@ export default function AnalysesPage() {
                               {analysis.notes && (
                                 <div className="mb-4">
                                   <h5 className="font-medium mb-1 text-sm">Примечания:</h5>
-                                  <p className="text-sm text-gray-600">{analysis.notes}</p>
+                                  <p className="text-sm text-muted-foreground">{analysis.notes}</p>
                                 </div>
                               )}
 

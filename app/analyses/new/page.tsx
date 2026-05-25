@@ -128,10 +128,10 @@ export default function NewAnalysisPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Необходима авторизация</h1>
-          <p className="text-gray-600 mb-4">Для добавления анализов необходимо войти в систему</p>
+          <p className="text-muted-foreground mb-4">Для добавления анализов необходимо войти в систему</p>
           <Link href="/login">
             <Button>Войти</Button>
           </Link>
@@ -141,7 +141,7 @@ export default function NewAnalysisPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="web-container">
       <div className="flex items-center gap-4 mb-8">
         <Link href="/analyses">
           <Button variant="outline" size="sm">
@@ -151,7 +151,7 @@ export default function NewAnalysisPage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold">Добавить анализ</h1>
-          <p className="text-gray-600 mt-2">Введите данные о новом анализе</p>
+          <p className="text-muted-foreground mt-2">Введите данные о новом анализе</p>
         </div>
       </div>
 

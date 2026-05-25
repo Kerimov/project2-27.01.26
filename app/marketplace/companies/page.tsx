@@ -395,7 +395,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="mb-12 text-center">
@@ -414,13 +414,13 @@ export default function CompaniesPage() {
                 <MapPin className="w-6 h-6 text-white" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ваше местоположение</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ваше местоположение</span>
                 <div className="flex items-center gap-2">
                   {detectedCity && (
                     <span className="text-lg font-bold text-green-700">{detectedCity}</span>
                   )}
                   {userCoordinates && (
-                    <span className="text-sm text-gray-600 font-mono">
+                    <span className="text-sm text-muted-foreground font-mono">
                       ({userCoordinates.lat.toFixed(4)}, {userCoordinates.lng.toFixed(4)})
                     </span>
                   )}
@@ -437,7 +437,7 @@ export default function CompaniesPage() {
                   setUserCoordinates(null)
                   fetchCompanies()
                 }}
-                className="ml-4 text-xs h-auto p-1 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                className="ml-4 text-xs h-auto p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50"
                 title="Сбросить определенное местоположение"
               >
                 ✕
@@ -453,7 +453,7 @@ export default function CompaniesPage() {
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                     <Input
                       placeholder="Поиск по названию или описанию..."
                       value={searchQuery}
@@ -535,7 +535,7 @@ export default function CompaniesPage() {
                             </>
                           )}
                           {userCoordinates && (
-                            <span className={detectedCity ? "ml-2 text-gray-500" : ""}>
+                            <span className={detectedCity ? "ml-2 text-muted-foreground" : ""}>
                               Координаты: ({userCoordinates.lat.toFixed(4)}, {userCoordinates.lng.toFixed(4)})
                             </span>
                           )}
@@ -553,7 +553,7 @@ export default function CompaniesPage() {
                         setUserCoordinates(null)
                         fetchCompanies()
                       }}
-                      className="text-xs h-auto p-1 text-gray-500 hover:text-gray-700 hover:bg-green-100"
+                      className="text-xs h-auto p-1 text-muted-foreground hover:text-gray-700 hover:bg-green-100"
                       title="Сбросить определенное местоположение"
                     >
                       ✕ Сбросить
@@ -575,7 +575,7 @@ export default function CompaniesPage() {
                     id="verified"
                     checked={verifiedOnly}
                     onChange={(e) => setVerifiedOnly(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300"
+                    className="w-4 h-4 rounded border-border"
                   />
                   <label htmlFor="verified" className="text-sm font-medium">
                     Только проверенные
@@ -597,13 +597,13 @@ export default function CompaniesPage() {
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Загрузка компаний...</p>
+            <p className="mt-4 text-muted-foreground">Загрузка компаний...</p>
           </div>
         ) : companies.length === 0 ? (
           <div className="text-center py-12">
-            <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Компании не найдены</h3>
-            <p className="text-gray-600">Попробуйте изменить параметры поиска</p>
+            <p className="text-muted-foreground">Попробуйте изменить параметры поиска</p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -652,7 +652,7 @@ export default function CompaniesPage() {
 
                       <div className="space-y-2 text-sm mb-4">
                         {company.address && (
-                          <div className="flex items-start gap-2 text-gray-600">
+                          <div className="flex items-start gap-2 text-muted-foreground">
                             <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                               <span className="line-clamp-1">
@@ -668,14 +668,14 @@ export default function CompaniesPage() {
                         )}
 
                         {company.phone && (
-                          <div className="flex items-center gap-2 text-gray-600">
+                          <div className="flex items-center gap-2 text-muted-foreground">
                             <Phone className="w-4 h-4 flex-shrink-0" />
                             <span>{company.phone}</span>
                           </div>
                         )}
 
                         {company.website && (
-                          <div className="flex items-center gap-2 text-gray-600">
+                          <div className="flex items-center gap-2 text-muted-foreground">
                             <Globe className="w-4 h-4 flex-shrink-0" />
                             <span className="text-blue-600 hover:underline line-clamp-1">
                               {company.website.replace(/^https?:\/\//, '')}
@@ -693,7 +693,7 @@ export default function CompaniesPage() {
                           <div className="space-y-1">
                             {company.products.slice(0, 2).map((product) => (
                               <div key={product.id} className="flex justify-between items-center text-xs">
-                                <span className="text-gray-600 line-clamp-1 flex-1">
+                                <span className="text-muted-foreground line-clamp-1 flex-1">
                                   {product.name}
                                 </span>
                                 {product.price && (

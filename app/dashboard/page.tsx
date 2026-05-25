@@ -14,6 +14,7 @@ import {
   Heart, 
   Pill,
   TrendingUp,
+  Building2,
   User,
   Clock,
   ChevronRight,
@@ -140,34 +141,54 @@ export default function DashboardPage() {
     { icon: Calendar, label: 'Записи', href: '/my-appointments', color: 'text-orange-600' },
     { icon: FileText, label: 'Документы', href: '/documents', color: 'text-purple-600' },
     { icon: Heart, label: 'Дневник', href: '/diary', color: 'text-red-600' },
-    { icon: TrendingUp, label: 'Аналитика', href: '/analytics', color: 'text-indigo-600' }
+    { icon: TrendingUp, label: 'Аналитика', href: '/analytics', color: 'text-indigo-600' },
+    { icon: Building2, label: 'Маркетплейс', href: '/marketplace', color: 'text-blue-600' }
   ]
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+    <div className="web-page">
+      <main className="web-container">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Панель управления</h1>
-          <p className="text-sm text-muted-foreground mt-1">Добро пожаловать, {displayFirstName || user?.name}</p>
+        <div className="web-hero mb-8">
+          <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="web-kicker mb-4">Личный кабинет</div>
+              <h1 className="web-page-title">Панель управления</h1>
+              <p className="web-page-subtitle">Добро пожаловать, {displayFirstName || user?.name}. Здесь собраны ближайшие действия, документы и показатели.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/documents">
+                <Button variant="outline">
+                  <FileText className="h-4 w-4" />
+                  Документы
+                </Button>
+              </Link>
+              <Link href="/analyses">
+                <Button>
+                  <TrendingUp className="h-4 w-4" />
+                  Анализы
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-4">
+          <Card className="web-card">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Лекарства сегодня</p>
                   <p className="text-2xl font-semibold">{todayMedicationsProgress}</p>
                 </div>
-                <Pill className="h-5 w-5 text-muted-foreground" />
+                <div className="web-icon-bubble h-10 w-10 rounded-xl"><Pill className="h-5 w-5" /></div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
+          <Card className="web-card">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Пульс</p>
@@ -181,25 +202,25 @@ export default function DashboardPage() {
                     <span className="text-xs text-muted-foreground">уд/мин</span>
                   </div>
                 </div>
-                <Heart className="h-5 w-5 text-muted-foreground" />
+                <div className="web-icon-bubble h-10 w-10 rounded-xl"><Heart className="h-5 w-5" /></div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
+          <Card className="web-card">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Документов</p>
                   <p className="text-2xl font-semibold">{journalCount}</p>
                 </div>
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div className="web-icon-bubble h-10 w-10 rounded-xl"><FileText className="h-5 w-5" /></div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
+          <Card className="web-card">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Ближайший прием</p>
@@ -209,7 +230,7 @@ export default function DashboardPage() {
                       : '—'}
                   </p>
                 </div>
-                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div className="web-icon-bubble h-10 w-10 rounded-xl"><Calendar className="h-5 w-5" /></div>
               </div>
             </CardContent>
           </Card>
@@ -217,7 +238,7 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Последний анализ + риск */}
-          <Card className="lg:col-span-1">
+          <Card className="web-card lg:col-span-1">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Последний анализ</CardTitle>
@@ -254,7 +275,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Ближайшие приемы */}
-          <Card className="lg:col-span-2">
+          <Card className="web-card lg:col-span-2">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Ближайшие приемы</CardTitle>
@@ -271,9 +292,9 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {appointments.map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div key={a.id} className="flex items-center justify-between rounded-2xl border border-border bg-white p-4 transition-colors hover:bg-muted/50">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                        <div className="web-icon-bubble h-10 w-10 rounded-xl">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
@@ -305,7 +326,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Быстрые действия */}
-          <Card>
+          <Card className="web-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Быстрые действия</CardTitle>
             </CardHeader>
@@ -315,7 +336,7 @@ export default function DashboardPage() {
                   const Icon = action.icon
                   return (
                     <Link key={action.href} href={action.href}>
-                      <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer group">
+                      <div className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-muted cursor-pointer group">
                         <div className="flex items-center gap-3">
                           <Icon className={`h-4 w-4 ${action.color}`} />
                           <span className="text-sm">{action.label}</span>
@@ -333,7 +354,7 @@ export default function DashboardPage() {
         {/* Admin Section */}
         {isAdmin && (
           <div className="mt-6 space-y-4">
-            <Card>
+            <Card className="web-card">
               <CardHeader>
                 <CardTitle className="text-base font-semibold">Пользователи</CardTitle>
                 <CardDescription>Управление пользователями системы</CardDescription>
@@ -366,7 +387,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="web-card">
               <CardHeader>
                 <CardTitle className="text-base font-semibold">Документы</CardTitle>
                 <CardDescription>Все загруженные документы</CardDescription>

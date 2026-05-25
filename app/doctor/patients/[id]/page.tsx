@@ -229,7 +229,7 @@ export default function PatientCardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gradient-brand">
@@ -279,7 +279,7 @@ export default function PatientCardPage() {
                     return db.localeCompare(da)
                   }).map(([dateLabel, items]) => (
                     <div key={dateLabel}>
-                      <div className="text-xs font-medium text-gray-500 mb-2">{dateLabel}</div>
+                      <div className="text-xs font-medium text-muted-foreground mb-2">{dateLabel}</div>
                       <div className="space-y-3">
                         {(items as any[]).map((a:any)=> (
                           <div key={a.id} className="p-3 rounded-lg bg-white/70 border flex items-center justify-between">
@@ -295,7 +295,7 @@ export default function PatientCardPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <label className="text-xs text-gray-600 flex items-center gap-1">
+                              <label className="text-xs text-muted-foreground flex items-center gap-1">
                                 <input type="checkbox" checked={!!selectedAnalyses[a.id]} onChange={(e)=> setSelectedAnalyses(s=>({ ...s, [a.id]: e.target.checked }))} />
                                 Сравнить
                               </label>

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { generateCompaniesWithAI } from '@/lib/ai-companies-generator'
 import { isOllamaConfigured } from '@/lib/ollama'
+import { filterFallbackCompanies } from '@/lib/marketplace-fallback'
 
 // Этот маршрут читает request.url (query-параметры), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался рендерить его статически на этапе билда.
@@ -230,6 +231,17 @@ export async function GET(request: NextRequest) {
         logger.error('[COMPANIES] Ошибка генерации компаний через Ollama:', aiError)
         // Продолжаем с пустым списком, если генерация не удалась
       }
+    }
+
+    if (total === 0) {
+      const fallback = filterFallbackCompanies({ type, city, verified, search, limit, offset })
+      return NextResponse.json({
+        companies: fallback.companies,
+        total: fallback.total,
+        limit,
+        offset,
+        source: 'fallback',
+      })
     }
 
     // Если есть координаты пользователя, вычисляем расстояние и сортируем

@@ -201,6 +201,57 @@
     @apply bg-muted border border-border rounded-xl;
   }
 
+  .web-page {
+    @apply min-h-screen bg-background;
+  }
+
+  .web-container {
+    @apply container mx-auto max-w-7xl px-4 py-8 md:py-10;
+  }
+
+  .web-hero {
+    @apply relative overflow-hidden rounded-[2rem] border border-border bg-white p-6 shadow-medical md:p-10;
+  }
+
+  .web-hero::before {
+    content: '';
+    position: absolute;
+    inset: -35% -20% auto auto;
+    width: 520px;
+    height: 520px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(17, 98, 183, 0.11), transparent 62%);
+    pointer-events: none;
+  }
+
+  .web-card {
+    @apply rounded-2xl border border-border bg-white shadow-medical;
+  }
+
+  .web-card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-medical-lg;
+  }
+
+  .web-kicker {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary;
+  }
+
+  .web-page-title {
+    @apply text-3xl font-extrabold tracking-tight text-foreground md:text-4xl;
+  }
+
+  .web-page-subtitle {
+    @apply mt-2 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg;
+  }
+
+  .web-stat-card {
+    @apply rounded-2xl border border-border bg-white p-5 shadow-medical;
+  }
+
+  .web-icon-bubble {
+    @apply flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary;
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.5s ease-in-out;
   }

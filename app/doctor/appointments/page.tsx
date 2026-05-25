@@ -150,7 +150,7 @@ export default function DoctorAppointmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -233,7 +233,7 @@ export default function DoctorAppointmentsPage() {
                     {/* Колонка часов */}
                     <div className="relative border-r">
                       {hours.map(h => (
-                        <div key={h} className="h-[60px] border-b text-xs text-gray-500 pr-2 flex items-start justify-end pt-1 bg-white">
+                        <div key={h} className="h-[60px] border-b text-xs text-muted-foreground pr-2 flex items-start justify-end pt-1 bg-white">
                           {String(h).padStart(2,'0')}:00
                         </div>
                       ))}
@@ -317,7 +317,7 @@ export default function DoctorAppointmentsPage() {
                         onClick={() => { setSelectedDate(d); setIsMonthView(false); setIsDayView(true) }}
                         className={`text-left bg-white min-h-[120px] p-2 relative w-full ${inMonth ? '' : 'opacity-50'}`}
                       >
-                        <div className="text-xs text-gray-500 mb-1">{d.getDate()}</div>
+                        <div className="text-xs text-muted-foreground mb-1">{d.getDate()}</div>
                         <div className="space-y-1">
                           {dayEvents.slice(0,3).map(ev => (
                             <Link key={ev.id} href={`/doctor/patients/${ev.patientId}`} className="block text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 truncate">
@@ -325,7 +325,7 @@ export default function DoctorAppointmentsPage() {
                             </Link>
                           ))}
                           {dayEvents.length > 3 && (
-                            <div className="text-[11px] text-gray-500">+ ещё {dayEvents.length - 3}</div>
+                            <div className="text-[11px] text-muted-foreground">+ ещё {dayEvents.length - 3}</div>
                           )}
                         </div>
                       </button>
@@ -340,28 +340,28 @@ export default function DoctorAppointmentsPage() {
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xl font-semibold">Детали записи</div>
-                    <button onClick={() => setIsViewOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                    <button onClick={() => setIsViewOpen(false)} className="text-muted-foreground hover:text-muted-foreground text-2xl leading-none">&times;</button>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Пациент</div>
+                      <div className="text-xs text-muted-foreground mb-1">Пациент</div>
                       <div className="font-medium text-lg">{selectedAppointment.patientName}</div>
                       {selectedAppointment.patientEmail && (
-                        <div className="text-sm text-gray-600">{selectedAppointment.patientEmail}</div>
+                        <div className="text-sm text-muted-foreground">{selectedAppointment.patientEmail}</div>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Дата</div>
+                        <div className="text-xs text-muted-foreground mb-1">Дата</div>
                         <div className="font-medium">{new Date(selectedAppointment.scheduledAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Время</div>
+                        <div className="text-xs text-muted-foreground mb-1">Время</div>
                         <div className="font-medium">{new Date(selectedAppointment.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Тип приема</div>
+                      <div className="text-xs text-muted-foreground mb-1">Тип приема</div>
                       <div className="font-medium">
                         {selectedAppointment.appointmentType === 'consultation' ? 'Консультация' :
                          selectedAppointment.appointmentType === 'follow_up' ? 'Повторный прием' :
@@ -370,7 +370,7 @@ export default function DoctorAppointmentsPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Статус</div>
+                      <div className="text-xs text-muted-foreground mb-1">Статус</div>
                       <div className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
                         {selectedAppointment.status === 'scheduled' ? 'Запланировано' : selectedAppointment.status === 'confirmed' ? 'Подтверждено' : selectedAppointment.status === 'completed' ? 'Завершено' : selectedAppointment.status === 'cancelled' ? 'Отменено' : selectedAppointment.status}
                       </div>
@@ -411,21 +411,21 @@ export default function DoctorAppointmentsPage() {
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xl font-semibold">Перенос записи</div>
-                    <button onClick={() => setIsRescheduleOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                    <button onClick={() => setIsRescheduleOpen(false)} className="text-muted-foreground hover:text-muted-foreground text-2xl leading-none">&times;</button>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Пациент</div>
+                      <div className="text-xs text-muted-foreground mb-1">Пациент</div>
                       <div className="font-medium">{selectedAppointment.patientName}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Текущая дата и время</div>
+                      <div className="text-xs text-muted-foreground mb-1">Текущая дата и время</div>
                       <div className="font-medium">
                         {new Date(selectedAppointment.scheduledAt).toLocaleDateString('ru-RU')} в {new Date(selectedAppointment.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">Новая дата</div>
+                      <div className="text-xs text-muted-foreground mb-1">Новая дата</div>
                       <input 
                         type="date" 
                         className="w-full border rounded px-2 py-1" 
@@ -435,7 +435,7 @@ export default function DoctorAppointmentsPage() {
                     </div>
                     <div>
                       <div className="text-sm font-medium mb-2">Выбор времени</div>
-                      <div className="text-xs text-gray-500 mb-2">Выберите доступное время (слоты по 15 минут)</div>
+                      <div className="text-xs text-muted-foreground mb-2">Выберите доступное время (слоты по 15 минут)</div>
                       {(() => {
                         const dateStr = rescheduleFormState.date
                         const busySet = new Set<string>()
@@ -467,7 +467,7 @@ export default function DoctorAppointmentsPage() {
                                   onClick={() => setRescheduleFormState(s => ({ ...s, time: slot }))}
                                   className={`px-3 py-2 rounded border text-sm transition-colors ${
                                     isBusy
-                                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                      ? 'bg-gray-100 text-muted-foreground border-gray-200 cursor-not-allowed'
                                       : isSelected
                                         ? 'bg-blue-600 text-white border-blue-600'
                                         : 'bg-white hover:bg-blue-50 border-gray-200'
@@ -535,16 +535,16 @@ export default function DoctorAppointmentsPage() {
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <div className="text-xs text-gray-600 mb-1">Дата</div>
+                        <div className="text-xs text-muted-foreground mb-1">Дата</div>
                         <input type="date" className="w-full border rounded px-2 py-1" value={formState.date} onChange={(e)=>setFormState(s=>({...s,date:e.target.value}))} />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-600 mb-1">Время</div>
+                        <div className="text-xs text-muted-foreground mb-1">Время</div>
                         <input type="time" className="w-full border rounded px-2 py-1" step={900} min="09:00" max="21:00" value={formState.time} onChange={(e)=>setFormState(s=>({...s,time:e.target.value}))} />
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">Пациент</div>
+                      <div className="text-xs text-muted-foreground mb-1">Пациент</div>
                       <select
                         className="w-full border rounded px-2 py-1"
                         value={formState.patientId}
@@ -571,7 +571,7 @@ export default function DoctorAppointmentsPage() {
                       </select>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600 mb-1">Тип приема</div>
+                      <div className="text-xs text-muted-foreground mb-1">Тип приема</div>
                       <select className="w-full border rounded px-2 py-1" value={formState.type} onChange={(e)=>setFormState(s=>({...s,type:e.target.value}))}>
                         <option value="consultation">Консультация</option>
                         <option value="follow_up">Повторный прием</option>

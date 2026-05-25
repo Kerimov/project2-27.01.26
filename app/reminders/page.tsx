@@ -208,9 +208,9 @@ export default function RemindersPage() {
 
   if (isLoading || loading) {
     return (
-      <div className="container mx-auto py-8 text-center">
+      <div className="web-container text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        <p className="mt-4 text-gray-600">Загрузка напоминаний...</p>
+        <p className="mt-4 text-muted-foreground">Загрузка напоминаний...</p>
       </div>
     )
   }
@@ -223,7 +223,7 @@ export default function RemindersPage() {
   const overdueReminders = reminders.filter(r => new Date(r.dueAt) <= new Date())
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="web-container">
       <div className="mb-4">
         <CaretakerPatientSwitcher selectedPatientId={patientId} onChange={setPatientAndPersist} />
       </div>

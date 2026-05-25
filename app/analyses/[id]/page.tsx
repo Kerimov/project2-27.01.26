@@ -325,10 +325,10 @@ export default function AnalysisDetailPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Необходима авторизация</h1>
-          <p className="text-gray-600 mb-4">Для просмотра анализов необходимо войти в систему</p>
+          <p className="text-muted-foreground mb-4">Для просмотра анализов необходимо войти в систему</p>
           <Link href="/login">
             <Button>Войти</Button>
           </Link>
@@ -339,10 +339,10 @@ export default function AnalysisDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка анализа...</p>
+          <p className="mt-4 text-muted-foreground">Загрузка анализа...</p>
         </div>
       </div>
     )
@@ -350,10 +350,10 @@ export default function AnalysisDetailPage() {
 
   if (error || !analysis) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="web-container">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4 text-red-600">Ошибка</h1>
-          <p className="text-gray-600 mb-4">{error || 'Анализ не найден'}</p>
+          <p className="text-muted-foreground mb-4">{error || 'Анализ не найден'}</p>
           <Link href="/analyses">
             <Button>Вернуться к списку</Button>
           </Link>
@@ -363,7 +363,7 @@ export default function AnalysisDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="web-container">
       <div className="flex items-center gap-4 mb-8">
         <Link href="/analyses">
           <Button variant="outline" size="sm">
@@ -373,7 +373,7 @@ export default function AnalysisDetailPage() {
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold">{analysis.title}</h1>
-          <p className="text-gray-600 mt-2">{analysis.type}</p>
+          <p className="text-muted-foreground mt-2">{analysis.type}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/analyses/${analysis.id}/edit`}>
@@ -427,14 +427,14 @@ export default function AnalysisDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">Дата анализа:</span>
                   <span>{formatDate(analysis.date)}</span>
                 </div>
                 
                 {analysis.laboratory && (
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Лаборатория:</span>
                     <span>{analysis.laboratory}</span>
                   </div>
@@ -442,7 +442,7 @@ export default function AnalysisDetailPage() {
                 
                 {analysis.doctor && (
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
+                    <User className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Врач:</span>
                     <span>{analysis.doctor}</span>
                   </div>
@@ -458,7 +458,7 @@ export default function AnalysisDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-gray-500" />
+                  <ShieldAlert className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">Риск:</span>
                   {getRiskBadge()}
                   {riskLoading && <span className="text-xs text-muted-foreground">оценка...</span>}
@@ -470,7 +470,7 @@ export default function AnalysisDetailPage() {
                 {analysis.normalRange && (
                   <div>
                     <span className="font-medium">Нормальные значения:</span>
-                    <p className="text-sm text-gray-600 mt-1">{analysis.normalRange}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{analysis.normalRange}</p>
                   </div>
                 )}
               </div>
@@ -654,7 +654,7 @@ export default function AnalysisDetailPage() {
             <CardTitle>Информация о записи</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
               <div>
                 <span className="font-medium">Создано:</span>
                 <p>{formatDate(analysis.createdAt)}</p>

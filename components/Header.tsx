@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Menu, User, Bell, Settings, Shield, Stethoscope, ArrowLeft, BookOpen } from 'lucide-react'
+import { Menu, User, Bell, Settings, Shield, Stethoscope, ArrowLeft, BookOpen, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -44,8 +44,8 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-effect border-b border-border/80 shadow-sm">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-white/90 shadow-sm backdrop-blur-xl">
+      <div className="container flex h-20 items-center justify-between">
         <Link href="/" className="flex items-center">
           <Logo size="md" showText={false} />
           <div className="ml-3 hidden sm:block">
@@ -56,18 +56,19 @@ export function Header() {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-1 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-1 text-sm font-semibold text-muted-foreground">
           {!isDoctor && (
             <>
-              <Link href="/" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">Главная</Link>
+              <Link href="/" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Главная</Link>
               {user && (
                 <>
-                  <Link href="/documents" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">Документы</Link>
-                  <Link href="/analyses" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">Анализы</Link>
-                  <Link href="/medications" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">Лекарства</Link>
-                  <Link href="/care-plan" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">План</Link>
-                  <Link href="/profile" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary">Профиль</Link>
-                  <Link href="/knowledge-base" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-1">
+                  <Link href="/documents" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Документы</Link>
+                  <Link href="/analyses" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Анализы</Link>
+                  <Link href="/medications" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Лекарства</Link>
+                  <Link href="/care-plan" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">План</Link>
+                  <Link href="/marketplace" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Маркетплейс</Link>
+                  <Link href="/profile" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary">Профиль</Link>
+                  <Link href="/knowledge-base" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-1">
                     <BookOpen className="h-4 w-4" />
                     База знаний
                   </Link>
@@ -78,7 +79,7 @@ export function Header() {
           {/* Кнопка "Назад" убрана из шапки; показывается в разделах */}
           {/* Ссылка "Врач" скрыта: достаточно кнопки "Личный кабинет" */}
           {user && user.role === 'ADMIN' && (
-            <Link href="/admin" className="px-3 py-2 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-1">
+            <Link href="/admin" className="px-3 py-2 rounded-full transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-1">
               <Shield className="h-4 w-4" />
               Админ
             </Link>
@@ -104,14 +105,14 @@ export function Header() {
                 
                 {/* Личный кабинет */}
                 <Link href={isDoctor ? "/doctor" : "/dashboard"}>
-                  <Button className="gradient-primary text-white hover:opacity-90 transition-opacity">
+                  <Button>
                     <User className="mr-2 h-4 w-4" />
                     Личный кабинет
                   </Button>
                 </Link>
                 
                 {/* Выход */}
-                <Button variant="outline" onClick={handleLogout} className="border-medical-red text-medical-red hover:bg-medical-red hover:text-white">
+                <Button variant="outline" onClick={handleLogout} className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
                   Выйти
                 </Button>
               </div>
@@ -123,7 +124,7 @@ export function Header() {
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="hidden md:inline-flex gradient-primary text-white hover:opacity-90">
+                  <Button className="hidden md:inline-flex">
                     Регистрация
                   </Button>
                 </Link>
@@ -145,7 +146,7 @@ export function Header() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t glass-effect">
+        <div className="md:hidden border-t border-border bg-white/95 backdrop-blur-xl">
           <nav className="container flex flex-col space-y-2 py-4 animate-slide-up">
             {!isDoctor && (
               <Link 
@@ -164,6 +165,10 @@ export function Header() {
                     <Link href="/analyses" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Анализы</Link>
                     <Link href="/medications" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Лекарства</Link>
                     <Link href="/care-plan" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>План</Link>
+                    <Link href="/marketplace" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+                      <Building2 className="h-4 w-4" />
+                      Маркетплейс
+                    </Link>
                     <Link href="/profile" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary" onClick={() => setMobileMenuOpen(false)}>Профиль</Link>
                     <Link href="/knowledge-base" className="px-4 py-3 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
                       <BookOpen className="h-4 w-4" />
@@ -199,14 +204,14 @@ export function Header() {
                   <>
                     {/* Кнопка "Назад" убрана из мобильного меню; показывается в разделах */}
                     <Link href={isDoctor ? "/doctor" : "/dashboard"} onClick={() => setMobileMenuOpen(false)}>
-                      <Button className="w-full gradient-primary text-white">
+                      <Button className="w-full">
                         <User className="mr-2 h-4 w-4" />
                         Личный кабинет
                       </Button>
                     </Link>
                     <Button 
                       variant="outline" 
-                      className="w-full border-medical-red text-medical-red hover:bg-medical-red hover:text-white" 
+                      className="w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive" 
                       onClick={handleLogout}
                     >
                       Выйти
@@ -218,7 +223,7 @@ export function Header() {
                       <Button variant="ghost" className="w-full">Войти</Button>
                     </Link>
                     <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                      <Button className="w-full gradient-primary text-white">Регистрация</Button>
+                      <Button className="w-full">Регистрация</Button>
                     </Link>
                   </>
                 )

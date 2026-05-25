@@ -107,10 +107,10 @@ export default function DoctorAnalyses() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     )
@@ -121,7 +121,7 @@ export default function DoctorAnalyses() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -130,7 +130,7 @@ export default function DoctorAnalyses() {
               <h1 className="text-4xl font-bold text-gradient-brand">
                 Анализы пациентов
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Всего анализов: {analyses.length}
               </p>
             </div>
@@ -142,7 +142,7 @@ export default function DoctorAnalyses() {
           <CardContent className="pt-6">
             <div className="flex items-center space-x-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Поиск по названию, пациенту или лаборатории..."
                   value={searchTerm}
@@ -186,20 +186,20 @@ export default function DoctorAnalyses() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Calendar className="w-4 h-4" />
                     <span>Дата: {new Date(analysis.createdAt).toLocaleDateString('ru-RU')}</span>
                   </div>
                   
                   {analysis.document?.laboratory && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Activity className="w-4 h-4" />
                       <span>Лаборатория: {analysis.document.laboratory}</span>
                     </div>
                   )}
 
                   {analysis.document?.studyDate && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4" />
                       <span>Дата исследования: {new Date(analysis.document.studyDate).toLocaleDateString('ru-RU')}</span>
                     </div>
@@ -224,7 +224,7 @@ export default function DoctorAnalyses() {
                         </div>
                       ))}
                       {analysis.results.length > 4 && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           и еще {analysis.results.length - 4} показателей...
                         </div>
                       )}
@@ -239,13 +239,13 @@ export default function DoctorAnalyses() {
                       {analysis.comments.slice(0, 2).map((comment: any, index: number) => (
                         <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                           <p className="text-sm text-gray-700">{comment.content}</p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {new Date(comment.createdAt).toLocaleString('ru-RU')}
                           </p>
                         </div>
                       ))}
                       {analysis.comments.length > 2 && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           и еще {analysis.comments.length - 2} комментариев...
                         </div>
                       )}
@@ -268,7 +268,7 @@ export default function DoctorAnalyses() {
                       </Button>
                     </Link>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     ID: {analysis.id}
                   </span>
                 </div>
@@ -281,10 +281,10 @@ export default function DoctorAnalyses() {
           <Card className="glass-effect border-0 shadow-medical">
             <CardContent className="text-center py-12">
               <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+              <h3 className="text-lg font-semibold text-muted-foreground mb-2">
                 {searchTerm ? 'Анализы не найдены' : 'Пока нет анализов'}
               </h3>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {searchTerm 
                   ? 'Попробуйте изменить поисковый запрос'
                   : 'Анализы появятся здесь после загрузки документов пациентами'

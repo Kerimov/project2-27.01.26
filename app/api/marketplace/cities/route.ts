@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { fallbackCompanies } from '@/lib/marketplace-fallback'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +19,16 @@ export async function GET(request: NextRequest) {
       distinct: ['city']
     })
 
-    const cityList = cities
+    const fallbackCities = fallbackCompanies
+      .map((company) => company.city)
+      .filter(Boolean)
+
+    const cityList = Array.from(new Set([
+      ...cities
       .map(c => c.city)
-      .filter((city): city is string => city !== null)
+      .filter((city): city is string => city !== null),
+      ...fallbackCities,
+    ]))
       .sort()
 
     return NextResponse.json({ cities: cityList })

@@ -48,7 +48,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
+    <div className="web-page flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center space-x-2 mb-8">
@@ -56,7 +56,7 @@ export default function RegisterPage() {
           <span className="font-bold text-2xl">ПМА</span>
         </Link>
 
-        <Card className="border-2">
+        <Card className="web-card">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Регистрация</CardTitle>
             <CardDescription>
@@ -157,7 +157,7 @@ export default function RegisterPage() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
+                  <span className="bg-white px-2 text-muted-foreground">
                     Или
                   </span>
                 </div>

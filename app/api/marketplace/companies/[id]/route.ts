@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { fallbackCompanies } from '@/lib/marketplace-fallback'
 
 // GET /api/marketplace/companies/[id] - получить детальную информацию о компании
 export async function GET(
@@ -33,6 +34,10 @@ export async function GET(
     })
 
     if (!company) {
+      const fallbackCompany = fallbackCompanies.find((item) => item.id === params.id)
+      if (fallbackCompany) {
+        return NextResponse.json({ company: fallbackCompany, source: 'fallback' })
+      }
       return NextResponse.json({ error: 'Компания не найдена' }, { status: 404 })
     }
 

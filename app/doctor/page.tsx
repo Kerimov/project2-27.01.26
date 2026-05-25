@@ -287,10 +287,10 @@ export default function DoctorDashboard() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="web-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка...</p>
         </div>
       </div>
     )
@@ -301,7 +301,7 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+    <div className="web-page">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -310,7 +310,7 @@ export default function DoctorDashboard() {
               <h1 className="text-4xl font-bold text-gradient-brand">
                 Личный кабинет врача
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Добро пожаловать, доктор {user.name}
               </p>
             </div>
@@ -335,14 +335,14 @@ export default function DoctorDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="glass-effect border-0 shadow-medical hover:shadow-medical-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Всего пациентов</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Всего пациентов</CardTitle>
               <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gradient-brand">
                 {stats?.totalPatients || 0}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Активных: {stats?.activePatients || 0}
               </p>
             </CardContent>
@@ -350,14 +350,14 @@ export default function DoctorDashboard() {
 
           <Card className="glass-effect border-0 shadow-medical hover:shadow-medical-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Приемы сегодня</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Приемы сегодня</CardTitle>
               <Calendar className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 {stats?.todayAppointments || 0}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Ожидают: {stats?.pendingAppointments || 0}
               </p>
             </CardContent>
@@ -365,14 +365,14 @@ export default function DoctorDashboard() {
 
           <Card className="glass-effect border-0 shadow-medical hover:shadow-medical-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Рецепты</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Рецепты</CardTitle>
               <Stethoscope className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {stats?.totalPrescriptions || 0}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Активных: {stats?.activePrescriptions || 0}
               </p>
             </CardContent>
@@ -380,14 +380,14 @@ export default function DoctorDashboard() {
 
           <Card className="glass-effect border-0 shadow-medical hover:shadow-medical-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Срочные заметки</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Срочные заметки</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
                 {stats?.urgentNotes?.length || 0}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Требуют внимания
               </p>
             </CardContent>
@@ -418,7 +418,7 @@ export default function DoctorDashboard() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{patient?.name || '—'}</p>
-                          <p className="text-sm text-gray-500">{patient.recordType}</p>
+                          <p className="text-sm text-muted-foreground">{patient.recordType}</p>
                         </div>
                       </div>
                       <Badge variant={patient.status === 'active' ? 'default' : 'secondary'}>
@@ -428,7 +428,7 @@ export default function DoctorDashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                   <p>Пока нет пациентов</p>
                 </div>

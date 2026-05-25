@@ -32,7 +32,10 @@ export async function getCompanies(params?: {
 }
 
 export async function getCompany(id: string): Promise<MarketplaceCompany> {
-  return await apiJson<MarketplaceCompany>(`/api/marketplace/companies/${id}`);
+  const data = await apiJson<MarketplaceCompany | { company: MarketplaceCompany }>(
+    `/api/marketplace/companies/${id}`
+  );
+  return 'company' in data ? data.company : data;
 }
 
 export async function getCities(): Promise<string[]> {
