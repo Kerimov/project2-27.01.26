@@ -57,7 +57,7 @@ npx prisma generate
 ### Шаг 3: Установка зависимостей мобильного приложения
 
 ```bash
-cd mobile
+cd mobile-android
 npm install
 cd ..
 ```
@@ -116,7 +116,7 @@ node prisma/seed.js
 
 ### Шаг 1: Настройка API URL
 
-Откройте `mobile/.env` и настройте:
+Откройте `mobile-android/.env` и настройте:
 
 ```env
 # Для Android эмулятора (по умолчанию)
@@ -132,13 +132,13 @@ EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
 
 ### Шаг 2: Проверка конфигурации
 
-Убедитесь, что `mobile/app.json` содержит правильные настройки:
+Убедитесь, что `mobile-android/app.json` содержит правильные настройки:
 
 ```json
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Медицинский ассистент",
+    "slug": "medical-assistant-android",
     "version": "1.0.0"
   }
 }
@@ -200,8 +200,8 @@ npm run dev
 #### 2. Запуск мобильного приложения
 
 ```bash
-# В папке mobile
-cd mobile
+# В папке mobile-android
+cd mobile-android
 npm start
 ```
 
@@ -227,7 +227,7 @@ npm start
 
 ### 2. Проверка мобильного приложения
 
-1. Запустите Expo: `cd mobile && npm start`
+1. Запустите Expo: `cd mobile-android && npm start`
 2. Откройте приложение на устройстве/эмуляторе
 3. Войдите с теми же данными: `seed@example.com` / `seed1234`
 4. Проверьте синхронизацию данных с веб-версией
@@ -275,7 +275,7 @@ node prisma/seed.js
 
 **Проверьте:**
 1. Веб-сервер запущен (`npm run dev`)
-2. Правильный IP адрес в `mobile/.env`
+2. Правильный IP адрес в `mobile-android/.env`
 3. Устройство и ПК в одной сети Wi-Fi
 4. Файрвол не блокирует порт 3000
 
@@ -357,7 +357,7 @@ node scripts/check-openai-key.js  # Проверка OpenAI ключа
 ### Мобильное приложение
 
 ```bash
-cd mobile
+cd mobile-android
 
 # Запуск
 npm start                # Запуск Expo dev server
@@ -377,7 +377,7 @@ project2-27.01.26/
 ├── app/                  # Next.js веб-приложение
 │   ├── api/             # API маршруты
 │   └── ...               # Страницы веб-приложения
-├── mobile/               # React Native мобильное приложение
+├── mobile-android/               # React Native мобильное приложение
 │   ├── app/             # Экранs приложения
 │   ├── api/             # API клиенты
 │   └── components/      # UI компоненты
@@ -441,12 +441,12 @@ project2-27.01.26/
 
 - [ ] Node.js 18+ установлен
 - [ ] Репозиторий склонирован
-- [ ] Зависимости установлены (`npm install` в корне и `mobile/`)
+- [ ] Зависимости установлены (`npm install` в корне и `mobile-android/`)
 - [ ] Файл `.env.local` создан и настроен
 - [ ] База данных инициализирована (`npx prisma db push`)
 - [ ] Тестовые данные загружены (`node prisma/seed.js`)
 - [ ] Веб-приложение запускается (`npm run dev`)
-- [ ] Мобильное приложение запускается (`cd mobile && npm start`)
+- [ ] Мобильное приложение запускается (`cd mobile-android && npm start`)
 - [ ] Вход в систему работает (seed@example.com / seed1234)
 - [ ] API ключи настроены (OpenAI, OCR.space)
 
@@ -464,7 +464,7 @@ project2-27.01.26/
    - Просмотр анализов
 3. **Изучите документацию:**
    - `docs/` - техническая документация
-   - `mobile/PUBLISH_GOOGLE_PLAY.md` - публикация в Play Store
+   - `mobile-android/PUBLISH_GOOGLE_PLAY.md` - публикация в Play Store
 
 ---
 

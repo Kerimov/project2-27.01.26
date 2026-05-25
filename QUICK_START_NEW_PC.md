@@ -8,7 +8,7 @@
 git clone https://github.com/Kerimov/project2-27.01.26.git
 cd project2-27.01.26
 npm install
-cd mobile && npm install && cd ..
+cd mobile-android && npm install && cd ..
 ```
 
 ### 2. Настройка окружения
@@ -37,7 +37,7 @@ node prisma/seed.js
 npm run dev
 
 # Мобильное приложение (в другом терминале)
-cd mobile
+cd mobile-android
 npm start
 ```
 
@@ -53,7 +53,7 @@ npm start
 
 ### Настройка API URL
 
-Откройте `mobile/.env`:
+Откройте `mobile-android/.env`:
 
 ```env
 # Для Android эмулятора

@@ -5,7 +5,7 @@
 ### 1️⃣ Подготовка (5 минут)
 
 ```bash
-cd mobile
+cd mobile-android
 ```
 
 Обновите `app.json`:

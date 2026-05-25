@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CF="$ROOT/scripts/bin/cloudflared"
 LOG="/tmp/pma-cloudflared.log"
-ENV_FILE="$ROOT/mobile/.env.local"
+ENV_FILE="$ROOT/mobile-android/.env.local"
 
 if [[ ! -x "$CF" ]]; then
   echo "cloudflared не найден. Скачайте: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
@@ -27,5 +27,5 @@ EXPO_PUBLIC_API_BASE_URL=$URL
 EOF
 
 echo "API tunnel: $URL"
-echo "Записано в mobile/.env.local"
-echo "Перезапустите Expo: cd mobile && npx expo start --clear"
+echo "Записано в mobile-android/.env.local"
+echo "Перезапустите Expo: cd mobile-android && npx expo start --clear"

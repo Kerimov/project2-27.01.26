@@ -71,7 +71,7 @@ eas login
 
 ### 2.2. Настройка EAS Build
 
-Создайте файл `eas.json` в папке `mobile/`:
+Создайте файл `eas.json` в папке `mobile-android/`:
 
 ```json
 {
@@ -104,13 +104,13 @@ eas login
 ### 2.3. Сборка production версии
 
 ```bash
-cd mobile
+cd mobile-android
 eas build --platform android --profile production
 ```
 
 **Альтернатива (локальная сборка):**
 ```bash
-cd mobile
+cd mobile-android
 npx expo prebuild --platform android
 cd android
 ./gradlew bundleRelease
@@ -125,7 +125,7 @@ cd android
 ### 3.1. Генерация keystore
 
 ```bash
-cd mobile/android/app
+cd mobile-android/android/app
 keytool -genkeypair -v -storetype PKCS12 -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000
 ```
 
@@ -133,7 +133,7 @@ keytool -genkeypair -v -storetype PKCS12 -keystore my-release-key.keystore -alia
 
 ### 3.2. Настройка Expo для использования keystore
 
-Создайте файл `mobile/credentials.json` (НЕ коммитьте в git!):
+Создайте файл `mobile-android/credentials.json` (НЕ коммитьте в git!):
 
 ```json
 {
@@ -345,19 +345,19 @@ credentials.json
 
 ### Сборка для тестирования (APK)
 ```bash
-cd mobile
+cd mobile-android
 eas build --platform android --profile preview
 ```
 
 ### Сборка для продакшна (AAB)
 ```bash
-cd mobile
+cd mobile-android
 eas build --platform android --profile production
 ```
 
 ### Локальная сборка
 ```bash
-cd mobile
+cd mobile-android
 npx expo prebuild --platform android
 cd android
 ./gradlew bundleRelease

@@ -39,5 +39,10 @@ next-env.d.ts
 .local-node/
 *.traineddata
 /scripts/bin/
-mobile/expo-qr*.png
+mobile-android/expo-qr*.png
+mobile-android/node_modules/
+mobile-android/.expo/
+mobile-ios/expo-qr*.png
+mobile-ios/node_modules/
+mobile-ios/.expo/
 
