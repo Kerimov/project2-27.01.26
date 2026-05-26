@@ -200,22 +200,13 @@ export default function ProfileScreen() {
     }
   };
  
-  const handleLogout = () => {
-    Alert.alert('Выход', 'Вы уверены, что хотите выйти?', [
-      { text: 'Отмена', style: 'cancel' },
-      {
-        text: 'Выйти',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logout();
-          } finally {
-            (router as any).dismissAll?.();
-            router.replace('/' as any);
-          }
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      (router as any).dismissAll?.();
+      router.replace('/' as any);
+    }
   };
  
   if (loading) {
@@ -230,7 +221,7 @@ export default function ProfileScreen() {
   }
  
   return (
-    <AppScreen>
+    <AppScreen contentContainerStyle={{ paddingBottom: 140 }}>
       <AppSection title="Профиль" subtitle={displayName}>
         <View style={{ gap: theme.spacing.lg }}>
           <AppCard variant="hero">
