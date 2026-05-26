@@ -57,13 +57,6 @@ export default function AnalysisDetailPage() {
     }
   }, [token, params.id])
 
-  useEffect(() => {
-    if (!analysis || !token) return
-    // обновляем triage при смене анализа
-    void fetchRisk()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis?.id])
-
   const fetchAnalysis = async () => {
     try {
       setLoading(true)
@@ -383,7 +376,11 @@ export default function AnalysisDetailPage() {
             </Button>
           </Link>
           <Button size="sm" onClick={handleGenerate} disabled={generating}>
-            {generating ? 'Генерация...' : 'Сгенерировать комментарии'}
+            {generating
+              ? 'Генерация...'
+              : analysis.notes?.includes('--- AI Комментарии ---')
+                ? 'Повторить AI-разбор'
+                : 'Сформировать AI-разбор'}
           </Button>
           <Button size="sm" onClick={handleGenerateCarePlan} disabled={planLoading} className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
@@ -465,6 +462,9 @@ export default function AnalysisDetailPage() {
                   {risk?.confidence !== undefined && (
                     <span className="text-xs text-muted-foreground">уверенность {risk.confidence}%</span>
                   )}
+                  <Button size="sm" variant="outline" onClick={fetchRisk} disabled={riskLoading}>
+                    {risk ? 'Повторить оценку' : 'Оценить риск'}
+                  </Button>
                 </div>
                 
                 {analysis.normalRange && (

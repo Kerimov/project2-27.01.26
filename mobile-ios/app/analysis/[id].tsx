@@ -97,24 +97,6 @@ export default function AnalysisDetailScreen() {
         if (!mounted) return;
         setItem(data);
         setAiComments(extractAiComments(data.notes));
-        await loadRisk(data.id);
-        if (!extractAiComments(data.notes) && parseAnalysisIndicators(data.results).length > 0) {
-          try {
-            setCommentsLoading(true);
-            const { comment } = await generateAnalysisComments(data.id);
-            if (!mounted) return;
-            setAiComments(comment);
-            const refreshed = await getAnalysis(data.id);
-            if (mounted) {
-              setItem(refreshed);
-              setAiComments(extractAiComments(refreshed.notes) || comment);
-            }
-          } catch {
-            /* optional */
-          } finally {
-            if (mounted) setCommentsLoading(false);
-          }
-        }
       } catch (e: any) {
         if (mounted) setError(e?.message || 'Не удалось загрузить анализ');
       } finally {
@@ -124,7 +106,7 @@ export default function AnalysisDetailScreen() {
     return () => {
       mounted = false;
     };
-  }, [id, loadRisk]);
+  }, [id]);
 
   const indicators = useMemo(() => (item ? parseAnalysisIndicators(item.results) : []), [item]);
 
@@ -321,32 +303,34 @@ export default function AnalysisDetailScreen() {
             )}
           </AppSection>
 
-          {(aiComments || commentsLoading) && (
-            <AppSection title="AI комментарии" subtitle="Интерпретация отклонений и нормы">
-              <AppCard variant="glass" style={{ gap: 8, borderColor: theme.colors.borderStrong }}>
-                {commentsLoading ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <ActivityIndicator size="small" />
-                    <AppText variant="caption" color="mutedText">
-                      Генерируем комментарии…
-                    </AppText>
-                  </View>
-                ) : (
-                  <AppText variant="body" selectable>
-                    {aiComments}
+          <AppSection title="AI-разбор" subtitle="Сохраняется в анализе и не пересчитывается автоматически">
+            <AppCard variant="glass" style={{ gap: 8, borderColor: theme.colors.borderStrong }}>
+              {commentsLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator size="small" />
+                  <AppText variant="caption" color="mutedText">
+                    Формируем AI-разбор…
                   </AppText>
-                )}
-                <AppButton
-                  title="Обновить комментарии"
-                  variant="ai"
-                  icon="sparkles"
-                  size="sm"
-                  loading={commentsLoading}
-                  onPress={() => loadComments(item.id, true)}
-                />
-              </AppCard>
-            </AppSection>
-          )}
+                </View>
+              ) : aiComments ? (
+                <AppText variant="body" selectable>
+                  {aiComments}
+                </AppText>
+              ) : (
+                <AppText variant="caption" color="mutedText">
+                  AI-разбор ещё не сформирован. Нажмите кнопку ниже, чтобы сделать его один раз и сохранить в анализе.
+                </AppText>
+              )}
+              <AppButton
+                title={aiComments ? 'Повторить AI-разбор' : 'Сформировать AI-разбор'}
+                variant="ai"
+                icon="sparkles"
+                size="sm"
+                loading={commentsLoading}
+                onPress={() => loadComments(item.id, true)}
+              />
+            </AppCard>
+          </AppSection>
 
           {item.notes && !item.notes.includes(AI_MARKER) ? (
             <AppSection title="Заключение / примечания">
