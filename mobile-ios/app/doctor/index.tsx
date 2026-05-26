@@ -26,6 +26,13 @@ export default function DoctorHomeScreen() {
       const today = Array.isArray((day as any).today) ? (day as any).today : [];
       setTodayCount(today.length);
       setStats(st || {});
+    } catch (e: any) {
+      const status = typeof e?.status === 'number' ? e.status : undefined;
+      if (status === 404 || status === 403) {
+        router.replace('/doctor/setup' as any);
+        return;
+      }
+      throw e;
     } finally {
       setLoading(false);
     }

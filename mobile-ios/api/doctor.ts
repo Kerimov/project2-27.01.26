@@ -6,6 +6,25 @@ export async function getDoctorDay() {
   );
 }
 
+export async function createDoctorProfile(payload: {
+  licenseNumber: string;
+  specialization: string;
+  experience: number;
+  education: string;
+  certifications?: string;
+  phone?: string;
+  clinic?: string;
+  address?: string;
+  consultationFee?: number | null;
+  workingHours?: any;
+}) {
+  return apiJson('/api/doctor/profile', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    timeoutMs: 30000,
+  });
+}
+
 export async function getDoctorAppointments() {
   return apiJson<{ appointments: unknown[] }>('/api/doctor/appointments');
 }
