@@ -23,6 +23,6 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "--template"]
+  "exclude": ["node_modules", "--template", "mobile-ios", "mobile-android"]
 }
 
