@@ -6,6 +6,7 @@ import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
 import { AppChip } from '@/components/ui/AppChip';
@@ -78,7 +79,7 @@ export default function CreateAnalysisScreen() {
               <AppChip key={t} label={t} tone={type === t ? 'primary' : 'neutral'} onPress={() => setType(t)} />
             ))}
           </View>
-          <AppInput label="Дата" value={date} onChangeText={setDate} />
+          <AppDateField label="Дата" value={date} onChange={setDate} maximumDate={new Date()} />
           <AppInput label="Лаборатория" value={laboratory} onChangeText={setLaboratory} />
         </AppCard>
         <AppCard style={{ gap: theme.spacing.sm, padding: theme.spacing.lg }}>

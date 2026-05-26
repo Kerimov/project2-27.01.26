@@ -8,6 +8,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
 import { AppChip } from '@/components/ui/AppChip';
 
 export default function AppointmentDetailScreen() {
@@ -85,7 +86,12 @@ export default function AppointmentDetailScreen() {
 
       <AppCard style={{ gap: theme.spacing.md, padding: 16, marginTop: 16 }}>
         <AppText variant="h3">Перенести</AppText>
-        <AppInput label="Новая дата (ГГГГ-ММ-ДД)" value={rescheduleDate} onChangeText={setRescheduleDate} />
+        <AppDateField
+          label="Новая дата"
+          value={rescheduleDate}
+          onChange={setRescheduleDate}
+          minimumDate={new Date()}
+        />
         <AppButton title="Показать слоты" variant="secondary" onPress={loadSlots} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {slots.map((s) => (

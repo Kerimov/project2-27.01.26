@@ -19,6 +19,7 @@ export default function NewCarePlanTaskPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [dueTime, setDueTime] = useState('09:00')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +49,9 @@ export default function NewCarePlanTaskPage() {
         body: JSON.stringify({
           title: trimmed,
           description: description.trim() || undefined,
-          dueAt: dueDate.trim() ? new Date(`${dueDate.trim()}T12:00:00`).toISOString() : undefined,
+          dueAt: dueDate.trim()
+            ? new Date(`${dueDate.trim()}T${dueTime.trim() || '09:00'}:00`).toISOString()
+            : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -114,8 +117,12 @@ export default function NewCarePlanTaskPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dueDate">Срок</Label>
+                <Label htmlFor="dueDate">Срок — дата</Label>
                 <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueTime">Срок — время</Label>
+                <Input id="dueTime" type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} />
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}

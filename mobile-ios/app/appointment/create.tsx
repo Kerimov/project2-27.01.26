@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getDoctors, type Doctor } from '../../api/doctors';
@@ -17,6 +17,8 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
+import { parseIsoDate, toIsoDate } from '@/lib/date-picker-format';
 import { AppChip } from '@/components/ui/AppChip';
 
 export default function CreateAppointmentScreen() {
@@ -34,8 +36,12 @@ export default function CreateAppointmentScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [tempDate, setTempDate] = useState<string>('');
+
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   useEffect(() => {
     loadDoctors();
@@ -74,28 +80,11 @@ export default function CreateAppointmentScreen() {
     }
   };
 
-  const handleDateSelect = () => {
-    if (!tempDate) {
-      Alert.alert('Ошибка', 'Введите дату в формате ДД.ММ.ГГГГ');
-      return;
-    }
-    const [day, month, year] = tempDate.split('.');
-    const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-    if (isNaN(date.getTime())) {
-      Alert.alert('Ошибка', 'Некорректная дата');
-      return;
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const handleDateChange = (iso: string) => {
+    const date = parseIsoDate(iso);
     date.setHours(0, 0, 0, 0);
-    if (date < today) {
-      Alert.alert('Ошибка', 'Дата не может быть в прошлом');
-      return;
-    }
     setSelectedDate(date);
     setSelectedTime(null);
-    setShowDateModal(false);
-    setTempDate('');
   };
 
   const handleCreate = async () => {
@@ -133,7 +122,6 @@ export default function CreateAppointmentScreen() {
   };
 
   // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
-  const dateLabel = useMemo(() => selectedDate.toLocaleDateString('ru-RU'), [selectedDate]);
 
   if (loading) {
     return (
@@ -200,58 +188,13 @@ export default function CreateAppointmentScreen() {
           <>
             <AppSection title="Дата">
               <AppCard style={{ gap: theme.spacing.sm }}>
-                <AppText variant="caption" color="mutedText">
-                  Выбранная дата
-                </AppText>
-                <AppButton
-                  title={dateLabel}
-                  variant="secondary"
-                  onPress={() => {
-                    setTempDate(dateLabel);
-                    setShowDateModal(true);
-                  }}
+                <AppDateField
+                  label="Дата приёма"
+                  value={toIsoDate(selectedDate)}
+                  minimumDate={today}
+                  onChange={handleDateChange}
                 />
               </AppCard>
-
-              <Modal visible={showDateModal} transparent animationType="fade" onRequestClose={() => setShowDateModal(false)}>
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: 'rgba(0,0,0,0.45)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 16,
-                  }}>
-                  <View style={{ width: '100%', maxWidth: 520 }}>
-                    <AppCard>
-                      <View style={{ gap: theme.spacing.md }}>
-                        <AppText variant="h3">Выберите дату</AppText>
-                        <AppInput
-                          label="Дата"
-                          placeholder="ДД.ММ.ГГГГ"
-                          hint="Например: 15.02.2026"
-                          value={tempDate}
-                          onChangeText={setTempDate}
-                          keyboardType="numeric"
-                        />
-                        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-                          <AppButton
-                            title="Отмена"
-                            variant="secondary"
-                            fullWidth
-                            onPress={() => {
-                              setShowDateModal(false);
-                              setTempDate('');
-                            }}
-                            style={{ flex: 1 }}
-                          />
-                          <AppButton title="Выбрать" fullWidth onPress={handleDateSelect} style={{ flex: 1 }} />
-                        </View>
-                      </View>
-                    </AppCard>
-                  </View>
-                </View>
-              </Modal>
             </AppSection>
 
             <AppSection title="Время">

@@ -12,6 +12,7 @@ import { AppScreen } from '@/components/ui/AppScreen';
 import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
  
@@ -124,20 +125,20 @@ export default function CreateMedicationScreen() {
             />
  
             <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
-              <AppInput
-                label="Дата начала"
-                placeholder="ГГГГ-ММ-ДД"
-                value={form.startDate}
-                onChangeText={(text) => setForm({ ...form, startDate: text })}
-                containerStyle={{ flex: 1 }}
-              />
-              <AppInput
-                label="Дата окончания"
-                placeholder="ГГГГ-ММ-ДД"
-                value={form.endDate}
-                onChangeText={(text) => setForm({ ...form, endDate: text })}
-                containerStyle={{ flex: 1 }}
-              />
+              <View style={{ flex: 1 }}>
+                <AppDateField
+                  label="Дата начала"
+                  value={form.startDate}
+                  onChange={(text) => setForm({ ...form, startDate: text })}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppDateField
+                  label="Дата окончания"
+                  value={form.endDate}
+                  onChange={(text) => setForm({ ...form, endDate: text })}
+                />
+              </View>
             </View>
  
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

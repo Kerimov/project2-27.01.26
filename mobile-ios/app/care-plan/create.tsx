@@ -9,6 +9,8 @@ import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
+import { AppTimeField } from '@/components/ui/AppTimeField';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
 import { promptAddReminderForCarePlanTask } from '../../lib/phone-reminders';
@@ -80,8 +82,8 @@ export default function CreateCarePlanTaskScreen() {
         </AppText>
         <AppInput label="Задача" value={title} onChangeText={setTitle} />
         <AppInput label="Описание" value={description} onChangeText={setDescription} multiline />
-        <AppInput label="Срок — дата (ГГГГ-ММ-ДД)" value={dueDate} onChangeText={setDueDate} placeholder="2026-06-01" />
-        <AppInput label="Срок — время (ЧЧ:ММ)" value={dueTime} onChangeText={setDueTime} />
+        <AppDateField label="Срок — дата" value={dueDate} onChange={setDueDate} minimumDate={new Date()} />
+        <AppTimeField label="Срок — время" value={dueTime} onChange={setDueTime} />
         <View style={{ gap: 8 }}>
           <AppButton title="Добавить" loading={loading} onPress={onSave} fullWidth />
           <AppButton title="Отмена" variant="secondary" onPress={finish} fullWidth />

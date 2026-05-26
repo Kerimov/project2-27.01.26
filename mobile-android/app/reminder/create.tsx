@@ -9,6 +9,9 @@ import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
+import { AppTimeField } from '@/components/ui/AppTimeField';
+import { toIsoDate } from '@/lib/date-picker-format';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
 import {
@@ -22,7 +25,7 @@ export default function CreateReminderScreen() {
   const { selectedPatientId } = useCaretakerStore();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(() => toIsoDate(new Date()));
   const [dueTime, setDueTime] = useState('09:00');
   const [loading, setLoading] = useState(false);
 
@@ -69,8 +72,8 @@ export default function CreateReminderScreen() {
           onChangeText={setDescription}
           multiline
         />
-        <AppInput label="Дата (ГГГГ-ММ-ДД)" value={dueDate} onChangeText={setDueDate} placeholder="2026-05-26" />
-        <AppInput label="Время (ЧЧ:ММ)" value={dueTime} onChangeText={setDueTime} />
+        <AppDateField label="Дата" value={dueDate} onChange={setDueDate} minimumDate={new Date()} />
+        <AppTimeField label="Время" value={dueTime} onChange={setDueTime} />
         <View style={{ gap: 8 }}>
           <AppButton title="Создать" loading={loading} onPress={onSave} fullWidth />
           <AppButton title="Отмена" variant="secondary" onPress={() => router.back()} fullWidth />

@@ -20,6 +20,7 @@ import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
@@ -258,11 +259,11 @@ export default function ProfileScreen() {
                   />
                 </View>
  
-                <AppInput
+                <AppDateField
                   label="Дата рождения"
-                  placeholder="ГГГГ-ММ-ДД"
                   value={form.birthDate}
-                  onChangeText={(text) => setForm({ ...form, birthDate: text })}
+                  onChange={(text) => setForm({ ...form, birthDate: text })}
+                  maximumDate={new Date()}
                 />
  
                 <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>

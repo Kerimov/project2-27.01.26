@@ -17,6 +17,7 @@ import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateTimeField } from '@/components/ui/AppDateTimeField';
 import { AppButton } from '@/components/ui/AppButton';
 
 export default function EditDiaryEntryScreen() {
@@ -185,13 +186,10 @@ export default function EditDiaryEntryScreen() {
     <AppScreen>
       <AppSection title="Редактировать запись" subtitle="Дневник здоровья">
         <AppCard style={{ gap: theme.spacing.lg }}>
-          <AppInput
+          <AppDateTimeField
             label="Дата и время"
-            placeholder="2026-02-15T08:30"
-            hint="Формат: YYYY-MM-DDTHH:MM"
             value={form.entryDate}
-            onChangeText={(text) => setForm({ ...form, entryDate: text })}
-            autoCapitalize="none"
+            onChange={(entryDate) => setForm({ ...form, entryDate })}
           />
 
           <View style={rowStyle}>

@@ -16,6 +16,7 @@ import { AppText } from '@/components/ui/AppText';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateField } from '@/components/ui/AppDateField';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { openDocumentFile, isImageFileUrl } from '../../utils/openDocumentFile';
@@ -319,7 +320,11 @@ export default function DocumentDetailScreen() {
           {editMode ? (
             <AppCard variant="glass" style={{ gap: theme.spacing.md }}>
               <AppInput label="Тип исследования" value={edits.studyType} onChangeText={(t) => setEdits((e) => ({ ...e, studyType: t }))} />
-              <AppInput label="Дата (ГГГГ-ММ-ДД)" value={edits.studyDate} onChangeText={(t) => setEdits((e) => ({ ...e, studyDate: t }))} />
+              <AppDateField
+                label="Дата исследования"
+                value={edits.studyDate}
+                onChange={(t) => setEdits((e) => ({ ...e, studyDate: t }))}
+              />
               <AppInput label="Лаборатория" value={edits.laboratory} onChangeText={(t) => setEdits((e) => ({ ...e, laboratory: t }))} />
               <AppInput label="Врач" value={edits.doctor} onChangeText={(t) => setEdits((e) => ({ ...e, doctor: t }))} />
               {edits.indicators.map((ind, idx) => (

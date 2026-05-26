@@ -12,6 +12,7 @@ import { AppScreen } from '@/components/ui/AppScreen';
 import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
+import { AppDateTimeField } from '@/components/ui/AppDateTimeField';
 import { AppButton } from '@/components/ui/AppButton';
  
 export default function CreateDiaryEntryScreen() {
@@ -92,11 +93,10 @@ export default function CreateDiaryEntryScreen() {
       <AppSection title="Новая запись" subtitle="Дневник здоровья">
         <AppCard>
           <View style={{ gap: theme.spacing.md }}>
-            <AppInput
+            <AppDateTimeField
               label="Дата и время"
               value={form.entryDate}
-              onChangeText={(text) => setForm({ ...form, entryDate: text })}
-              hint="Формат: ГГГГ-ММ-ДДЧЧ:ММ"
+              onChange={(entryDate) => setForm({ ...form, entryDate })}
             />
  
             <View style={{ flexDirection: bp === 'phone' ? 'column' : 'row', gap: theme.spacing.md }}>
