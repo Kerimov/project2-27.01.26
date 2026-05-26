@@ -10,7 +10,12 @@ import { Plus, Calendar, MapPin, User, FileText, Search, Filter, ChevronDown, Ch
 import Link from 'next/link'
 import {
   buildIndicatorSeries,
-  getCommonIndicatorNames,
+  buildIndicatorSeriesByKey,
+  buildIndicatorSeriesByNameMap,
+  getCommonIndicatorGroups,
+  suggestProbableCommonGroups,
+  type CommonIndicatorGroup,
+  type ProbableIndicatorGroup,
 } from '@/lib/analysis-indicator-series'
 
 interface AnalysisResult {
@@ -102,10 +107,12 @@ export default function AnalysesPage() {
   const [aiPlanText, setAiPlanText] = useState<string | null>(null)
   const [aiBusy, setAiBusy] = useState(false)
   const [compareSelectedIds, setCompareSelectedIds] = useState<Set<string>>(new Set())
-  const [compareIndicator, setCompareIndicator] = useState<string>('')
+  const [compareIndicatorKey, setCompareIndicatorKey] = useState<string>('')
   const [compareAiTrend, setCompareAiTrend] = useState<AiTrendResult | null>(null)
   const [compareAiTrendRaw, setCompareAiTrendRaw] = useState<string | null>(null)
   const [compareAiBusy, setCompareAiBusy] = useState(false)
+  const [compareWarnings, setCompareWarnings] = useState<string[]>([])
+  const [compareProbableNameByIndex, setCompareProbableNameByIndex] = useState<Record<number, string> | null>(null)
 
   useEffect(() => {
     if (token) {
@@ -359,18 +366,33 @@ export default function AnalysesPage() {
     [analyses, compareSelectedIds]
   )
 
-  const compareCommonIndicators = useMemo(
-    () => getCommonIndicatorNames(compareAnalyses.map((a) => ({ results: a.results }))),
+  const compareCommonGroups = useMemo<CommonIndicatorGroup[]>(
+    () => getCommonIndicatorGroups(compareAnalyses.map((a) => ({ results: a.results }))),
     [compareAnalyses]
   )
 
-  const compareSeries = useMemo(() => {
-    if (!compareIndicator || compareAnalyses.length === 0) return []
-    return buildIndicatorSeries(
-      compareAnalyses.map((a) => ({ date: a.date, title: a.title, results: a.results })),
-      compareIndicator
-    )
-  }, [compareAnalyses, compareIndicator])
+  const compareProbableGroups = useMemo<ProbableIndicatorGroup[]>(
+    () => suggestProbableCommonGroups(compareAnalyses.map((a) => ({ results: a.results }))),
+    [compareAnalyses]
+  )
+
+  const selectedCompareGroup = useMemo(
+    () => compareCommonGroups.find((g) => String(g.key) === String(compareIndicatorKey)) || null,
+    [compareCommonGroups, compareIndicatorKey]
+  )
+
+  const compareSeriesInfo = useMemo(() => {
+    if (!compareIndicatorKey || compareAnalyses.length === 0) return { series: [], warnings: [] as string[] }
+    const prepared = compareAnalyses.map((a) => ({ date: a.date, title: a.title, results: a.results }))
+    if (compareIndicatorKey.startsWith('prob:') && compareProbableNameByIndex) {
+      const built = buildIndicatorSeriesByNameMap(prepared, compareProbableNameByIndex)
+      return { series: built.series, warnings: [...(built.warnings || []), 'Используется вероятное сопоставление (проверьте названия и единицы).'] }
+    }
+    const built = buildIndicatorSeriesByKey(prepared, compareIndicatorKey)
+    return { series: built.series, warnings: built.warnings }
+  }, [compareAnalyses, compareIndicatorKey, compareProbableNameByIndex])
+
+  const compareSeries = compareSeriesInfo.series
 
   const compareValues = compareSeries.map((p) => p.value)
   const compareTrendDelta =
@@ -379,13 +401,17 @@ export default function AnalysesPage() {
     compareValues.length < 2 ? '—' : compareTrendDelta > 0 ? 'Рост' : compareTrendDelta < 0 ? 'Снижение' : 'Без изменений'
 
   useEffect(() => {
-    if (!compareIndicator && compareCommonIndicators.length > 0) {
-      setCompareIndicator(compareCommonIndicators[0])
+    if (!compareIndicatorKey && compareCommonGroups.length > 0) {
+      setCompareIndicatorKey(String(compareCommonGroups[0].key))
     }
-    if (compareIndicator && !compareCommonIndicators.includes(compareIndicator)) {
-      setCompareIndicator(compareCommonIndicators[0] || '')
+    if (compareIndicatorKey && !compareCommonGroups.some((g) => String(g.key) === String(compareIndicatorKey))) {
+      setCompareIndicatorKey(String(compareCommonGroups[0]?.key || ''))
     }
-  }, [compareCommonIndicators, compareIndicator])
+  }, [compareCommonGroups, compareIndicatorKey])
+
+  useEffect(() => {
+    setCompareWarnings(compareSeriesInfo.warnings || [])
+  }, [compareSeriesInfo.warnings])
 
   const toggleCompareSelection = (analysisId: string) => {
     setCompareSelectedIds((prev) => {
@@ -396,10 +422,12 @@ export default function AnalysesPage() {
     })
     setCompareAiTrend(null)
     setCompareAiTrendRaw(null)
+    setCompareWarnings([])
+    setCompareProbableNameByIndex(null)
   }
 
   const callCompareAI = async () => {
-    if (!compareIndicator || compareAnalyses.length < 2 || compareSeries.length < 2) return
+    if (!compareIndicatorKey || compareAnalyses.length < 2 || compareSeries.length < 2) return
     setCompareAiBusy(true)
     setCompareAiTrend(null)
     setCompareAiTrendRaw(null)
@@ -409,7 +437,7 @@ export default function AnalysesPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          indicatorName: compareIndicator,
+          indicatorName: selectedCompareGroup?.label || String(compareIndicatorKey),
           analysisIds: compareAnalyses.map((a) => a.id),
           series: compareSeries.map((p) => ({
             date: p.date,
@@ -810,23 +838,60 @@ export default function AnalysesPage() {
               <p className="text-sm text-muted-foreground">
                 Для тренда нужно минимум два анализа с одинаковым показателем.
               </p>
-            ) : compareCommonIndicators.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                У выбранных анализов нет общих числовых показателей для сравнения.
-              </p>
+            ) : compareCommonGroups.length === 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Не нашли точных совпадений по словарю. Ниже — вероятные совпадения по похожести названий (требуют вашего выбора).
+                </p>
+                {compareProbableGroups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Вероятных совпадений тоже не найдено. Попробуйте выбрать другие анализы.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {compareProbableGroups.slice(0, 8).map((g) => (
+                      <Button
+                        key={g.key}
+                        size="sm"
+                        variant={compareIndicatorKey === g.key ? 'default' : 'outline'}
+                        onClick={() => {
+                          setCompareIndicatorKey(g.key)
+                          setCompareProbableNameByIndex(g.perAnalysisNameByIndex)
+                          setCompareAiTrend(null)
+                          setCompareAiTrendRaw(null)
+                        }}
+                      >
+                        {g.label} · {Math.round(g.confidence * 100)}%
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                {compareIndicatorKey.startsWith('prob:') && compareProbableNameByIndex && (
+                  <div className="rounded-2xl border border-border bg-muted/40 p-3 text-sm">
+                    <div className="font-medium mb-1">Что именно сопоставили</div>
+                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                      {compareAnalyses.map((a, idx) => (
+                        <li key={a.id}>
+                          {a.title}: {compareProbableNameByIndex[idx] || '—'}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
                   <div className="flex-1">
                     <label className="block text-sm font-medium mb-1">Общий показатель</label>
                     <select
-                      value={compareIndicator}
-                      onChange={(e) => setCompareIndicator(e.target.value)}
+                      value={compareIndicatorKey}
+                      onChange={(e) => setCompareIndicatorKey(e.target.value)}
                       className="w-full"
                     >
-                      {compareCommonIndicators.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {compareCommonGroups.map((g) => (
+                        <option key={String(g.key)} value={String(g.key)}>
+                          {g.label}
                         </option>
                       ))}
                     </select>
@@ -842,6 +907,32 @@ export default function AnalysesPage() {
                     Интерпретировать динамику
                   </Button>
                 </div>
+
+                {(selectedCompareGroup?.variants?.length || 0) > 0 && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <div className="text-xs text-muted-foreground">
+                      В разных клиниках показатель может называться по‑разному. Мы сопоставили варианты:
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCompareGroup!.variants.slice(0, 12).map((v) => (
+                        <Badge key={v} variant="secondary">
+                          {v}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {compareWarnings.length > 0 && (
+                  <div className="mt-3 rounded-2xl border border-border bg-muted/40 p-3 text-sm">
+                    <div className="font-medium mb-1">Важно</div>
+                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                      {compareWarnings.slice(0, 6).map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {compareSeries.length >= 1 && (
                   <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
