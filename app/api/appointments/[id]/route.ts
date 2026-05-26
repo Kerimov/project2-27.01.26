@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient()
 
+export const runtime = 'nodejs'
 // Использует headers/cookies, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 

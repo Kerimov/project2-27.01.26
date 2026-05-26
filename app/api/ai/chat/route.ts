@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Google Gemini AI для чата

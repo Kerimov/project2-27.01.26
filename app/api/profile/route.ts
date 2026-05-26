@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {

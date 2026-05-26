@@ -6,6 +6,7 @@ import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {

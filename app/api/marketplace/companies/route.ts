@@ -8,6 +8,7 @@ import { citiesMatch } from '@/lib/marketplace-city'
 
 // Этот маршрут читает request.url (query-параметры), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался рендерить его статически на этапе билда.
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Функция для вычисления расстояния между двумя точками (формула Haversine)

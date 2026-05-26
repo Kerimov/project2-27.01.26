@@ -8,6 +8,7 @@ import {
 } from '@/lib/analysis-indicator-series'
 import { callOllamaChat, isOllamaConfigured } from '@/lib/ollama'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {

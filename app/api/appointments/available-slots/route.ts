@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { parse as parseCookies } from 'cookie'
 
 // Использует request.headers и request.url, поэтому маршрут должен быть динамическим
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {

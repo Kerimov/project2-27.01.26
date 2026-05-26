@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { fallbackCompanies } from '@/lib/marketplace-fallback'
 
+export const runtime = 'nodejs'
+
 // GET /api/marketplace/companies/[id] - получить детальную информацию о компании
 export async function GET(
   request: NextRequest,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+export const runtime = 'nodejs'
 // Использует headers, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 

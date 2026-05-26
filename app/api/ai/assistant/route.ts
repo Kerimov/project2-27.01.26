@@ -10,6 +10,7 @@ import { getAssistantToolDefinition } from '@/lib/ai/assistant-tools'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Определяем функции, которые может выполнять AI ассистент

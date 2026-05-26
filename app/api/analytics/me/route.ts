@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 
+export const runtime = 'nodejs'
+
 function getToken(req: NextRequest) {
   const auth = req.headers.get('authorization') || ''
   if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)

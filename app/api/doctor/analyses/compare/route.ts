@@ -6,6 +6,7 @@ import { getAIConfig } from '@/lib/ai-medical-parser'
 import { callOllamaChat } from '@/lib/ollama'
 
 // Использует headers/cookies, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {

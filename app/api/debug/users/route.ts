@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
+export const runtime = 'nodejs'
+
 // Отладочный эндпоинт (удалить в продакшене!)
 export async function GET() {
   // Проверяем наличие DATABASE_URL

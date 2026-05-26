@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { fallbackCompanies } from '@/lib/marketplace-fallback'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // GET /api/marketplace/cities - получить список городов с компаниями

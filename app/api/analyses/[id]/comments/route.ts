@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { generateAnalysisComments } from '@/lib/ai-medical-parser'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = req.headers.get('authorization') || ''

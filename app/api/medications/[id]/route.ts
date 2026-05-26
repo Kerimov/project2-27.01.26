@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 import { parse as parseCookies } from 'cookie'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(req: NextRequest) {

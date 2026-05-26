@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 
 // Использует request.url и заголовки, поэтому помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {

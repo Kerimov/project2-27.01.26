@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function normName(s: string) {

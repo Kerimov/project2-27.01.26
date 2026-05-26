@@ -5,6 +5,7 @@ import { parse as parseCookies } from 'cookie'
 
 // Маршрут использует request.headers (Authorization), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался выполнять его при статическом экспорте.
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {

@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger'
 import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 
 // Использует headers, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // GET /api/reminders/[id] - получить конкретное напоминание

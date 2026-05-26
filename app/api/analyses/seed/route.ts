@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 // Использует cookies, помечаем маршрут как динамический
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // POST /api/analyses/seed — создать демонстрационные анализы для текущего пользователя

@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 import { prescriptionsToMarkdown } from '@/lib/prescription-sheet'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function getToken(request: NextRequest) {
