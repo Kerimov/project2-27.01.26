@@ -12,8 +12,10 @@ export type AIMessage = {
   }>;
   functionResult?: any;
   functionName?: string;
+  provider?: string;
+  requestId?: string;
   sources?: Array<{
-    sourceType?: 'document' | 'analysis' | 'diary' | 'knowledge';
+    sourceType?: 'document' | 'analysis' | 'diary' | 'knowledge' | 'app' | 'marketplace';
     id?: string;
     label?: string;
     date?: string | null;
@@ -43,7 +45,7 @@ export type AIChatRequest = {
   message: string;
   history?: AIMessage[];
   documentIds?: string[];
-  ragScope?: 'none' | 'attached' | 'all';
+  ragScope?: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace' | 'all';
   action?: AssistantAction;
   pendingBooking?: PendingBooking | null;
 };
@@ -52,8 +54,10 @@ export type AIChatResponse = {
   response: string;
   functionResult?: any;
   functionName?: string;
+  provider?: string;
+  requestId?: string;
   sources?: Array<{
-    sourceType?: 'document' | 'analysis' | 'diary' | 'knowledge';
+    sourceType?: 'document' | 'analysis' | 'diary' | 'knowledge' | 'app' | 'marketplace';
     id?: string;
     label?: string;
     date?: string | null;

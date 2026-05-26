@@ -58,6 +58,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
   const [availableDocuments, setAvailableDocuments] = useState<AttachedDocument[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -135,7 +136,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         message: userMessage.content,
         history: messages.slice(-10), // Последние 10 сообщений для контекста
         documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
-        ragScope: selectedDocuments.length > 0 ? 'attached' : 'all', // RAG по прикрепленным или по всем данным
+        ragScope: selectedDocuments.length > 0 ? 'attached' : 'patient_data',
         action,
         pendingBooking,
       };
@@ -149,6 +150,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         timestamp: data.timestamp,
         functionResult: data.functionResult,
         functionName: data.functionName,
+        provider: data.provider,
+        requestId: data.requestId,
         sources: Array.isArray(data.sources) ? data.sources : undefined,
       };
 
@@ -506,7 +509,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                 marginTop: theme.spacing.xs,
                 color: isUser ? 'rgba(255,255,255,0.7)' : theme.colors.mutedText,
               }}>
-              {time}
+              {time}{!isUser && item.provider ? ` • ${item.provider}` : ''}
             </AppText>
           </AppCard>
 
@@ -670,61 +673,126 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
             </AppCard>
           )}
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
-            <AppButton
-              title="Запись"
-              icon="calendar"
-              variant="secondary"
-              size="sm"
-              onPress={() => setInput('Хочу записаться на прием')}
-              disabled={isLoading}
-            />
-            <AppButton
-              title="Врачи"
-              icon="stethoscope"
-              variant="secondary"
-              size="sm"
-              onPress={() => setInput('Покажи список врачей')}
-              disabled={isLoading}
-            />
-            <AppButton
-              title="Анализы"
-              icon="waveform.path.ecg"
-              variant="secondary"
-              size="sm"
-              onPress={() => setInput('Покажи мои результаты анализов')}
-              disabled={isLoading}
-            />
-            <AppButton
-              title="Мои записи"
-              icon="calendar.badge.clock"
-              variant="secondary"
-              size="sm"
-              onPress={() => setInput('Покажи мои записи на приемы')}
-              disabled={isLoading}
-            />
-            <AppButton
-              title="Очистить"
-              variant="ghost"
-              size="sm"
-              onPress={clearChat}
-              disabled={isLoading}
-            />
+          <View style={{ gap: theme.spacing.xs }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <AppText variant="caption" color="mutedText">
+                Быстрые действия
+              </AppText>
+              <AppButton
+                title={showQuickActions ? 'Скрыть меню' : 'Показать меню'}
+                variant="ghost"
+                size="sm"
+                onPress={() => setShowQuickActions((value) => !value)}
+                disabled={isLoading}
+                style={{ minHeight: 36, paddingVertical: 6 }}
+              />
+            </View>
+            {showQuickActions && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                <AppButton
+                  title="Запись"
+                  icon="calendar"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи свободные слоты для записи к врачу')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Врачи"
+                  icon="stethoscope"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи список врачей')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Анализы"
+                  icon="waveform.path.ecg"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мои результаты анализов')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Мои записи"
+                  icon="calendar.badge.clock"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мои записи на приемы')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Дневник"
+                  icon="book.fill"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мой дневник')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Лекарства"
+                  icon="pills.fill"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мои лекарства')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="План"
+                  icon="checklist"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи задачи плана')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Напоминания"
+                  icon="bell.fill"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мои напоминания')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Документы"
+                  icon="doc.text.fill"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => sendChatMessage('Покажи мои документы')}
+                  disabled={isLoading}
+                />
+                <AppButton
+                  title="Очистить"
+                  variant="ghost"
+                  size="sm"
+                  onPress={clearChat}
+                  disabled={isLoading}
+                />
+              </View>
+            )}
           </View>
 
-          <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              gap: theme.spacing.xs,
+              padding: 6,
+              backgroundColor: theme.colors.surfaceGlass,
+              borderRadius: theme.radius.xl,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }}>
             <Pressable
               onPress={() => setShowDocumentSelector(!showDocumentSelector)}
               disabled={isLoading}
               style={{
-                width: 54,
-                height: 54,
+                width: 42,
+                height: 42,
                 borderRadius: theme.radius.pill,
-                backgroundColor: selectedDocuments.length > 0 ? theme.colors.aiSoft : theme.colors.surface2,
+                backgroundColor: selectedDocuments.length > 0 ? theme.colors.aiSoft : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderWidth: selectedDocuments.length > 0 ? 2 : 0,
-                borderColor: theme.colors.ai,
               }}>
               <IconSymbol
                 name="paperclip"
@@ -740,30 +808,38 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
               multiline
               style={{
                 flex: 1,
-                minHeight: 64,
-                maxHeight: 150,
-                paddingHorizontal: theme.spacing.lg,
-                paddingVertical: 14,
-                backgroundColor: theme.colors.surfaceGlass,
-                borderRadius: theme.radius.xl,
+                minHeight: 42,
+                maxHeight: 120,
+                paddingHorizontal: theme.spacing.sm,
+                paddingVertical: 10,
+                backgroundColor: 'transparent',
                 color: theme.colors.text,
                 fontSize: 16,
                 lineHeight: 22,
-                borderWidth: 1,
-                borderColor: theme.colors.border,
                 textAlignVertical: 'top',
               }}
               editable={!isLoading}
             />
-            <AppButton
-              title={isLoading ? '' : 'Отправить'}
-              icon="paperplane.fill"
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Отправить сообщение"
               onPress={handleSend}
               disabled={!input.trim() || isLoading}
-              loading={isLoading}
-              variant="ai"
-              style={{ minWidth: isLoading ? 54 : 112, minHeight: 54 }}
-            />
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                borderRadius: theme.radius.pill,
+                backgroundColor: !input.trim() || isLoading ? theme.colors.surface3 : theme.colors.ai,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.9 : 1,
+              })}>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <IconSymbol name="paperplane.fill" size={19} color="#fff" />
+              )}
+            </Pressable>
           </View>
 
           <AppText variant="caption" color="mutedText" style={{ textAlign: 'center', marginTop: theme.spacing.xs }}>

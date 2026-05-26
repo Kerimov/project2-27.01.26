@@ -15,12 +15,15 @@ interface Message {
   attachedDocuments?: AttachedDocument[]
   functionResult?: any
   functionName?: string
+  provider?: string
+  requestId?: string
   sources?: Array<{
-    sourceType?: string
+    sourceType?: 'document' | 'analysis' | 'diary' | 'knowledge' | 'app' | 'marketplace'
     id?: string
     label?: string
     date?: string | null
     url?: string | null
+    snippet?: string
   }>
 }
 
@@ -145,7 +148,7 @@ export function AIChat() {
           message: userMessage.content,
           history: messages,
           documentIds: selectedDocuments, // опционально: уточнить источники
-          ragScope: selectedDocuments.length > 0 ? 'attached' : 'all',
+          ragScope: selectedDocuments.length > 0 ? 'attached' : 'patient_data',
           action,
           pendingBooking
         })
@@ -161,6 +164,8 @@ export function AIChat() {
           timestamp: new Date(),
           functionResult: data.functionResult,
           functionName: data.functionName,
+          provider: data.provider,
+          requestId: data.requestId,
           sources: Array.isArray(data.sources) ? data.sources : undefined
         }
         const nextPending = data.functionResult?.pendingBooking || null
@@ -177,7 +182,7 @@ export function AIChat() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Извините, произошла ошибка. Пожалуйста, попробуйте еще раз.',
+        content: 'Извините, произошла ошибка. Проверьте сеть и попробуйте ещё раз.',
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -558,6 +563,7 @@ export function AIChat() {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
+                  {message.role === 'assistant' && message.provider ? ` • ${message.provider}` : ''}
                 </p>
               </div>
             </div>
@@ -642,7 +648,7 @@ export function AIChat() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Хочу записаться на прием')}
+            onClick={() => sendChatMessage('Хочу записаться на прием')}
             disabled={isLoading}
             className="text-xs"
           >
@@ -651,7 +657,7 @@ export function AIChat() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Покажи список врачей')}
+            onClick={() => sendChatMessage('Покажи список врачей')}
             disabled={isLoading}
             className="text-xs"
           >
@@ -660,7 +666,7 @@ export function AIChat() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Покажи мои результаты анализов')}
+            onClick={() => sendChatMessage('Покажи мои результаты анализов')}
             disabled={isLoading}
             className="text-xs"
           >
@@ -669,11 +675,56 @@ export function AIChat() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Покажи мои записи на приемы')}
+            onClick={() => sendChatMessage('Покажи мои записи на приемы')}
             disabled={isLoading}
             className="text-xs"
           >
             📋 Мои записи
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendChatMessage('Покажи мой дневник')}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            📓 Дневник
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendChatMessage('Покажи мои лекарства')}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            💊 Лекарства
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendChatMessage('Покажи задачи плана')}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            ✅ План
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendChatMessage('Покажи мои напоминания')}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            🔔 Напоминания
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendChatMessage('Покажи мои документы')}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            📄 Документы
           </Button>
         </div>
 

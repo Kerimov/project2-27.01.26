@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
-import { callDeepSeekChat, isDeepSeekConfigured } from '@/lib/deepseek'
+import { classifyAssistantIntent } from '@/lib/ai/assistant-router'
+import { toLegacyAssistantResponse } from '@/lib/ai/assistant-contract'
+import { makeAssistantRequestId, logAssistantEvent } from '@/lib/ai/assistant-audit'
+import { tryAssistantLlm } from '@/lib/ai/assistant-llm'
+import { getAssistantToolDefinition } from '@/lib/ai/assistant-tools'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
@@ -111,21 +115,24 @@ type PendingBooking = {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = makeAssistantRequestId()
+  const startedAt = Date.now()
   try {
-    console.log('[AI-ASSISTANT] Starting request processing')
-    console.log('[AI-ASSISTANT] Ollama key present:', !!isOllamaConfigured())
-    console.log('[AI-ASSISTANT] Prisma client status:', { 
+    logAssistantEvent('request_start', { requestId })
+    logAssistantEvent('runtime_status', {
+      requestId,
+      llmConfigured: !!isOllamaConfigured(),
       isPrismaAvailable: !!prisma,
       hasDoctorProfileModel: !!prisma?.doctorProfile,
-      prismaType: typeof prisma 
     })
     
     const { message, history, documentIds, ragScope, action, pendingBooking } = await request.json()
-    console.log('[AI-ASSISTANT] Request data:', { 
-      message: message?.substring(0, 100), 
+    logAssistantEvent('request_metadata', {
+      requestId,
       hasHistory: !!history,
       documentIdsCount: Array.isArray(documentIds) ? documentIds.length : 0,
-      ragScope: typeof ragScope === 'string' ? ragScope : 'default'
+      ragScope: typeof ragScope === 'string' ? ragScope : 'default',
+      hasAction: !!action,
     })
 
     if (!message || typeof message !== 'string') {
@@ -173,6 +180,14 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = payload.userId
+    const intentDecision = classifyAssistantIntent(message)
+    logAssistantEvent('intent_classified', {
+      requestId,
+      userId,
+      intent: intentDecision.intent,
+      confidence: intentDecision.confidence,
+      reason: intentDecision.reason,
+    })
 
     const normalizedDocumentIds: string[] =
       Array.isArray(documentIds) ? documentIds.filter((x) => typeof x === 'string' && x.trim().length > 0) : []
@@ -182,28 +197,46 @@ export async function POST(request: NextRequest) {
       userId,
       action,
       pendingBooking,
+      intent: intentDecision.intent,
     })
 
     if (projectAction) {
-      return NextResponse.json({
-        response: projectAction.message,
+      const toolDefinition = getAssistantToolDefinition(projectAction.functionName)
+      logAssistantEvent('tool_result', {
+        requestId,
+        userId,
+        functionName: projectAction.functionName,
+        risk: toolDefinition?.risk || 'read',
+        requiresConfirmation: toolDefinition?.requiresConfirmation || false,
+        action: projectAction.data?.action,
+        latencyMs: Date.now() - startedAt,
+      })
+      return NextResponse.json(toLegacyAssistantResponse({
+        text: projectAction.message,
+        cards: projectAction.cards,
+        actions: projectAction.actions,
+        safety: projectAction.safety,
+        requestId,
+      }, {
         functionResult: projectAction.data,
         functionName: projectAction.functionName,
         timestamp: new Date().toISOString()
-      })
+      }))
     }
 
-    const effectiveRagScope: 'none' | 'attached' | 'all' =
-      ragScope === 'all' || ragScope === 'attached' || ragScope === 'none'
-        ? ragScope
-        : normalizedDocumentIds.length > 0
-          ? 'attached'
-          : 'none'
+    const effectiveRagScope: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace' =
+      ragScope === 'all'
+        ? 'patient_data'
+        : ragScope === 'patient_data' || ragScope === 'app_knowledge' || ragScope === 'marketplace' || ragScope === 'attached' || ragScope === 'none'
+          ? ragScope
+          : normalizedDocumentIds.length > 0
+            ? 'attached'
+            : 'app_knowledge'
 
     // RAG режим: либо по прикрепленным документам, либо "по всем данным пользователя".
     // В RAG режиме не запускаем авто-функции (иначе вопросы уйдут в get_analysis_results и потеряем цитирование).
     if (effectiveRagScope !== 'none') {
-      console.log('[AI-ASSISTANT] Using RAG mode:', effectiveRagScope)
+      logAssistantEvent('rag_mode', { requestId, userId, effectiveRagScope })
 
       // Если запрос похож на "сделай план действий" — генерируем план и создаём напоминания.
       if (effectiveRagScope === 'attached' && normalizedDocumentIds.length > 0 && isCarePlanIntent(message)) {
@@ -213,6 +246,7 @@ export async function POST(request: NextRequest) {
           functionResult: planResult.data,
           functionName: 'create_care_plan',
           sources: planResult.sources,
+          requestId,
           timestamp: new Date().toISOString()
         })
       }
@@ -221,45 +255,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         response: aiResponse.response,
         sources: aiResponse.sources,
+        requestId,
+        provider: (aiResponse as any).provider,
         timestamp: new Date().toISOString()
       })
     }
 
     // Анализируем сообщение и определяем, какую функцию вызвать
-    console.log('[AI-ASSISTANT] Analyzing message for functions')
+    logAssistantEvent('legacy_router_check', { requestId, userId })
     const functionCall = await analyzeMessageAndDetermineFunction(message, userId)
-    console.log('[AI-ASSISTANT] Function call result:', functionCall)
+    logAssistantEvent('legacy_router_result', { requestId, userId, functionName: functionCall?.name || null })
 
     if (functionCall) {
       // Выполняем функцию
-      console.log('[AI-ASSISTANT] Executing function:', functionCall.name)
       const result = await executeFunction(functionCall, userId)
-      console.log('[AI-ASSISTANT] Function result:', { success: !!result.message })
 
       return NextResponse.json({
         response: result.message,
         functionResult: result.data,
         functionName: functionCall.name,
+        requestId,
         timestamp: new Date().toISOString()
       })
     }
 
     // Обычный AI ответ без функций
-    console.log('[AI-ASSISTANT] Generating regular AI response')
+    logAssistantEvent('llm_response', { requestId, userId, effectiveRagScope: 'none' })
     const aiResponse = await generateAIResponse(message, userId, history, [], 'none')
-    console.log('[AI-ASSISTANT] AI response generated')
 
     return NextResponse.json({
       response: aiResponse.response,
       sources: aiResponse.sources,
+      requestId,
+      provider: (aiResponse as any).provider,
       timestamp: new Date().toISOString()
     })
 
   } catch (error) {
-    console.error('[AI-ASSISTANT] Detailed error:', error)
-    console.error('[AI-ASSISTANT] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    console.error('[AI-ASSISTANT] error:', { requestId, message: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
-      { error: `Ошибка обработки сообщения: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Ошибка обработки сообщения', requestId },
       { status: 500 }
     )
   }
@@ -752,6 +787,13 @@ function formatSlotTime(date: Date) {
   return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatDateForSlotLookup(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 async function getAssistantSlots(doctorId: string, date: string): Promise<AssistantSlot[]> {
   const selectedDate = new Date(date)
   if (Number.isNaN(selectedDate.getTime())) return []
@@ -794,6 +836,24 @@ async function getAssistantSlots(doctorId: string, date: string): Promise<Assist
   }
 
   return slots
+}
+
+async function getNextAssistantSlots(doctorId: string, daysAhead = 7, limit = 8) {
+  const result: Array<AssistantSlot & { date: string }> = []
+  const start = new Date()
+
+  for (let offset = 0; offset < daysAhead && result.length < limit; offset += 1) {
+    const day = new Date(start)
+    day.setDate(start.getDate() + offset)
+    const date = formatDateForSlotLookup(day)
+    const slots = (await getAssistantSlots(doctorId, date)).filter((slot) => slot.available)
+    for (const slot of slots) {
+      result.push({ ...slot, date })
+      if (result.length >= limit) break
+    }
+  }
+
+  return result
 }
 
 function buildPendingBooking(doctor: AssistantDoctor, scheduledAt: string, appointmentType: string, notes?: string | null): PendingBooking {
@@ -945,8 +1005,9 @@ async function handleProjectActionIntent(input: {
   userId: string
   action?: AssistantAction
   pendingBooking?: PendingBooking
-}): Promise<{ message: string; data: any; functionName: string } | null> {
-  const { message, userId, action } = input
+  intent?: string
+}): Promise<{ message: string; data: any; functionName: string; cards?: any[]; actions?: any[]; safety?: any } | null> {
+  const { message, userId, action, intent } = input
   const pendingBooking = isPendingBooking(input.pendingBooking) ? input.pendingBooking : null
 
   if (action?.type === 'cancel_booking' || (pendingBooking && isNoIntent(message))) {
@@ -1026,7 +1087,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isAppointmentQueryIntent(message)) {
+  if (intent === 'appointments') {
     const upcoming = !/прошедш|истори|все записи|все при[её]м/i.test(message)
     const appointments = await listAssistantAppointments(userId, {
       upcoming,
@@ -1050,7 +1111,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isReminderIntent(message)) {
+  if (intent === 'reminders') {
     const reminders = await listAssistantReminders(userId)
     if (reminders.length === 0) {
       return {
@@ -1067,7 +1128,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isDocumentsIntent(message)) {
+  if (intent === 'documents') {
     const documents = await listAssistantDocuments(userId)
     if (documents.length === 0) {
       return {
@@ -1084,7 +1145,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isAnalysesListIntent(message)) {
+  if (intent === 'analyses') {
     const analyses = await listAssistantAnalyses(userId)
     if (analyses.length === 0) {
       return {
@@ -1101,7 +1162,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isDiaryIntent(message)) {
+  if (intent === 'diary') {
     if (isDiaryReviewIntent(message)) {
       const review = await summarizeDiaryWeek(userId)
       return {
@@ -1144,7 +1205,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isMedicationsIntent(message)) {
+  if (intent === 'medications') {
     const meds = await listPatientMedications(userId)
     if (meds.length === 0) {
       return {
@@ -1161,7 +1222,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (isCarePlanTasksIntent(message)) {
+  if (intent === 'care_plan') {
     if (isAddCarePlanTaskIntent(message)) {
       try {
         const task = await createCarePlanTaskFromMessage(userId, message)
@@ -1234,9 +1295,18 @@ async function handleProjectActionIntent(input: {
 
     const date = action.date || extractDateFromMessage(message)
     if (!date) {
+      const slots = await getNextAssistantSlots(doctor.id, 7, 8)
+      if (slots.length > 0) {
+        return {
+          functionName: 'get_available_slots',
+          message: `Ближайшее свободное время у ${doctor.name}: ${slots.map((s) => `${new Date(s.date).toLocaleDateString('ru-RU')} ${s.timeString}`).join(', ')}. Выберите слот.`,
+          data: { action: 'slots', doctors: [doctor], slots, date: slots[0].date },
+        }
+      }
+
       return {
         functionName: 'select_doctor',
-        message: `Вы выбрали ${doctor.name}. На какую дату показать свободное время? Например: «завтра» или «10.06».`,
+        message: `Вы выбрали ${doctor.name}. На ближайшие дни свободных слотов не нашёл. Напишите другую дату, например: «10.06».`,
         data: { action: 'date_required', doctors: [doctor] },
       }
     }
@@ -1251,7 +1321,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (!isDoctorIntent(message)) return null
+  if (intent !== 'doctors' && intent !== 'booking') return null
 
   const specialization = extractSpecializationFromMessage(message)
   const date = extractDateFromMessage(message)
@@ -1270,17 +1340,34 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (!wantsBooking || !date) {
+  if (!wantsBooking) {
     const visible = doctors.slice(0, 8)
-    const extra = wantsBooking ? '\n\nВыберите врача, затем я покажу свободные слоты. Можно также написать дату: «завтра» или «10.06».' : ''
     return {
       functionName: 'get_doctors',
-      message: `Нашёл врачей:\n${visible.map(formatDoctorLine).join('\n')}${extra}`,
+      message: `Нашёл врачей:\n${visible.map(formatDoctorLine).join('\n')}`,
       data: { action: 'doctors', doctors: visible, date },
     }
   }
 
   const doctor = doctors[0]
+  if (!date) {
+    const visible = doctors.slice(0, 8)
+    const slots = await getNextAssistantSlots(doctor.id, 7, 8)
+    if (slots.length > 0) {
+      return {
+        functionName: 'get_available_slots',
+        message: `Нашёл врачей для записи. Ближайшее свободное время у ${doctor.name}: ${slots.map((s) => `${new Date(s.date).toLocaleDateString('ru-RU')} ${s.timeString}`).join(', ')}. Можно выбрать слот или другого врача.`,
+        data: { action: 'slots', doctors: visible, slots, date: slots[0].date },
+      }
+    }
+
+    return {
+      functionName: 'get_doctors',
+      message: `Нашёл врачей:\n${visible.map(formatDoctorLine).join('\n')}\n\nНа ближайшие дни у первого врача свободных слотов не нашёл. Выберите врача или напишите дату: «завтра» или «10.06».`,
+      data: { action: 'doctors', doctors: visible },
+    }
+  }
+
   const slots = (await getAssistantSlots(doctor.id, date)).filter((slot) => slot.available)
 
   if (time) {
@@ -2057,6 +2144,9 @@ type RagSource = {
 type AiResponseWithSources = {
   response: string
   sources: RagSource[]
+  provider?: string
+  model?: string
+  latencyMs?: number
 }
 
 function buildAssistantSystemPrompt() {
@@ -2116,6 +2206,14 @@ function splitIntoChunks(text: string, chunkSize = 900, overlap = 120) {
     i = Math.max(0, end - overlap)
   }
   return chunks
+}
+
+function sanitizeRagSnippet(text: string) {
+  return (text || '')
+    .replace(/```[\s\S]*?```/g, '[code block omitted]')
+    .replace(/(?:ignore|forget|disregard)\s+(?:previous|all|system|developer)\s+instructions/gi, '[possible prompt-injection removed]')
+    .replace(/(?:игнорируй|забудь|отмени)\s+(?:предыдущие|системные|инструкции)/gi, '[possible prompt-injection removed]')
+    .slice(0, 1600)
 }
 
 function scoreChunk(queryTokens: string[], chunkText: string) {
@@ -2221,7 +2319,7 @@ async function buildRagContext(userId: string, message: string, documentIds: str
       ? new Date(meta.studyDate ?? meta.uploadDate).toLocaleDateString('ru-RU')
       : '—'
     const header = `[SOURCE ${idx + 1}] (DOCUMENT) ${meta.fileName}; Тип: ${meta.studyType ?? '—'}; Дата: ${dateStr}; Лаб: ${meta.laboratory ?? '—'}; URL: /documents/${x.docId}`
-    return `${header}\n${x.snippet}`
+    return `${header}\n${sanitizeRagSnippet(x.snippet)}`
   })
 
   return {
@@ -2475,7 +2573,7 @@ async function buildAllUserRagContext(userId: string, message: string) {
     const dateStr = src.date ? new Date(src.date).toLocaleDateString('ru-RU') : '—'
     const urlStr = src.url ? `; URL: ${src.url}` : ''
     const header = `[SOURCE ${idx + 1}] (${src.sourceType.toUpperCase()}) ${src.label}; Дата: ${dateStr}${urlStr}`
-    return `${header}\n${x.snippet}`
+    return `${header}\n${sanitizeRagSnippet(x.snippet)}`
   })
 
   return { sources, contextText: promptBlocks.join('\n\n') }
@@ -2487,14 +2585,14 @@ async function generateAIResponse(
   userId: string,
   history: any[],
   documentIds: string[],
-  ragScope: 'none' | 'attached' | 'all'
+  ragScope: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace'
 ): Promise<AiResponseWithSources> {
   const patientProfile = await prisma.patientProfile.findUnique({ where: { userId } }).catch(() => null)
   const hasDocs = Array.isArray(documentIds) && documentIds.length > 0
   const rag =
-    ragScope === 'all'
+    ragScope === 'patient_data' || ragScope === 'marketplace'
       ? await buildAllUserRagContext(userId, message)
-      : hasDocs
+      : ragScope === 'attached' && hasDocs
         ? await buildRagContext(userId, message, documentIds)
         : { sources: [], contextText: '' }
 
@@ -2513,63 +2611,19 @@ async function generateAIResponse(
       ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
       : `${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
 
-  // DeepSeek — основной облачный LLM, если настроен ключ.
-  if (isDeepSeekConfigured()) {
-    try {
-      const text = await callDeepSeekChat({
-        system: systemPrompt,
-        user: userBlock,
-        temperature: 0.3,
-      })
-      return { response: text, sources: rag.sources }
-    } catch (error: any) {
-      console.error('DeepSeek error:', error)
-      // Падаем ниже на Ollama/fallback, чтобы чат оставался рабочим.
-    }
-  }
+  const llm = await tryAssistantLlm({
+    system: systemPrompt,
+    user: userBlock,
+    temperature: 0.35,
+  })
 
-  // Используем Ollama если доступен
-  const ollamaReady = isOllamaConfigured()
-  if (ollamaReady) {
-    try {
-      const text = await callOllamaChat({
-        system: systemPrompt,
-        user: userBlock,
-        temperature: 0.5
-      })
-      return { response: text, sources: rag.sources }
-    } catch (error: any) {
-      console.error('Ollama error:', error)
-      
-      // Обрабатываем различные типы ошибок Ollama
-      const errorMessage = error?.message || String(error)
-      let userMessage = ''
-      
-      if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-        userMessage =
-          '⚠️ Модель Ollama не найдена.\n\nВыполните: `ollama pull llama3.2` (или укажите OLLAMA_MODEL в `.env.local`).'
-      } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
-        userMessage =
-          '⚠️ Ollama недоступна.\n\nЗапустите: `ollama serve` и проверьте OLLAMA_BASE_URL (по умолчанию http://127.0.0.1:11434).'
-      } else {
-        userMessage = `⚠️ Ошибка Ollama: ${errorMessage}\n\nПроверьте, что сервер запущен и модель установлена.`
-      }
-      
-      // Если есть источники, показываем их вместе с ошибкой
-      if (rag.sources.length > 0) {
-        return {
-          response: `${userMessage}\n\nЯ нашел ваши данные:\n${rag.sources
-            .slice(0, 3)
-            .map((s, idx) => `- SOURCE ${idx + 1}: ${s.label}${s.url ? ` (${s.url})` : ''}`)
-            .join('\n')}\n\nПосле исправления проблемы с API ключом я смогу сделать полноценный разбор по документам.`,
-          sources: rag.sources
-        }
-      }
-      
-      return {
-        response: userMessage,
-        sources: rag.sources
-      }
+  if (llm) {
+    return {
+      response: llm.text,
+      sources: rag.sources,
+      provider: llm.provider,
+      model: llm.model,
+      latencyMs: llm.latencyMs,
     }
   }
 
@@ -2608,14 +2662,14 @@ async function generateAIResponse(
     }
   }
 
-  // Если есть источники, но Ollama не настроен — скажем прямо и покажем, что нашли
+  // Если есть источники, но LLM недоступен — скажем прямо и покажем, что нашли
   if (rag.sources.length > 0) {
     return {
       response:
-        `Я вижу ваши данные, но AI сейчас не настроен (нет Ollama).\n\nЯ могу использовать эти источники:\n${rag.sources
+        `Я вижу ваши данные, но AI-модель сейчас недоступна.\n\nЯ могу использовать эти источники:\n${rag.sources
           .slice(0, 3)
           .map((s, idx) => `- SOURCE ${idx + 1}: ${s.label}${s.url ? ` (${s.url})` : ''}`)
-          .join('\n')}\n\nДобавьте Ollama — и я смогу сделать полноценный разбор по документам.`,
+          .join('\n')}\n\nПроверьте настройки DeepSeek/Ollama — и я смогу сделать полноценный разбор по документам.`,
       sources: rag.sources
     }
   }

@@ -19,7 +19,8 @@
     "cleanup:recs": "node scripts/cleanup-duplicate-recommendations.js",
     "generate:jwt": "node scripts/generate-jwt-secret.js",
     "deploy:help": "node scripts/deploy-helper.js",
-    "check:ollama": "node scripts/check-ollama.js"
+    "check:ollama": "node scripts/check-ollama.js",
+    "test:ai-assistant": "node scripts/test-ai-assistant-router.js"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
