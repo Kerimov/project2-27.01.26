@@ -181,10 +181,20 @@ export default function DocumentsScreen() {
     }
   };
 
-  const handlePickPdf = async () => {
+  const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
+        type: [
+          'application/pdf',
+          'image/*',
+          'text/plain',
+          'text/csv',
+          'application/dicom',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets[0]) {
@@ -207,7 +217,7 @@ export default function DocumentsScreen() {
       [
         { text: 'Камера', onPress: handleTakePhoto },
         { text: 'Галерея', onPress: handlePickImage },
-        { text: 'PDF / файл', onPress: handlePickPdf },
+        { text: 'Файл из устройства', onPress: handlePickFile },
         { text: 'Отмена', style: 'cancel' },
       ]
     );
@@ -318,16 +328,24 @@ export default function DocumentsScreen() {
         renderItem={renderItem}
         ListHeaderComponent={
           <View style={{ marginBottom: theme.spacing.sm }}>
-            <AppSection title="Документы" subtitle="PDF, фото и распознавание текста">
+            <AppSection title="Документы" subtitle="Файлы, PDF, фото и распознавание текста">
               <AppCard variant="hero">
                 <View style={{ gap: theme.spacing.sm }}>
                   <AppStatusBadge label={uploading ? 'Загрузка...' : `${items.length} файлов`} tone={uploading ? 'warning' : 'ai'} />
                   <AppText variant="h2">Ваш медицинский архив</AppText>
                   <AppText variant="caption" color="mutedText">
-                    Загружайте PDF или фото: система извлечёт текст, а помощник сможет отвечать по документу.
+                    Загружайте PDF, фото, DICOM, CSV, TXT, Word или Excel. OCR автоматически выполняется для PDF и изображений.
                   </AppText>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    <AppButton title="PDF / файл" icon="doc.badge.plus" variant="ai" size="sm" onPress={handlePickPdf} disabled={uploading} />
+                    <AppButton
+                      title="Добавить документ"
+                      icon="doc.badge.plus"
+                      variant="ai"
+                      size="sm"
+                      onPress={showUploadOptions}
+                      disabled={uploading}
+                    />
+                    <AppButton title="Файл" icon="doc.badge.plus" variant="secondary" size="sm" onPress={handlePickFile} disabled={uploading} />
                     <AppButton title="Фото" icon="doc.text.fill" variant="secondary" size="sm" onPress={handleTakePhoto} disabled={uploading} />
                   </View>
                 </View>
@@ -338,7 +356,7 @@ export default function DocumentsScreen() {
         ListEmptyComponent={
           <AppEmptyState
             title="Документы пока не загружены"
-            subtitle="Добавьте PDF или снимок анализа. Система распознает текст и подготовит документ к вопросам."
+            subtitle="Добавьте файл или снимок анализа. PDF и изображения будут распознаны автоматически."
             icon="doc.badge.plus"
             actionTitle="Добавить документ"
             onAction={showUploadOptions}

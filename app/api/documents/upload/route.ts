@@ -20,9 +20,16 @@ const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
   'application/dicom',
   'text/csv',
-  'text/plain'
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]
 
 function getToken(request: NextRequest) {
