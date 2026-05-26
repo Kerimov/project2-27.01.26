@@ -14,6 +14,8 @@ export interface MarketplaceCompany {
   reviewCount: number;
   isVerified: boolean;
   distance?: number;
+  source?: 'catalog' | 'openstreetmap' | 'web';
+  sourceUrl?: string;
 }
 
 export async function getCompanies(params?: {
@@ -21,14 +23,22 @@ export async function getCompanies(params?: {
   type?: string;
   search?: string;
   verified?: boolean;
-}): Promise<{ companies: MarketplaceCompany[]; total: number }> {
+  discover?: boolean;
+}): Promise<{
+  companies: MarketplaceCompany[];
+  total: number;
+  discovery?: { catalogCount: number; osmCount: number; webCount: number };
+}> {
   const q = new URLSearchParams();
   if (params?.city) q.set('city', params.city);
   if (params?.type) q.set('type', params.type);
   if (params?.search) q.set('search', params.search);
   if (params?.verified) q.set('verified', 'true');
+  if (params?.discover || params?.search || params?.city) q.set('discover', 'true');
   const query = q.toString();
-  return await apiJson(`/api/marketplace/companies${query ? `?${query}` : ''}`);
+  return await apiJson(`/api/marketplace/companies${query ? `?${query}` : ''}`, {
+    timeoutMs: 45000,
+  });
 }
 
 export async function getCompany(id: string): Promise<MarketplaceCompany> {

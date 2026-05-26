@@ -5,11 +5,45 @@ import { generateCompaniesWithAI } from '@/lib/ai-companies-generator'
 import { isOllamaConfigured } from '@/lib/ollama'
 import { filterFallbackCompanies } from '@/lib/marketplace-fallback'
 import { citiesMatch } from '@/lib/marketplace-city'
+import {
+  discoverMarketplaceCompanies,
+  parseMarketplaceIntent,
+  type DiscoveredCompany,
+} from '@/lib/marketplace-discover'
 
 // Этот маршрут читает request.url (query-параметры), поэтому помечаем его как динамический,
 // чтобы Next.js не пытался рендерить его статически на этапе билда.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+const TYPE_SEARCH_HINT: Record<string, string> = {
+  CLINIC: 'клиника',
+  LABORATORY: 'лаборатория',
+  PHARMACY: 'аптека',
+  HEALTH_STORE: 'магазин здорового питания',
+  FITNESS_CENTER: 'фитнес',
+  NUTRITIONIST: 'диетолог',
+}
+
+function mapDiscoveredToApiCompany(c: DiscoveredCompany) {
+  return {
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    description: c.description || c.snippet,
+    address: c.address || '',
+    city: c.city || '',
+    phone: c.phone,
+    website: c.website,
+    rating: c.rating ?? null,
+    reviewCount: c.reviewCount ?? 0,
+    isVerified: c.isVerified,
+    source: c.source,
+    sourceUrl: c.sourceUrl || c.website,
+    products: [],
+    _count: { recommendations: 0, products: 0 },
+  }
+}
 
 // Функция для вычисления расстояния между двумя точками (формула Haversine)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -36,6 +70,7 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get('lng')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const discoverParam = searchParams.get('discover')
 
     const where: any = {
       isActive: true
@@ -265,11 +300,54 @@ export async function GET(request: NextRequest) {
       companies = companies.slice(0, limit)
     }
 
+    const shouldDiscover =
+      verified !== 'true' &&
+      (discoverParam === 'true' ||
+        (discoverParam !== 'false' && !!(searchFilter || cityFilter)))
+
+    let catalogCount = companies.length
+    let osmCount = 0
+    let webCount = 0
+
+    if (shouldDiscover) {
+      const intent = parseMarketplaceIntent(
+        searchFilter || [type && type !== 'all' ? TYPE_SEARCH_HINT[type] || '' : '', cityFilter || ''].filter(Boolean).join(' ').trim() || 'медицинские клиники',
+        cityFilter
+      )
+      if (type && type !== 'all') intent.type = type
+
+      try {
+        const discovery = await discoverMarketplaceCompanies(intent, { includeWeb: true })
+        catalogCount = discovery.catalogCount
+        osmCount = discovery.osmCount
+        webCount = discovery.webCount
+
+        const catalogNames = new Set(
+          companies.map((c) => c.name.toLowerCase().replace(/\s+/g, ' ').trim())
+        )
+
+        const external = discovery.companies
+          .filter((c) => c.source !== 'catalog')
+          .filter((c) => !catalogNames.has(c.name.toLowerCase().replace(/\s+/g, ' ').trim()))
+          .map((c) => mapDiscoveredToApiCompany(c))
+
+        if (external.length > 0) {
+          companies = [...companies, ...external].slice(0, Math.max(limit, 30)) as typeof companies
+          total = companies.length
+        }
+      } catch (discoverError) {
+        logger.warn('[COMPANIES] Discovery search failed:', discoverError)
+      }
+    }
+
     return NextResponse.json({
       companies,
       total,
       limit,
-      offset
+      offset,
+      ...(shouldDiscover
+        ? { discovery: { catalogCount, osmCount, webCount, enabled: true } }
+        : {}),
     })
   } catch (error) {
     logger.error('Error fetching companies:', error instanceof Error ? error.message : String(error))

@@ -174,54 +174,137 @@ function decodeDdgRedirect(href: string) {
   }
 }
 
+function parseDdgHtml(html: string, intent: MarketplaceSearchIntent, limit: number): DiscoveredCompany[] {
+  const results: DiscoveredCompany[] = []
+  const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
+  const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi
+  const links: Array<{ url: string; title: string }> = []
+  let m: RegExpExecArray | null
+  while ((m = linkRegex.exec(html)) !== null && links.length < limit) {
+    const url = decodeDdgRedirect(m[1])
+    const title = m[2].replace(/<[^>]+>/g, '').trim()
+    if (title && url.startsWith('http')) links.push({ url, title })
+  }
+  const snippets: string[] = []
+  while ((m = snippetRegex.exec(html)) !== null && snippets.length < limit) {
+    snippets.push(m[1].replace(/<[^>]+>/g, '').trim())
+  }
+
+  for (let i = 0; i < links.length; i++) {
+    const { url, title } = links[i]
+    if (/wikipedia|youtube|facebook|vk\.com|instagram|avito|ozon|wildberries/i.test(url)) continue
+    results.push({
+      id: `web:${hashId(url)}`,
+      name: title,
+      type: intent.type || 'CLINIC',
+      description: snippets[i] || 'Найдено в открытых источниках в интернете',
+      city: intent.city || undefined,
+      website: url,
+      reviewCount: 0,
+      isVerified: false,
+      source: 'web',
+      sourceUrl: url,
+      snippet: snippets[i],
+    })
+  }
+  return results
+}
+
 async function searchWeb(intent: MarketplaceSearchIntent, limit = 8): Promise<DiscoveredCompany[]> {
   const q = buildWebSearchQuery(intent)
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (compatible; PMA-Medical-Assistant/1.0; +https://pma.health)',
+    Accept: 'text/html,application/xhtml+xml',
+    'Accept-Language': 'ru-RU,ru;q=0.9',
+  }
+
+  const attempts: Array<() => Promise<string | null>> = [
+    async () => {
+      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+        headers,
+        signal: AbortSignal.timeout(12000),
+      })
+      return res.ok ? await res.text() : null
+    },
+    async () => {
+      const res = await fetch('https://html.duckduckgo.com/html/', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ q }),
+        signal: AbortSignal.timeout(12000),
+      })
+      return res.ok ? await res.text() : null
+    },
+    async () => {
+      const res = await fetch('https://lite.duckduckgo.com/lite/', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ q }),
+        signal: AbortSignal.timeout(12000),
+      })
+      return res.ok ? await res.text() : null
+    },
+  ]
+
+  for (const attempt of attempts) {
+    try {
+      const html = await attempt()
+      if (!html) continue
+      const parsed = parseDdgHtml(html, intent, limit)
+      if (parsed.length > 0) return parsed
+    } catch {
+      /* try next */
+    }
+  }
+  return []
+}
+
+/** Поиск организаций по названию через Nominatim (дополнение к Overpass и веб-поиску). */
+async function searchNominatimPlaces(intent: MarketplaceSearchIntent, limit = 10): Promise<DiscoveredCompany[]> {
+  const parts = [
+    intent.specialization,
+    intent.type === 'LABORATORY' ? 'медицинская лаборатория' : 'медицинская клиника',
+    intent.city,
+    intent.query.replace(/найди|покажи|подбери|ищу|клиник[аи]?/gi, '').trim(),
+  ].filter(Boolean)
+  const q = parts.join(' ').replace(/\s+/g, ' ').trim()
+  if (q.length < 3) return []
+
   try {
-    const res = await fetch('https://html.duckduckgo.com/html/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'PMA-Medical-Assistant/1.0',
-      },
-      body: new URLSearchParams({ q }),
-      signal: AbortSignal.timeout(12000),
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&countrycodes=ru&accept-language=ru&q=${encodeURIComponent(q)}`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'PMA-Medical-Assistant/1.0' },
+      signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) return []
-    const html = await res.text()
+    const data = await res.json()
+    if (!Array.isArray(data)) return []
 
-    const results: DiscoveredCompany[] = []
-    const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
-    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi
-    const links: Array<{ url: string; title: string }> = []
-    let m: RegExpExecArray | null
-    while ((m = linkRegex.exec(html)) !== null && links.length < limit) {
-      const url = decodeDdgRedirect(m[1])
-      const title = m[2].replace(/<[^>]+>/g, '').trim()
-      if (title && url.startsWith('http')) links.push({ url, title })
-    }
-    const snippets: string[] = []
-    while ((m = snippetRegex.exec(html)) !== null && snippets.length < limit) {
-      snippets.push(m[1].replace(/<[^>]+>/g, '').trim())
-    }
-
-    for (let i = 0; i < links.length; i++) {
-      const { url, title } = links[i]
-      if (/wikipedia|youtube|facebook|vk\.com|instagram|avito/i.test(url)) continue
-      results.push({
-        id: `web:${hashId(url)}`,
-        name: title,
-        type: intent.type || 'CLINIC',
-        description: snippets[i] || 'Найдено в открытых источниках в интернете',
-        city: intent.city || undefined,
-        website: url,
-        reviewCount: 0,
-        isVerified: false,
-        source: 'web',
-        sourceUrl: url,
-        snippet: snippets[i],
+    return data
+      .map((item: any) => {
+        const name = String(item.display_name || '').split(',')[0]?.trim()
+        if (!name || name.length < 3) return null
+        const type = intent.type || 'CLINIC'
+        const lat = item.lat ? parseFloat(item.lat) : null
+        const lon = item.lon ? parseFloat(item.lon) : null
+        const id = `osm:nominatim:${item.osm_type || 'node'}:${item.osm_id || hashId(name)}`
+        return {
+          id,
+          name,
+          type,
+          description: 'Найдено через OpenStreetMap (поиск по названию)',
+          address: item.display_name || undefined,
+          city: intent.city || undefined,
+          reviewCount: 0,
+          isVerified: false,
+          source: 'openstreetmap' as const,
+          sourceUrl:
+            lat != null && lon != null
+              ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`
+              : undefined,
+        }
       })
-    }
-    return results
+      .filter(Boolean) as DiscoveredCompany[]
   } catch {
     return []
   }
@@ -302,17 +385,18 @@ export async function discoverMarketplaceCompanies(
 ) {
   const includeWeb = options?.includeWeb !== false
 
-  const [catalog, osm, web] = await Promise.all([
+  const [catalog, osm, nominatim, web] = await Promise.all([
     searchCatalog(intent),
     searchOpenStreetMap(intent),
+    searchNominatimPlaces(intent),
     includeWeb ? searchWeb(intent) : Promise.resolve([]),
   ])
 
-  const merged = dedupeCompanies([...catalog, ...osm, ...web])
+  const merged = dedupeCompanies([...catalog, ...osm, ...nominatim, ...web])
   return {
     companies: merged,
     catalogCount: catalog.length,
-    osmCount: osm.length,
+    osmCount: osm.length + nominatim.length,
     webCount: web.length,
     intent,
   }

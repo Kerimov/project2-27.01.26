@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCompanies, getCities, type MarketplaceCompany } from '../../api/marketplace';
 import { useAppTheme } from '@/design/tokens';
@@ -51,7 +51,7 @@ export default function MarketplaceScreen() {
   return (
     <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
       <MarketplaceAISearch cityHint={city || undefined} />
-      <AppInput placeholder="Поиск клиники…" value={search} onChangeText={setSearch} />
+      <AppInput placeholder="Поиск в каталоге, на карте и в интернете…" value={search} onChangeText={setSearch} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 }}>
         <AppChip label="Все города" tone={!city ? 'primary' : 'neutral'} onPress={() => setCity('')} />
         {cities.slice(0, 8).map((c) => (
@@ -70,12 +70,25 @@ export default function MarketplaceScreen() {
           data={companies}
           keyExtractor={(c) => c.id}
           contentContainerStyle={{ gap: theme.spacing.sm, paddingBottom: 24 }}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => router.push(`/marketplace/${item.id}` as any)}>
+          renderItem={({ item }) => {
+            const external = item.id.startsWith('web:') || item.id.startsWith('osm:');
+            const open = () => {
+              const url = item.sourceUrl || item.website;
+              if (external && url) {
+                Linking.openURL(url).catch(() => {});
+                return;
+              }
+              router.push(`/marketplace/${item.id}` as any);
+            };
+            return (
+            <Pressable onPress={open}>
               <AppCard style={{ padding: theme.spacing.md }}>
                 <AppText variant="h3">{item.name}</AppText>
                 <AppText variant="caption" color="mutedText">
                   {item.city} · {item.type}
+                  {item.source && item.source !== 'catalog'
+                    ? ` · ${item.source === 'web' ? 'Интернет' : 'Карта'}`
+                    : ''}
                 </AppText>
                 {item.rating != null ? (
                   <AppText variant="caption" style={{ marginTop: 4 }}>
@@ -84,7 +97,8 @@ export default function MarketplaceScreen() {
                 ) : null}
               </AppCard>
             </Pressable>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <AppText color="mutedText" style={{ textAlign: 'center', padding: 24 }}>
               Ничего не найдено

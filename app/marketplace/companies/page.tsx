@@ -41,6 +41,8 @@ interface Company {
     recommendations: number
     products: number
   }
+  source?: 'catalog' | 'openstreetmap' | 'web'
+  sourceUrl?: string
 }
 
 const companyTypes = {
@@ -67,6 +69,7 @@ export default function CompaniesPage() {
   const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
   const [aiResults, setAiResults] = useState<DiscoveredCompany[]>([])
+  const [discoveryStats, setDiscoveryStats] = useState<{ catalogCount: number; osmCount: number; webCount: number } | null>(null)
   const fetchSeq = useRef(0)
 
   const cityForAi = cityFilter || detectedCity || undefined
@@ -104,6 +107,9 @@ export default function CompaniesPage() {
         params.append('lng', userCoordinates.lng.toString())
       }
       params.append('limit', '20')
+      if (searchQuery.trim() || (cityFilter && cityFilter !== 'all')) {
+        params.append('discover', 'true')
+      }
 
       const url = `/api/marketplace/companies?${params}`
       const response = await fetch(url)
@@ -116,11 +122,13 @@ export default function CompaniesPage() {
       if (seq !== fetchSeq.current) return
       setCompanies(data.companies || [])
       setTotal(data.total || 0)
+      setDiscoveryStats(data.discovery || null)
     } catch (error) {
       console.error('Error fetching companies:', error)
       if (seq === fetchSeq.current) {
         setCompanies([])
         setTotal(0)
+        setDiscoveryStats(null)
       }
     } finally {
       if (seq === fetchSeq.current) setLoading(false)
@@ -464,7 +472,7 @@ export default function CompaniesPage() {
                   <div className="web-search-field">
                     <Search className="web-search-icon h-5 w-5" />
                     <Input
-                      placeholder="Поиск по названию или описанию..."
+                      placeholder="Поиск в каталоге, на карте и в интернете..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="web-search-input border-0 bg-white/50"
@@ -600,6 +608,12 @@ export default function CompaniesPage() {
           <p className="text-muted-foreground">
             Найдено компаний: <span className="font-semibold text-foreground">{total}</span>
           </p>
+          {discoveryStats ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Источники: каталог {discoveryStats.catalogCount}, карта {discoveryStats.osmCount}, интернет{' '}
+              {discoveryStats.webCount}
+            </p>
+          ) : null}
         </div>
 
         {/* Список компаний */}
@@ -623,9 +637,12 @@ export default function CompaniesPage() {
             {companies.map((company) => {
               const typeInfo = companyTypes[company.type as keyof typeof companyTypes] || companyTypes.OTHER
               const IconComponent = typeInfo.icon
+              const external = isExternalCompany(company.id)
+              const href = external
+                ? company.sourceUrl || company.website || '#'
+                : `/marketplace/companies/${company.id}`
 
-              return (
-                <Link key={company.id} href={`/marketplace/companies/${company.id}`}>
+              const card = (
                   <Card className="group hover:shadow-medical-lg transition-all duration-300 border-0 shadow-medical glass-effect h-full">
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between mb-4">
@@ -646,9 +663,16 @@ export default function CompaniesPage() {
                         <CardTitle className="text-xl group-hover:text-primary transition-colors flex-1">
                           {company.name}
                         </CardTitle>
-                        {company.isVerified && (
-                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          {company.source && company.source !== 'catalog' ? (
+                            <Badge variant="outline" className={sourceBadge[company.source] || ''}>
+                              {sourceLabel[company.source] || company.source}
+                            </Badge>
+                          ) : null}
+                          {company.isVerified && (
+                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
 
                       <Badge variant="outline" className={`${typeInfo.color} border w-fit mt-2`}>
@@ -722,14 +746,26 @@ export default function CompaniesPage() {
 
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{company.reviewCount} отзывов</span>
+                          <span>{company.reviewCount > 0 ? `${company.reviewCount} отзывов` : external ? 'Внешний источник' : 'Без отзывов'}</span>
                           <span className="text-blue-600 font-medium group-hover:underline">
-                            Подробнее →
+                            {external ? 'Открыть →' : 'Подробнее →'}
                           </span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
+              )
+
+              if (external) {
+                return (
+                  <a key={company.id} href={href} target="_blank" rel="noopener noreferrer" className="block">
+                    {card}
+                  </a>
+                )
+              }
+              return (
+                <Link key={company.id} href={href}>
+                  {card}
                 </Link>
               )
             })}
