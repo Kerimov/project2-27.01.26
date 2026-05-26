@@ -320,13 +320,38 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                             handleAction(`Выбрать врача ${doctor.name}`, {
                               type: 'select_doctor',
                               doctorId: doctor.id,
-                              date: item.functionResult?.date || null,
+                              date: null,
                             })
                           }
                           disabled={isLoading}
                         />
                       </AppCard>
                     ))}
+                  </View>
+                )}
+                {item.functionResult?.action === 'date_required' && Array.isArray(item.functionResult?.dateOptions) && (
+                  <View style={{ gap: theme.spacing.xs }}>
+                    <AppText variant="caption" color="mutedText">
+                      Выберите дату
+                    </AppText>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                      {item.functionResult.dateOptions.map((option: any) => (
+                        <AppButton
+                          key={option.date}
+                          title={option.label}
+                          size="sm"
+                          variant="secondary"
+                          onPress={() =>
+                            handleAction(`Показать слоты на ${option.label}`, {
+                              type: 'select_doctor',
+                              doctorId: item.functionResult?.doctors?.[0]?.id,
+                              date: option.date,
+                            })
+                          }
+                          disabled={isLoading || !item.functionResult?.doctors?.[0]?.id}
+                        />
+                      ))}
+                    </View>
                   </View>
                 )}
                 {item.functionName === 'get_available_slots' && Array.isArray(item.functionResult?.slots) && (

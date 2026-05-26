@@ -856,6 +856,22 @@ async function getNextAssistantSlots(doctorId: string, daysAhead = 7, limit = 8)
   return result
 }
 
+function buildDateOptions(daysAhead = 7) {
+  const start = new Date()
+  return Array.from({ length: daysAhead }, (_, offset) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + offset)
+    const date = formatDateForSlotLookup(day)
+    const label =
+      offset === 0
+        ? 'Сегодня'
+        : offset === 1
+          ? 'Завтра'
+          : day.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+    return { date, label }
+  })
+}
+
 function buildPendingBooking(doctor: AssistantDoctor, scheduledAt: string, appointmentType: string, notes?: string | null): PendingBooking {
   const date = new Date(scheduledAt)
   return {
@@ -1295,19 +1311,10 @@ async function handleProjectActionIntent(input: {
 
     const date = action.date || extractDateFromMessage(message)
     if (!date) {
-      const slots = await getNextAssistantSlots(doctor.id, 7, 8)
-      if (slots.length > 0) {
-        return {
-          functionName: 'get_available_slots',
-          message: `Ближайшее свободное время у ${doctor.name}: ${slots.map((s) => `${new Date(s.date).toLocaleDateString('ru-RU')} ${s.timeString}`).join(', ')}. Выберите слот.`,
-          data: { action: 'slots', doctors: [doctor], slots, date: slots[0].date },
-        }
-      }
-
       return {
         functionName: 'select_doctor',
-        message: `Вы выбрали ${doctor.name}. На ближайшие дни свободных слотов не нашёл. Напишите другую дату, например: «10.06».`,
-        data: { action: 'date_required', doctors: [doctor] },
+        message: `Вы выбрали ${doctor.name}. Теперь выберите дату для поиска свободных слотов.`,
+        data: { action: 'date_required', doctors: [doctor], dateOptions: buildDateOptions(7) },
       }
     }
 
@@ -1349,25 +1356,16 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  const doctor = doctors[0]
   if (!date) {
     const visible = doctors.slice(0, 8)
-    const slots = await getNextAssistantSlots(doctor.id, 7, 8)
-    if (slots.length > 0) {
-      return {
-        functionName: 'get_available_slots',
-        message: `Нашёл врачей для записи. Ближайшее свободное время у ${doctor.name}: ${slots.map((s) => `${new Date(s.date).toLocaleDateString('ru-RU')} ${s.timeString}`).join(', ')}. Можно выбрать слот или другого врача.`,
-        data: { action: 'slots', doctors: visible, slots, date: slots[0].date },
-      }
-    }
-
     return {
       functionName: 'get_doctors',
-      message: `Нашёл врачей:\n${visible.map(formatDoctorLine).join('\n')}\n\nНа ближайшие дни у первого врача свободных слотов не нашёл. Выберите врача или напишите дату: «завтра» или «10.06».`,
-      data: { action: 'doctors', doctors: visible },
+      message: `Выберите врача для записи:\n${visible.map(formatDoctorLine).join('\n')}\n\nПосле выбора врача я предложу дату, а затем покажу свободные слоты.`,
+      data: { action: 'doctors', doctors: visible, bookingFlow: true },
     }
   }
 
+  const doctor = doctors[0]
   const slots = (await getAssistantSlots(doctor.id, date)).filter((slot) => slot.available)
 
   if (time) {

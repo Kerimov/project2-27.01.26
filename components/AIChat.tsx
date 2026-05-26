@@ -368,7 +368,7 @@ export function AIChat() {
                               onClick={() => handleAction(`Выбрать врача ${doctor.name}`, {
                                 type: 'select_doctor',
                                 doctorId: doctor.id,
-                                date: message.functionResult.date || null
+                                date: null
                               })}
                               disabled={isLoading}
                             >
@@ -376,6 +376,29 @@ export function AIChat() {
                             </Button>
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'date_required' && Array.isArray(message.functionResult?.dateOptions) && (
+                      <div className="space-y-2 text-xs text-blue-700">
+                        <div>Выберите дату:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {message.functionResult.dateOptions.map((option: any) => (
+                            <Button
+                              key={option.date}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => handleAction(`Показать слоты на ${option.label}`, {
+                                type: 'select_doctor',
+                                doctorId: message.functionResult.doctors?.[0]?.id,
+                                date: option.date
+                              })}
+                              disabled={isLoading || !message.functionResult.doctors?.[0]?.id}
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {message.functionName === 'get_available_slots' && message.functionResult && (
