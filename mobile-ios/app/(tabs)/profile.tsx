@@ -200,15 +200,27 @@ export default function ProfileScreen() {
     }
   };
  
-  const handleLogout = async () => {
+  const performLogout = async () => {
     try {
       await logout();
     } finally {
-      // Кнопка "Выйти" внизу может быть перекрыта плавающим tabBar.
-      // Делаем навигацию максимально жёстко.
       (router as any).dismissAll?.();
       router.replace('/' as any);
+      setTimeout(() => router.replace('/' as any), 0);
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Выход', 'Вы уверены, что хотите выйти из аккаунта?', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Выйти',
+        style: 'destructive',
+        onPress: () => {
+          void performLogout();
+        },
+      },
+    ]);
   };
  
   if (loading) {
@@ -223,7 +235,7 @@ export default function ProfileScreen() {
   }
  
   return (
-    <AppScreen contentContainerStyle={{ paddingBottom: 140 }}>
+    <AppScreen contentContainerStyle={{ paddingBottom: 220 }}>
       <AppSection title="Профиль" subtitle={displayName}>
         <View style={{ gap: theme.spacing.lg }}>
           <AppCard variant="hero">
@@ -233,6 +245,13 @@ export default function ProfileScreen() {
               <AppText variant="caption" color="mutedText">
                 Чем точнее профиль, тем полезнее рекомендации, план ухода и интерпретация анализов.
               </AppText>
+              <AppButton
+                title="Выйти из аккаунта"
+                variant="danger"
+                onPress={handleLogout}
+                fullWidth
+                style={{ marginTop: theme.spacing.sm }}
+              />
             </View>
           </AppCard>
 
