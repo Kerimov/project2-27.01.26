@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
  
 import { getProfile, updateProfile, type PatientProfile, type Sex } from '../../api/profile';
 import { me } from '../../api/me';
@@ -38,6 +38,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [aiData, setAiData] = useState<AdminAiSettingsResponse | null>(null);
@@ -201,12 +202,11 @@ export default function ProfileScreen() {
   };
  
   const performLogout = async () => {
+    setLoggingOut(true);
     try {
       await logout();
     } finally {
-      (router as any).dismissAll?.();
       router.replace('/' as any);
-      setTimeout(() => router.replace('/' as any), 0);
     }
   };
 
@@ -224,6 +224,10 @@ export default function ProfileScreen() {
   };
  
   if (loading) {
+    if (loggingOut || !token) {
+      return <Redirect href="/" />;
+    }
+
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
@@ -232,6 +236,10 @@ export default function ProfileScreen() {
         </AppText>
       </View>
     );
+  }
+
+  if (loggingOut || !token) {
+    return <Redirect href="/" />;
   }
  
   return (
@@ -245,13 +253,6 @@ export default function ProfileScreen() {
               <AppText variant="caption" color="mutedText">
                 Чем точнее профиль, тем полезнее рекомендации, план ухода и интерпретация анализов.
               </AppText>
-              <AppButton
-                title="Выйти из аккаунта"
-                variant="danger"
-                onPress={handleLogout}
-                fullWidth
-                style={{ marginTop: theme.spacing.sm }}
-              />
             </View>
           </AppCard>
 
