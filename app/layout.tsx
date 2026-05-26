@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Header } from '@/components/Header'
+import { GlobalAIChat } from '@/components/GlobalAIChat'
 import { WebThemeBootstrap } from '@/components/WebThemeBootstrap'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
@@ -35,6 +36,7 @@ export default function RootLayout({
             <main className="flex-1">
               {children}
             </main>
+            <GlobalAIChat />
           </div>
         </AuthProvider>
       </body>

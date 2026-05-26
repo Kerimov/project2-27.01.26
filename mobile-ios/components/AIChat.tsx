@@ -24,6 +24,7 @@ import { AppChip } from '@/components/ui/AppChip';
 import { AppFAB } from '@/components/ui/AppFAB';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { openAssistantLink } from '@/lib/assistant-routes';
 
 type AttachedDocument = {
   id: string;
@@ -61,6 +62,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const closeChat = useCallback(() => setIsOpen(false), []);
 
   useEffect(() => {
     if (token) {
@@ -398,12 +400,25 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                     </View>
                   </View>
                 )}
+                {item.functionName === 'get_analysis_results' && Array.isArray(item.functionResult?.analyses) && (
+                  <View style={{ gap: theme.spacing.xs }}>
+                    {item.functionResult.analyses.slice(0, 5).map((analysis: any) => (
+                      <Pressable
+                        key={analysis.id}
+                        onPress={() => openAssistantLink(router, `/analysis/${analysis.id}`, closeChat)}>
+                        <AppText variant="caption" style={{ color: theme.colors.primary }}>
+                          {analysis.title || analysis.type || 'Анализ'}
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
                 {item.functionResult?.action === 'appointments' && (
                   <AppButton
                     title="Открыть мои записи"
                     size="sm"
                     variant="secondary"
-                    onPress={() => router.push('/appointments' as any)}
+                    onPress={() => openAssistantLink(router, item.functionResult?.link || '/my-appointments', closeChat)}
                   />
                 )}
                 {item.functionResult?.action === 'reminders' && (
@@ -411,7 +426,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                     title="Открыть напоминания"
                     size="sm"
                     variant="secondary"
-                    onPress={() => router.push('/reminders' as any)}
+                    onPress={() => openAssistantLink(router, item.functionResult?.link || '/reminders', closeChat)}
                   />
                 )}
                 {item.functionResult?.action === 'documents' && (
@@ -419,15 +434,15 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                     title="Открыть документы"
                     size="sm"
                     variant="secondary"
-                    onPress={() => router.push('/documents' as any)}
+                    onPress={() => openAssistantLink(router, item.functionResult?.link || '/documents', closeChat)}
                   />
                 )}
-                {item.functionResult?.action === 'analyses' && (
+                {(item.functionResult?.action === 'analyses' || item.functionResult?.action === 'analyses_empty') && (
                   <AppButton
                     title="Открыть анализы"
                     size="sm"
                     variant="secondary"
-                    onPress={() => router.push('/analyses' as any)}
+                    onPress={() => openAssistantLink(router, item.functionResult?.link || '/analyses', closeChat)}
                   />
                 )}
                 {item.functionResult?.action === 'medications' && Array.isArray(item.functionResult.medications) && (
@@ -442,7 +457,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                       title="Открыть лекарства"
                       size="sm"
                       variant="secondary"
-                      onPress={() => router.push({ pathname: '/(tabs)/diary', params: { section: 'medications' } } as any)}
+                      onPress={() => openAssistantLink(router, item.functionResult?.link || '/diary?tab=medications', closeChat)}
                     />
                   </View>
                 )}
@@ -468,7 +483,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                       title="Открыть план"
                       size="sm"
                       variant="secondary"
-                      onPress={() => router.push({ pathname: '/(tabs)/diary', params: { section: 'plan' } } as any)}
+                      onPress={() => openAssistantLink(router, item.functionResult?.link || '/diary?tab=plan', closeChat)}
                     />
                   </View>
                 )}
@@ -478,9 +493,20 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                     title="Открыть дневник"
                     size="sm"
                     variant="secondary"
-                    onPress={() => router.push('/(tabs)/diary' as any)}
+                    onPress={() => openAssistantLink(router, item.functionResult?.link || '/diary', closeChat)}
                   />
                 )}
+                {item.functionResult?.link &&
+                  !['analyses', 'analyses_empty', 'appointments', 'reminders', 'documents', 'medications', 'care_plan_tasks', 'diary_entries', 'diary_entry_created'].includes(
+                    item.functionResult?.action
+                  ) && (
+                    <AppButton
+                      title="Открыть раздел"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => openAssistantLink(router, item.functionResult.link, closeChat)}
+                    />
+                  )}
                 {item.functionResult?.action === 'task_completed' && (
                   <AppText variant="caption" style={{ color: theme.colors.success }}>
                     Задача выполнена
@@ -510,9 +536,9 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                         onPress={() => {
                           if (s.url) {
                             if (s.url.startsWith('/documents/')) {
-                              router.push(`/document/${s.url.split('/').pop()}` as any);
+                              openAssistantLink(router, `/document/${s.url.split('/').pop()}`, closeChat);
                             } else if (s.url.startsWith('/analyses/')) {
-                              router.push(`/analysis/${s.url.split('/').pop()}` as any);
+                              openAssistantLink(router, `/analysis/${s.url.split('/').pop()}`, closeChat);
                             }
                           }
                         }}>
@@ -621,6 +647,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
           contentContainerStyle={{ paddingBottom: theme.spacing.lg }}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListFooterComponent={

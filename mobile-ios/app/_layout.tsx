@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GlobalAIChat } from '@/components/GlobalAIChat';
 import { useAppTheme } from '@/design/tokens';
 import { useThemeStore } from '@/state/themeStore';
 
@@ -65,6 +66,7 @@ export default function RootLayout() {
           <Stack.Screen name="marketplace/[id]" options={{ title: 'Клиника' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
+        <GlobalAIChat />
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </ThemeProvider>
     </SafeAreaProvider>

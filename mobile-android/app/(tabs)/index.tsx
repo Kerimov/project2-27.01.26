@@ -19,7 +19,6 @@ import { AppMetricCard } from '@/components/ui/AppMetricCard';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { AppListItem } from '@/components/ui/AppListItem';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { AIChat } from '@/components/AIChat';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -301,7 +300,6 @@ export default function DashboardScreen() {
           </View>
         </AppSection>
       </View>
-      <AIChat />
     </AppScreen>
   );
 }

@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { getDocument, deleteDocument, reviewDocument, type DocumentDetail, type MedicalIndicator } from '../../api/documents';
-import { AIChat } from '../../components/AIChat';
+import { useAiChatLaunchStore } from '../../state/aiChatLaunchStore';
 import { getAnalyses, type AnalysisSummary } from '../../api/analyses';
 import { setAuthToken } from '../../api/client';
 import { useAuthStore } from '../../state/authStore';
@@ -33,6 +33,15 @@ export default function DocumentDetailScreen() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [openingFile, setOpeningFile] = useState(false);
+  const setLaunch = useAiChatLaunchStore((s) => s.setLaunch);
+  const clearLaunch = useAiChatLaunchStore((s) => s.clearLaunch);
+
+  useEffect(() => {
+    if (!id) return;
+    setLaunch({ initialDocumentIds: [String(id)], autoOpen: false });
+    return () => clearLaunch();
+  }, [id, setLaunch, clearLaunch]);
+
   const [edits, setEdits] = useState<{
     studyType: string;
     studyDate: string;
@@ -390,7 +399,6 @@ export default function DocumentDetailScreen() {
           }}
         />
       </AppSection>
-      <AIChat initialDocumentIds={[String(id)]} aboveTabBar={false} />
     </AppScreen>
   );
 }

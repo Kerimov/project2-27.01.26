@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
-import { AIChat } from '@/components/AIChat'
 import { 
   Bell, 
   Calendar, 
@@ -434,8 +433,6 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
-
-      <AIChat />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,6 +52,7 @@ type PendingBooking = {
 }
 
 export function AIChat() {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -200,6 +202,12 @@ export function AIChat() {
     await sendChatMessage(label, action)
   }
 
+  const openAppLink = (href: string) => {
+    if (!href) return
+    setIsOpen(false)
+    router.push(href)
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -334,18 +342,33 @@ export function AIChat() {
                       </div>
                     )}
                     {message.functionName === 'get_analysis_results' && message.functionResult && (
-                      <div className="space-y-1 text-xs text-blue-600">
-                        {Array.isArray(message.functionResult?.analyses) ? (
+                      <div className="space-y-2 text-xs text-blue-600">
+                        {Array.isArray(message.functionResult?.analyses) && (
                           <>
                             <div>Показаны последние {message.functionResult.analyses.length} анализов.</div>
-                            {message.functionResult.link && (
-                              <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
-                                Открыть анализы →
-                              </a>
-                            )}
+                            {message.functionResult.analyses.slice(0, 5).map((analysis: any) => (
+                              <button
+                                key={analysis.id}
+                                type="button"
+                                className="block text-left text-primary hover:underline font-medium"
+                                onClick={() => openAppLink(`/analyses/${analysis.id}`)}
+                              >
+                                {analysis.title || analysis.type || 'Анализ'}
+                              </button>
+                            ))}
                           </>
-                        ) : (
-                          <div>Показаны последние {Array.isArray(message.functionResult) ? message.functionResult.length : 0} анализов.</div>
+                        )}
+                        {(message.functionResult?.action === 'analyses' ||
+                          message.functionResult?.action === 'analyses_empty' ||
+                          message.functionResult?.link) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => openAppLink(message.functionResult?.link || '/analyses')}
+                          >
+                            Открыть анализы
+                          </Button>
                         )}
                       </div>
                     )}

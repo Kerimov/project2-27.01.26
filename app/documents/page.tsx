@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AIChat } from '@/components/AIChat'
 import {
   Activity,
   Upload,
@@ -478,8 +477,6 @@ export default function DocumentsPage() {
           </div>
         )}
       </main>
-
-      <AIChat />
     </div>
   )
 }
