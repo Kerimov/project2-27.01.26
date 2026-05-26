@@ -534,7 +534,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                 marginTop: theme.spacing.xs,
                 color: isUser ? 'rgba(255,255,255,0.7)' : theme.colors.mutedText,
               }}>
-              {time}{!isUser && item.provider ? ` • ${item.provider}` : ''}
+              {time}
             </AppText>
           </AppCard>
 

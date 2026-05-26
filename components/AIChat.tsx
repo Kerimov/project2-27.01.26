@@ -586,7 +586,6 @@ export function AIChat() {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
-                  {message.role === 'assistant' && message.provider ? ` • ${message.provider}` : ''}
                 </p>
               </div>
             </div>
