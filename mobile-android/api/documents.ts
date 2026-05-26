@@ -121,6 +121,14 @@ export async function deleteDocument(id: string): Promise<void> {
   await apiJson(`/api/documents/${id}`, { method: 'DELETE' });
 }
 
+export async function reprocessDocument(id: string): Promise<DocumentSummary | null> {
+  const res = await apiJson<{ document: DocumentSummary | null }>(`/api/documents/${id}/process`, {
+    method: 'POST',
+    timeoutMs: 180000,
+  });
+  return res.document;
+}
+
 export async function reviewDocument(
   id: string,
   patch: {

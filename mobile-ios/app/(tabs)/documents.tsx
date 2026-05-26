@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 
-import { getDocuments, uploadDocument, deleteDocument, type DocumentSummary } from '../../api/documents';
+import { getDocuments, uploadDocument, deleteDocument, reprocessDocument, type DocumentSummary } from '../../api/documents';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
 import { useContentPadding } from '@/design/responsive';
@@ -39,6 +39,7 @@ export default function DocumentsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const processingRequestsRef = useRef<Set<string>>(new Set());
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -46,6 +47,10 @@ export default function DocumentsScreen() {
       setError(null);
       const data = await getDocuments();
       setItems(data);
+      const pending = data.filter((doc) => !doc.parsed).map((doc) => doc.id);
+      if (pending.length > 0) {
+        setPollingIds((prev) => new Set([...prev, ...pending]));
+      }
     } catch (e: any) {
       setError(e?.message || 'Не удалось загрузить документы');
     } finally {
@@ -76,6 +81,13 @@ export default function DocumentsScreen() {
         const stillProcessing = updated.filter(
           (doc) => pollingIds.has(doc.id) && !doc.parsed
         );
+        stillProcessing.forEach((doc) => {
+          if (processingRequestsRef.current.has(doc.id)) return;
+          processingRequestsRef.current.add(doc.id);
+          reprocessDocument(doc.id)
+            .catch((err) => console.warn('Reprocess error:', err))
+            .finally(() => processingRequestsRef.current.delete(doc.id));
+        });
         if (stillProcessing.length === 0) {
           setPollingIds(new Set());
         }

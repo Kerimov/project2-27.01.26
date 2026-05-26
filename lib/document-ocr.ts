@@ -1,149 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { DocumentCategory } from '@/lib/documents'
 import { prisma } from '@/lib/db'
-import { verifyToken } from '@/lib/auth'
-import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
-import { parse as parseCookies } from 'cookie'
-import { waitUntil } from '@vercel/functions'
-
-export const runtime = 'nodejs'
-export const maxDuration = 300
-// Использует headers/cookies, помечаем маршрут как динамический
-export const dynamic = 'force-dynamic'
-
-// Размер файла в байтах (10 MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024
-
-// Разрешенные типы файлов
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'application/dicom',
-  'text/csv',
-  'text/plain'
-]
-
-function getToken(request: NextRequest) {
-  const auth = request.headers.get('authorization') || ''
-  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7)
-  const cookieHeader = request.headers.get('cookie')
-  const cookies = cookieHeader ? parseCookies(cookieHeader) : {}
-  return cookies.token || null
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Проверка авторизации
-    const token = getToken(request)
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Не авторизован' },
-        { status: 401 }
-      )
-    }
-
-    const payload = verifyToken(token)
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'Неверный токен' },
-        { status: 401 }
-      )
-    }
-
-    // Получаем файл
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const targetPatientId = (formData.get('patientId') as string) || ''
-
-    if (!file) {
-      return NextResponse.json(
-        { error: 'Файл не найден' },
-        { status: 400 }
-      )
-    }
-
-    // Проверка размера
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `Размер файла превышает ${MAX_FILE_SIZE / 1024 / 1024} МБ` },
-        { status: 400 }
-      )
-    }
-
-    // Проверка типа
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Неподдерживаемый тип файла' },
-        { status: 400 }
-      )
-    }
-
-    // Конвертируем файл в base64 для хранения
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const base64 = buffer.toString('base64')
-    const fileUrl = `data:${file.type};base64,${base64}`
-
-    // Определяем категорию по типу файла
-    let category: DocumentCategory = DocumentCategory.OTHER
-    if (file.type.includes('image') || file.type.includes('dicom')) {
-      category = DocumentCategory.IMAGING
-    }
-
-    // Определяем пользователя-владельца документа
-    let ownerUserId = payload.userId
-    if (targetPatientId && (payload as any).role === 'DOCTOR') {
-      // Врач может загрузить для пациента, только если пациент прикреплен или есть прием
-      const doctor = await prisma.doctorProfile.findUnique({ where: { userId: payload.userId } })
-      if (doctor) {
-        const [hasRecord, hasAppointment] = await Promise.all([
-          prisma.patientRecord.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } }),
-          prisma.appointment.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } })
-        ])
-        if (hasRecord || hasAppointment) {
-          ownerUserId = targetPatientId
-        }
-      }
-    }
-
-    // Создаем документ
-    const document = await prisma.document.create({
-      data: {
-        userId: ownerUserId,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        fileUrl,
-        parsed: false,
-        category
-      }
-    })
-
-    // Vercel serverless может оборвать обычный "fire-and-forget" promise после ответа.
-    waitUntil(processDocumentOCR(document.id))
-
-    return NextResponse.json({
-      message: 'Файл успешно загружен',
-      document: {
-        id: document.id,
-        fileName: document.fileName,
-        fileType: document.fileType,
-        fileSize: document.fileSize,
-        uploadDate: document.uploadDate
-      }
-    })
-
-  } catch (error) {
-    console.error('Upload error:', error)
-    return NextResponse.json(
-      { error: 'Ошибка загрузки файла' },
-      { status: 500 }
-    )
-  }
-}
 
 const OCR_PROCESS_TIMEOUT_MS = 180_000
 
@@ -162,7 +17,6 @@ async function resolveAIConfigForOCR() {
   return config
 }
 
-/** Сохранить распознанный текст и распарсить показатели (общий шаг для OCR.space / Tesseract / Vision) */
 async function persistOcrResult(
   documentId: string,
   ocrResult: { text: string; confidence: number },
@@ -215,9 +69,7 @@ async function persistOcrResult(
         parsed: true,
       },
     })
-    await saveAnalysisFromDocument(documentId).catch((err) => {
-      console.error(`[OCR] saveAnalysisFromDocument error for ${documentId}:`, err)
-    })
+    await saveAnalysisFromDocument(documentId)
     console.log(`[OCR] ${sourceLabel} completed successfully for document ${documentId}`)
   } catch (e: any) {
     if (e?.code === 'P2025') {
@@ -260,9 +112,7 @@ async function applyMockOcrResult(documentId: string, reason?: string) {
   }
   try {
     await prisma.document.update({ where: { id: documentId }, data: mockData })
-    await saveAnalysisFromDocument(documentId).catch((err) => {
-      console.error(`[OCR] saveAnalysisFromDocument mock error for ${documentId}:`, err)
-    })
+    await saveAnalysisFromDocument(documentId)
     console.warn(`[OCR] Mock/fallback saved for document ${documentId}`)
   } catch (e: any) {
     if (e?.code === 'P2025') return
@@ -270,8 +120,7 @@ async function applyMockOcrResult(documentId: string, reason?: string) {
   }
 }
 
-// Асинхронная обработка OCR — всегда завершается (parsed=true), иначе в приложении «Обрабатывается…» бесконечно
-async function processDocumentOCR(documentId: string) {
+export async function processDocumentOCR(documentId: string) {
   const timeout = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error('OCR_TIMEOUT')), OCR_PROCESS_TIMEOUT_MS)
   })
@@ -291,6 +140,10 @@ async function processDocumentOCRInner(documentId: string) {
 
   const document = await prisma.document.findUnique({ where: { id: documentId } })
   if (!document) return
+  if (document.parsed) {
+    await saveAnalysisFromDocument(documentId)
+    return
+  }
 
   const isImage = document.fileType.includes('image')
   const isPDF = document.fileType.includes('pdf')
@@ -306,6 +159,7 @@ async function processDocumentOCRInner(documentId: string) {
         findings: `Тип «${document.fileType}» не поддерживается для автоматического OCR.`,
       },
     })
+    await saveAnalysisFromDocument(documentId)
     return
   }
 
@@ -352,7 +206,6 @@ async function processDocumentOCRInner(documentId: string) {
 
     console.error('[OCR] Trying Ollama Vision before mock:', ocrErr)
     try {
-      const aiConfig = await resolveAIConfigForOCR()
       const { isOllamaVisionAvailable, callOllamaVision, fetchImageAsBase64 } = await import('@/lib/ollama')
       const visionOk = await isOllamaVisionAvailable()
       if (visionOk && document.fileType.startsWith('image/')) {
@@ -378,77 +231,48 @@ async function processDocumentOCRInner(documentId: string) {
     } catch (visionError) {
       console.error('[OCR] Ollama Vision attempt failed:', visionError)
     }
-      const { isOllamaVisionAvailable: checkVision } = await import('@/lib/ollama')
-      const hasVisionModel = await checkVision()
-      if (isPDF) {
-        console.log('[OCR] PDF fallback to Tesseract after OCR.space error')
-        if (await tryTesseractPdfOcr(documentId, document.fileUrl)) return
-      }
 
-      const visionHint = document.fileType.includes('pdf')
-        ? `PDF: OCR.space — ${ocrErr}; Tesseract не помог`
-        : `OCR.space: ${ocrErr}`
-      const visionPart = document.fileType.startsWith('image/')
-        ? hasVisionModel
-          ? 'Ollama Vision не извлекла текст'
-          : `нет модели ${process.env.OLLAMA_VISION_MODEL || 'llava'} — выполните: ollama pull llava`
-        : 'для PDF Vision не используется'
-      await applyMockOcrResult(documentId, `${visionHint}. ${visionPart}`)
-      return
+    const { isOllamaVisionAvailable: checkVision } = await import('@/lib/ollama')
+    const hasVisionModel = await checkVision()
+    if (isPDF) {
+      console.log('[OCR] PDF fallback to Tesseract after OCR.space error')
+      if (await tryTesseractPdfOcr(documentId, document.fileUrl)) return
     }
 
-    /* Для продакшена - интеграция с Google Cloud Vision:
-    
-    const vision = require('@google-cloud/vision')
-    const client = new vision.ImageAnnotatorClient({
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-    })
-    
-    const [result] = await client.textDetection(document.fileUrl)
-    const text = result.fullTextAnnotation?.text || ''
-    
-    const { parseMedicalData } = await import('@/lib/ocr')
-    const medicalData = parseMedicalData(text)
-    
-    documentsDb.update(documentId, {
-      rawText: text,
-      ocrConfidence: 0.95,
-      ...medicalData,
-      parsed: true
-    })
-    */
+    const visionHint = document.fileType.includes('pdf')
+      ? `PDF: OCR.space — ${ocrErr}; Tesseract не помог`
+      : `OCR.space: ${ocrErr}`
+    const visionPart = document.fileType.startsWith('image/')
+      ? hasVisionModel
+        ? 'Ollama Vision не извлекла текст'
+        : `нет модели ${process.env.OLLAMA_VISION_MODEL || 'llava'} — выполните: ollama pull llava`
+      : 'для PDF Vision не используется'
+    await applyMockOcrResult(documentId, `${visionHint}. ${visionPart}`)
+  }
 }
 
-// Создать запись анализа из данных документа
 async function saveAnalysisFromDocument(documentId: string) {
   try {
     console.log(`[Analysis] Attempting to save analysis for document ${documentId}`)
     const doc = await prisma.document.findUnique({ where: { id: documentId } })
-    
+
     if (!doc) {
       console.warn(`[Analysis] Document ${documentId} not found`)
       return
     }
-    
+
     if (!doc.parsed) {
       console.warn(`[Analysis] Document ${documentId} is not parsed yet, skipping analysis creation`)
       return
     }
 
-    console.log(`[Analysis] Document ${documentId} is parsed, creating analysis record`)
-
-    // Подготовка данных анализа
     const indicators = Array.isArray(doc.indicators) ? doc.indicators : []
     const hasDeviations = indicators.some((i: any) => i && i.isNormal === false)
-    
-    console.log(`[Analysis] Indicators count: ${indicators.length}, deviations: ${hasDeviations}`)
-    
     const resultsPayload = {
       indicators,
       findings: doc.findings || null,
       rawTextLength: (doc.rawText || '').length,
     }
-
     const analysisData = {
       userId: doc.userId,
       documentId: doc.id,
@@ -475,9 +299,8 @@ async function saveAnalysisFromDocument(documentId: string) {
         })
       : await prisma.analysis.create({ data: analysisData })
 
-    console.log(`[Analysis] ✅ Successfully created analysis ${analysis.id} with status: ${analysis.status}`)
+    console.log(`[Analysis] ✅ Saved analysis ${analysis.id} with status: ${analysis.status}`)
 
-    // Автоматически создаем напоминания если есть отклонения
     if (!existing && hasDeviations && indicators.length > 0) {
       try {
         await generateRemindersFromAnalysis(analysis, indicators)
@@ -497,7 +320,7 @@ async function saveAnalysisFromDocument(documentId: string) {
 
 async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
   const abnormalIndicators = indicators.filter(ind => ind.isNormal === false)
-  
+
   if (abnormalIndicators.length === 0) {
     return
   }
@@ -505,24 +328,22 @@ async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
   const analysisType = analysis.type?.toLowerCase() || ''
   const analysisTitle = analysis.title?.toLowerCase() || ''
 
-  // 1. Напоминание о консультации врача
   const doctorReminder = {
     userId: analysis.userId,
     analysisId: analysis.id,
     title: 'Консультация врача по результатам анализов',
     description: `Рекомендуется консультация специалиста по результатам анализа "${analysis.title}". Обнаружены отклонения по показателям: ${abnormalIndicators.map(ind => ind.name).join(', ')}.`,
-    dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // через неделю
+    dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     recurrence: 'NONE' as const,
     channels: ['EMAIL', 'PUSH']
   }
   await prisma.reminder.create({ data: doctorReminder })
 
-  // 2. Специфичные напоминания в зависимости от типа анализа
   if (analysisType.includes('кров') || analysisTitle.includes('кров')) {
-    const hasLowHemoglobin = abnormalIndicators.some(ind => 
+    const hasLowHemoglobin = abnormalIndicators.some(ind =>
       ind.name?.toLowerCase().includes('гемоглобин') && ind.value < (ind.referenceMin || 120)
     )
-    const hasHighCholesterol = abnormalIndicators.some(ind => 
+    const hasHighCholesterol = abnormalIndicators.some(ind =>
       ind.name?.toLowerCase().includes('холестерин') && ind.value > (ind.referenceMax || 5.2)
     )
 
@@ -533,7 +354,7 @@ async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
           analysisId: analysis.id,
           title: 'Прием препаратов железа',
           description: 'Согласно результатам анализа крови, рекомендуется прием препаратов железа для повышения гемоглобина. Проконсультируйтесь с врачом о дозировке.',
-          dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // через 2 дня
+          dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
           recurrence: 'DAILY' as const,
           channels: ['PUSH']
         }
@@ -547,7 +368,7 @@ async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
           analysisId: analysis.id,
           title: 'Контроль питания и холестерина',
           description: 'Обнаружен повышенный уровень холестерина. Рекомендуется диета с ограничением жирной пищи и регулярный контроль показателей.',
-          dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // через 3 дня
+          dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
           recurrence: 'WEEKLY' as const,
           channels: ['EMAIL', 'PUSH']
         }
@@ -555,14 +376,13 @@ async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
     }
   }
 
-  // 3. Напоминание о повторном анализе
   await prisma.reminder.create({
     data: {
       userId: analysis.userId,
       analysisId: analysis.id,
       title: 'Повторный анализ',
       description: `Рекомендуется повторный анализ "${analysis.title}" через 1-3 месяца для контроля динамики показателей.`,
-      dueAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // через месяц
+      dueAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       recurrence: 'NONE' as const,
       channels: ['EMAIL', 'PUSH']
     }
@@ -570,4 +390,3 @@ async function generateRemindersFromAnalysis(analysis: any, indicators: any[]) {
 
   console.log(`[OCR] Generated reminders for analysis ${analysis.id} with ${abnormalIndicators.length} abnormal indicators`)
 }
-
