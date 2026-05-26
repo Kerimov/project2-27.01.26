@@ -1,3 +1,4 @@
+import { CompanyType, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { filterFallbackCompanies } from '@/lib/marketplace-fallback'
 import { citiesMatch, formatCityLabel } from '@/lib/marketplace-city'
@@ -227,8 +228,10 @@ async function searchWeb(intent: MarketplaceSearchIntent, limit = 8): Promise<Di
 }
 
 export async function searchCatalog(intent: MarketplaceSearchIntent, limit = 20): Promise<DiscoveredCompany[]> {
-  const where: { isActive: boolean; type?: string } = { isActive: true }
-  if (intent.type && intent.type !== 'all') where.type = intent.type
+  const where: Prisma.CompanyWhereInput = { isActive: true }
+  if (intent.type && intent.type !== 'all' && intent.type in CompanyType) {
+    where.type = intent.type as CompanyType
+  }
 
   let rows = await prisma.company.findMany({
     where,

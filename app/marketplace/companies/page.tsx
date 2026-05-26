@@ -12,7 +12,8 @@ import {
   ShoppingBag, Dumbbell, UtensilsCrossed, Search, CheckCircle2 
 } from 'lucide-react'
 import Link from 'next/link'
-import { MarketplaceAIChat, type DiscoveredCompany } from '@/components/MarketplaceAIChat'
+import { MarketplaceAIChat } from '@/components/MarketplaceAIChat'
+import type { DiscoveredCompany } from '@/lib/marketplace-discover'
 
 interface Company {
   id: string

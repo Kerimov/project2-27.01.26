@@ -6,19 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import type { DiscoveredCompany } from '@/lib/marketplace-discover'
 
-export type DiscoveredCompany = {
-  id: string
-  name: string
-  type: string
-  description?: string
-  address?: string
-  city?: string
-  website?: string
-  source: 'catalog' | 'openstreetmap' | 'web'
-  sourceUrl?: string
-  isVerified: boolean
-}
+export type { DiscoveredCompany }
 
 type MarketplaceAIChatProps = {
   cityHint?: string
