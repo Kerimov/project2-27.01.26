@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { ActivityIndicator, Keyboard, Pressable, View } from 'react-native';
 import {
   searchMarketplaceWithAI,
   type DiscoveredCompany,
@@ -10,19 +9,14 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppButton } from '@/components/ui/AppButton';
-
-const SOURCE_LABEL: Record<string, string> = {
-  catalog: 'Каталог',
-  openstreetmap: 'Карта',
-  web: 'Интернет',
-};
+import { MarketplaceCompanyCard } from './MarketplaceCompanyCard';
 
 type Props = {
   cityHint?: string;
+  onResults?: (companies: DiscoveredCompany[]) => void;
 };
 
-export function MarketplaceAISearch({ cityHint }: Props) {
-  const router = useRouter();
+export function MarketplaceAISearch({ cityHint, onResults }: Props) {
   const theme = useAppTheme();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +27,7 @@ export function MarketplaceAISearch({ cityHint }: Props) {
   const runSearch = async (text: string) => {
     const message = text.trim();
     if (!message || loading) return;
+    Keyboard.dismiss();
     setLoading(true);
     setError(null);
     try {
@@ -41,8 +36,10 @@ export function MarketplaceAISearch({ cityHint }: Props) {
         city: cityHint,
         includeWeb: true,
       });
+      const found = data.companies || [];
       setReply(data.response);
-      setResults(data.companies || []);
+      setResults(found);
+      onResults?.(found);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка AI-поиска');
       setResults([]);
@@ -51,26 +48,19 @@ export function MarketplaceAISearch({ cityHint }: Props) {
     }
   };
 
-  const openCompany = (c: DiscoveredCompany) => {
-    const external = c.id.startsWith('web:') || c.id.startsWith('osm:');
-    const url = c.sourceUrl || c.website;
-    if (external && url) {
-      Linking.openURL(url).catch(() => {});
-      return;
-    }
-    router.push(`/marketplace/${c.id}` as any);
-  };
-
   return (
     <AppCard style={{ padding: theme.spacing.md, marginBottom: theme.spacing.sm }}>
       <AppText variant="h3">AI-поиск клиник</AppText>
       <AppText variant="caption" color="mutedText" style={{ marginTop: 4 }}>
-        Каталог, карты и интернет{cityHint ? ` · ${cityHint}` : ''}
+        Частичный поиск по названию · каталог, карты и интернет{cityHint ? ` · ${cityHint}` : ''}
       </AppText>
       <AppInput
-        placeholder="Напр. стоматология в Казани"
+        placeholder="Напр. стоматология, Invitro, кардиолог…"
         value={query}
         onChangeText={setQuery}
+        returnKeyType="search"
+        blurOnSubmit
+        onSubmitEditing={() => runSearch(query)}
         style={{ marginTop: theme.spacing.sm }}
       />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
@@ -90,7 +80,7 @@ export function MarketplaceAISearch({ cityHint }: Props) {
         />
       </View>
       <AppButton
-        title={loading ? 'Ищу…' : 'Найти с AI'}
+        title={loading ? 'Ищу…' : 'Найти'}
         style={{ marginTop: theme.spacing.sm }}
         disabled={loading || !query.trim()}
         onPress={() => runSearch(query)}
@@ -105,26 +95,30 @@ export function MarketplaceAISearch({ cityHint }: Props) {
         <AppText style={{ marginTop: theme.spacing.sm }}>{reply}</AppText>
       ) : null}
       {results.length > 0 ? (
-        <View style={{ marginTop: theme.spacing.sm, gap: theme.spacing.xs }}>
-          {results.slice(0, 8).map((c) => (
-            <Pressable key={c.id} onPress={() => openCompany(c)}>
-              <View
-                style={{
-                  borderWidth: 1,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.radius.md,
-                  padding: theme.spacing.sm,
-                }}
-              >
-                <AppText variant="h3">{c.name}</AppText>
-                <AppText variant="caption" color="mutedText">
-                  {SOURCE_LABEL[c.source] || c.source}
-                  {c.city ? ` · ${c.city}` : ''}
-                </AppText>
-              </View>
-            </Pressable>
+        <Pressable onPress={Keyboard.dismiss} style={{ marginTop: theme.spacing.sm, gap: theme.spacing.sm }}>
+          <AppText variant="caption" color="mutedText">
+            Найдено: {results.length}
+          </AppText>
+          {results.slice(0, 6).map((c) => (
+            <MarketplaceCompanyCard
+              key={c.id}
+              company={{
+                id: c.id,
+                name: c.name,
+                type: c.type,
+                description: c.description,
+                address: c.address || '',
+                city: c.city || '',
+                phone: c.phone,
+                website: c.website,
+                reviewCount: 0,
+                isVerified: c.isVerified,
+                source: c.source,
+                sourceUrl: c.sourceUrl || c.website,
+              }}
+            />
           ))}
-        </View>
+        </Pressable>
       ) : null}
     </AppCard>
   );

@@ -45,6 +45,34 @@ function hashId(input: string) {
   return Math.abs(h).toString(36)
 }
 
+function normalizeSearchText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Частичный поиск: подстрока или совпадение хотя бы одного слова запроса (от 2 символов). */
+export function matchesCompanySearch(haystack: string, query: string): boolean {
+  const cleaned = query.replace(/найди|покажи|подбери|ищу|клиник[аи]?/gi, ' ').trim()
+  const q = normalizeSearchText(cleaned)
+  if (!q) return true
+
+  const hay = normalizeSearchText(haystack)
+  if (hay.includes(q)) return true
+
+  const tokens = q.split(' ').filter((t) => t.length >= 2)
+  if (tokens.length === 0) return true
+  return tokens.some((token) => hay.includes(token))
+}
+
+function searchTokens(query: string) {
+  return normalizeSearchText(query.replace(/найди|покажи|подбери|ищу|клиник[аи]?/gi, ' '))
+    .split(' ')
+    .filter((t) => t.length >= 2)
+}
+
 export function parseMarketplaceIntent(message: string, cityHint?: string | null): MarketplaceSearchIntent {
   const text = message.trim()
   const lower = text.toLowerCase()
@@ -333,20 +361,14 @@ export async function searchCatalog(intent: MarketplaceSearchIntent, limit = 20)
     rows = fallback.companies as any[]
   }
 
-  const q = intent.query.toLowerCase()
   const filtered = rows.filter((c) => {
     if (intent.city && !citiesMatch(c.city, intent.city)) return false
     if (intent.specialization) {
       const hay = `${c.name} ${c.description || ''}`.toLowerCase()
       if (!hay.includes(intent.specialization)) return false
     }
-    if (q.length > 3) {
-      const hay = `${c.name} ${c.description || ''} ${c.city || ''}`.toLowerCase()
-      if (!hay.includes(q.replace(/найди|покажи|клиник[аи]?/gi, '').trim())) {
-        const tokens = q.split(/\s+/).filter((t) => t.length > 3)
-        if (tokens.length && !tokens.some((t) => hay.includes(t))) return false
-      }
-    }
+    const haystack = `${c.name} ${c.description || ''} ${c.city || ''} ${c.address || ''}`
+    if (!matchesCompanySearch(haystack, intent.query)) return false
     return true
   })
 
@@ -392,7 +414,22 @@ export async function discoverMarketplaceCompanies(
     includeWeb ? searchWeb(intent) : Promise.resolve([]),
   ])
 
-  const merged = dedupeCompanies([...catalog, ...osm, ...nominatim, ...web])
+  let merged = dedupeCompanies([...catalog, ...osm, ...nominatim, ...web])
+  const tokens = searchTokens(intent.query)
+  if (tokens.length > 0) {
+    const ranked = merged
+      .map((item) => {
+        const haystack = `${item.name} ${item.description || ''} ${item.address || ''} ${item.city || ''} ${item.snippet || ''}`
+        const score = tokens.reduce((acc, token) => (normalizeSearchText(haystack).includes(token) ? acc + 1 : acc), 0)
+        return { item, score }
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+    if (ranked.length > 0) {
+      merged = ranked.map(({ item }) => item)
+    }
+  }
+
   return {
     companies: merged,
     catalogCount: catalog.length,

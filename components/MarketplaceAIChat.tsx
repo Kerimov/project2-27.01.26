@@ -53,6 +53,9 @@ export function MarketplaceAIChat({ cityHint, onResults }: MarketplaceAIChatProp
       setMessages((prev) => [...prev, userMsg])
       setInput('')
       setLoading(true)
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
 
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -186,18 +189,23 @@ export function MarketplaceAIChat({ cityHint, onResults }: MarketplaceAIChatProp
           </Button>
         </div>
 
-        <div className="flex gap-2">
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            sendMessage(input)
+          }}
+        >
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(input))}
             placeholder="Напр. кардиолог в Москве, МРТ, анализы крови…"
             disabled={loading}
           />
-          <Button type="button" onClick={() => sendMessage(input)} disabled={loading || !input.trim()} size="icon">
+          <Button type="submit" disabled={loading || !input.trim()} size="icon">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
-        </div>
+        </form>
 
         <p className="text-[11px] text-muted-foreground flex items-center gap-1">
           <Globe className="h-3 w-3" />

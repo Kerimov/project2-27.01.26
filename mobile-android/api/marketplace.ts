@@ -75,6 +75,31 @@ export type MarketplaceAISearchResult = {
   webCount: number;
 };
 
+export function mergeMarketplaceCompanies(
+  prev: MarketplaceCompany[],
+  discovered: DiscoveredCompany[]
+): MarketplaceCompany[] {
+  const map = new Map(prev.map((c) => [c.id, c]));
+  for (const d of discovered) {
+    if (map.has(d.id)) continue;
+    map.set(d.id, {
+      id: d.id,
+      name: d.name,
+      type: d.type,
+      description: d.description,
+      address: d.address || '',
+      city: d.city || '',
+      phone: d.phone,
+      website: d.website,
+      reviewCount: 0,
+      isVerified: d.isVerified,
+      source: d.source,
+      sourceUrl: d.sourceUrl || d.website,
+    });
+  }
+  return Array.from(map.values());
+}
+
 export async function searchMarketplaceWithAI(params: {
   message: string;
   city?: string;

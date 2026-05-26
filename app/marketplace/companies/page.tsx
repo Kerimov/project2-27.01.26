@@ -68,7 +68,6 @@ export default function CompaniesPage() {
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
-  const [aiResults, setAiResults] = useState<DiscoveredCompany[]>([])
   const [discoveryStats, setDiscoveryStats] = useState<{ catalogCount: number; osmCount: number; webCount: number } | null>(null)
   const fetchSeq = useRef(0)
 
@@ -86,6 +85,43 @@ export default function CompaniesPage() {
   }
 
   const isExternalCompany = (id: string) => id.startsWith('web:') || id.startsWith('osm:')
+
+  const mergeDiscoveredIntoCompanies = useCallback((prev: Company[], found: DiscoveredCompany[]) => {
+    const map = new Map(prev.map((c) => [c.id, c]))
+    for (const d of found) {
+      if (map.has(d.id)) continue
+      map.set(d.id, {
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        description: d.description,
+        address: d.address,
+        city: d.city,
+        phone: d.phone,
+        website: d.website,
+        reviewCount: 0,
+        isVerified: d.isVerified,
+        source: d.source,
+        sourceUrl: d.sourceUrl || d.website,
+        products: [],
+        _count: { recommendations: 0, products: 0 },
+      })
+    }
+    return Array.from(map.values())
+  }, [])
+
+  const handleAiResults = useCallback(
+    (found: DiscoveredCompany[]) => {
+      if (found.length > 0) {
+        setCompanies((prev) => {
+          const merged = mergeDiscoveredIntoCompanies(prev, found)
+          setTotal(merged.length)
+          return merged
+        })
+      }
+    },
+    [mergeDiscoveredIntoCompanies]
+  )
 
   const resolveCityForFilter = useCallback(
     (detected: string) => matchCityFromList(detected, availableCities) || formatCityLabel(detected),
@@ -304,6 +340,9 @@ export default function CompaniesPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
     fetchCompanies()
   }
 
@@ -379,89 +418,8 @@ export default function CompaniesPage() {
 
         {/* AI-поиск по каталогу и интернету */}
         <div className="mb-8">
-          <MarketplaceAIChat cityHint={cityForAi} onResults={setAiResults} />
+          <MarketplaceAIChat cityHint={cityForAi} onResults={handleAiResults} />
         </div>
-
-        {aiResults.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2">Результаты AI-поиска</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Каталог, OpenStreetMap и открытые источники в интернете
-            </p>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {aiResults.map((company) => {
-                const typeInfo = companyTypes[company.type as keyof typeof companyTypes] || companyTypes.OTHER
-                const IconComponent = typeInfo.icon
-                const external = isExternalCompany(company.id)
-                const href = external
-                  ? company.sourceUrl || company.website || '#'
-                  : `/marketplace/companies/${company.id}`
-
-                const card = (
-                  <Card className="group hover:shadow-medical-lg transition-all duration-300 border-0 shadow-medical glass-effect h-full">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className={`p-2 rounded-lg ${typeInfo.color}`}>
-                          <IconComponent className="w-5 h-5" />
-                        </div>
-                        <Badge variant="outline" className={sourceBadge[company.source] || ''}>
-                          {sourceLabel[company.source] || company.source}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-lg group-hover:text-primary transition-colors">
-                        {company.name}
-                      </CardTitle>
-                      <Badge variant="outline" className={`${typeInfo.color} border w-fit`}>
-                        {typeInfo.label}
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
-                      {company.description && (
-                        <p className="line-clamp-2">{company.description}</p>
-                      )}
-                      {(company.address || company.city) && (
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">
-                            {[company.address, company.city].filter(Boolean).join(', ')}
-                          </span>
-                        </div>
-                      )}
-                      {company.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 shrink-0" />
-                          <span>{company.phone}</span>
-                        </div>
-                      )}
-                      <span className="text-blue-600 font-medium inline-block">
-                        {external ? 'Открыть сайт →' : 'Подробнее →'}
-                      </span>
-                    </CardContent>
-                  </Card>
-                )
-
-                if (external) {
-                  return (
-                    <a
-                      key={company.id}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      {card}
-                    </a>
-                  )
-                }
-                return (
-                  <Link key={company.id} href={href}>
-                    {card}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Фильтры */}
         <div className="mb-8">

@@ -1,27 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { getCompanies, getCities, type MarketplaceCompany } from '../../api/marketplace';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  View,
+} from 'react-native';
+import {
+  getCompanies,
+  getCities,
+  mergeMarketplaceCompanies,
+  type MarketplaceCompany,
+} from '../../api/marketplace';
 import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
-import { AppCard } from '@/components/ui/AppCard';
 import { AppText } from '@/components/ui/AppText';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppChip } from '@/components/ui/AppChip';
-import { MarketplaceAISearch } from '@/components/MarketplaceAISearch';
+import { MarketplaceAISearch } from '../../components/MarketplaceAISearch';
+import { MarketplaceCompanyCard } from '../../components/MarketplaceCompanyCard';
 
 export default function MarketplaceScreen() {
-  const router = useRouter();
   const theme = useAppTheme();
   const [companies, setCompanies] = useState<MarketplaceCompany[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [city, setCity] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -36,76 +45,83 @@ export default function MarketplaceScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [city, search]);
 
   useEffect(() => {
     getCities().then(setCities).catch(() => {});
-    load();
   }, []);
 
   useEffect(() => {
     const t = setTimeout(load, 400);
     return () => clearTimeout(t);
-  }, [city, search]);
+  }, [load]);
 
-  return (
-    <AppScreen scroll={false} contentContainerStyle={{ flex: 1 }}>
-      <MarketplaceAISearch cityHint={city || undefined} />
-      <AppInput placeholder="Поиск в каталоге, на карте и в интернете…" value={search} onChangeText={setSearch} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 }}>
+  const header = (
+    <View style={{ gap: theme.spacing.sm, paddingBottom: theme.spacing.sm }}>
+      <MarketplaceAISearch
+        cityHint={city || undefined}
+        onResults={(found) => setCompanies((prev) => mergeMarketplaceCompanies(prev, found))}
+      />
+      <AppInput
+        placeholder="Поиск в каталоге, на карте и в интернете…"
+        value={search}
+        onChangeText={setSearch}
+        returnKeyType="search"
+        blurOnSubmit
+        onSubmitEditing={() => Keyboard.dismiss()}
+      />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <AppChip label="Все города" tone={!city ? 'primary' : 'neutral'} onPress={() => setCity('')} />
         {cities.slice(0, 8).map((c) => (
           <AppChip key={c} label={c} tone={city === c ? 'primary' : 'neutral'} onPress={() => setCity(c)} />
         ))}
       </View>
       {error ? (
-        <AppText color="mutedText" style={{ textAlign: 'center', padding: 16 }}>
+        <AppText color="mutedText" style={{ textAlign: 'center', padding: 8 }}>
           {error}
         </AppText>
       ) : null}
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 24 }} />
-      ) : (
-        <FlatList
-          data={companies}
-          keyExtractor={(c) => c.id}
-          contentContainerStyle={{ gap: theme.spacing.sm, paddingBottom: 24 }}
-          renderItem={({ item }) => {
-            const external = item.id.startsWith('web:') || item.id.startsWith('osm:');
-            const open = () => {
-              const url = item.sourceUrl || item.website;
-              if (external && url) {
-                Linking.openURL(url).catch(() => {});
-                return;
-              }
-              router.push(`/marketplace/${item.id}` as any);
-            };
-            return (
-            <Pressable onPress={open}>
-              <AppCard style={{ padding: theme.spacing.md }}>
-                <AppText variant="h3">{item.name}</AppText>
-                <AppText variant="caption" color="mutedText">
-                  {item.city} · {item.type}
-                  {item.source && item.source !== 'catalog'
-                    ? ` · ${item.source === 'web' ? 'Интернет' : 'Карта'}`
-                    : ''}
+      {!loading ? (
+        <AppText variant="caption" color="mutedText">
+          Найдено: {companies.length}
+        </AppText>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <AppScreen scroll={false} style={{ flex: 1 }} contentContainerStyle={{ flex: 1, paddingBottom: 0 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      >
+        {loading && companies.length === 0 ? (
+          <View style={{ flex: 1 }}>
+            {header}
+            <ActivityIndicator style={{ marginTop: 24 }} />
+          </View>
+        ) : (
+          <FlatList
+            style={{ flex: 1 }}
+            data={companies}
+            keyExtractor={(c) => c.id}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            onScrollBeginDrag={Keyboard.dismiss}
+            ListHeaderComponent={header}
+            contentContainerStyle={{ gap: theme.spacing.sm, paddingBottom: 120 }}
+            renderItem={({ item }) => <MarketplaceCompanyCard company={item} />}
+            ListEmptyComponent={
+              !loading ? (
+                <AppText color="mutedText" style={{ textAlign: 'center', padding: 24 }}>
+                  Ничего не найдено. Укажите город или попробуйте другой запрос.
                 </AppText>
-                {item.rating != null ? (
-                  <AppText variant="caption" style={{ marginTop: 4 }}>
-                    ★ {item.rating} ({item.reviewCount})
-                  </AppText>
-                ) : null}
-              </AppCard>
-            </Pressable>
-            );
-          }}
-          ListEmptyComponent={
-            <AppText color="mutedText" style={{ textAlign: 'center', padding: 24 }}>
-              Ничего не найдено
-            </AppText>
-          }
-        />
-      )}
+              ) : null
+            }
+          />
+        )}
+      </KeyboardAvoidingView>
     </AppScreen>
   );
 }

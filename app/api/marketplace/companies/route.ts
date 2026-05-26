@@ -322,19 +322,31 @@ export async function GET(request: NextRequest) {
         osmCount = discovery.osmCount
         webCount = discovery.webCount
 
-        const catalogNames = new Set(
+        const mergedById = new Map(companies.map((c) => [c.id, c]))
+        const mergedNames = new Set(
           companies.map((c) => c.name.toLowerCase().replace(/\s+/g, ' ').trim())
         )
 
-        const external = discovery.companies
-          .filter((c) => c.source !== 'catalog')
-          .filter((c) => !catalogNames.has(c.name.toLowerCase().replace(/\s+/g, ' ').trim()))
-          .map((c) => mapDiscoveredToApiCompany(c))
+        for (const discovered of discovery.companies) {
+          const nameKey = discovered.name.toLowerCase().replace(/\s+/g, ' ').trim()
+          if (mergedById.has(discovered.id) || mergedNames.has(nameKey)) continue
 
-        if (external.length > 0) {
-          companies = [...companies, ...external].slice(0, Math.max(limit, 30)) as typeof companies
-          total = companies.length
+          if (discovered.source === 'catalog') {
+            const full = companiesData.find((row) => row.id === discovered.id)
+            if (full) {
+              mergedById.set(full.id, full)
+              mergedNames.add(nameKey)
+              continue
+            }
+          }
+
+          const mapped = mapDiscoveredToApiCompany(discovered)
+          mergedById.set(mapped.id, mapped as unknown as (typeof companies)[number])
+          mergedNames.add(nameKey)
         }
+
+        companies = Array.from(mergedById.values()).slice(0, Math.max(limit, 30)) as typeof companies
+        total = companies.length
       } catch (discoverError) {
         logger.warn('[COMPANIES] Discovery search failed:', discoverError)
       }
