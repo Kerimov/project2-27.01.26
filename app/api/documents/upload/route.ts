@@ -5,6 +5,7 @@ import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 
+export const runtime = 'nodejs'
 // Использует headers/cookies, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 

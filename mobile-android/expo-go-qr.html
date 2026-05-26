@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Expo Go — подключение</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 420px; margin: 2rem auto; padding: 0 1rem; text-align: center; }
+    img { border: 1px solid #ddd; border-radius: 12px; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+    .note { text-align: left; font-size: 0.95rem; color: #444; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Expo Go — QR</h1>
+  <p>Отсканируйте в приложении <strong>Expo Go</strong> (Android / iPhone).</p>
+  <img
+    width="280"
+    height="280"
+    alt="QR для exp://192.168.1.71:8081"
+    src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=exp%3A%2F%2F192.168.1.71%3A8081"
+  />
+  <p><code>exp://192.168.1.71:8081</code></p>
+  <div class="note">
+    <p><strong>Важно:</strong> QR подключает телефон к <em>вашему Mac</em> (Metro), а не к Vercel напрямую.</p>
+    <p>Данные (логин, анализы) идут на API:<br />
+    <code>https://project2-27-01-26.vercel.app</code></p>
+    <p>Телефон и Mac должны быть в одной Wi‑Fi. На Mac должен работать <code>npx expo start</code> в папке <code>mobile-android</code>.</p>
+  </div>
+</body>
+</html>

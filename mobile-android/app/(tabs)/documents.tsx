@@ -79,8 +79,17 @@ export default function DocumentsScreen() {
         if (stillProcessing.length === 0) {
           setPollingIds(new Set());
         }
-      } catch (e) {
+      } catch (e: unknown) {
+        const status = (e as { status?: number })?.status;
         console.error('Polling error:', e);
+        if (status === 401 || status === 403 || status === 500) {
+          setPollingIds(new Set());
+          if (status === 401 || status === 403) {
+            setError('Сессия истекла. Выйдите и войдите снова.');
+          } else {
+            setError('Сервер временно недоступен. Проверьте Vercel (БД, JWT_SECRET) или попробуйте позже.');
+          }
+        }
       }
     }, 3000); // Проверяем каждые 3 секунды
 

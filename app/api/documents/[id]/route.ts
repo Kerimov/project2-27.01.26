@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { parse as parseCookies } from 'cookie'
 
+export const runtime = 'nodejs'
 // Использует headers/cookies, помечаем маршрут как динамический
 export const dynamic = 'force-dynamic'
 
