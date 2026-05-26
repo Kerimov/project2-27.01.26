@@ -207,8 +207,12 @@ export default function ProfileScreen() {
         text: 'Выйти',
         style: 'destructive',
         onPress: async () => {
-          await logout();
-          router.replace('/' as any);
+          try {
+            await logout();
+          } finally {
+            (router as any).dismissAll?.();
+            router.replace('/' as any);
+          }
         },
       },
     ]);

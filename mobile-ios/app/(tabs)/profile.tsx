@@ -207,8 +207,14 @@ export default function ProfileScreen() {
         text: 'Выйти',
         style: 'destructive',
         onPress: async () => {
-          await logout();
-          router.replace('/' as any);
+          try {
+            await logout();
+          } finally {
+            // Expo Router иногда оставляет вложенную навигацию в Tabs,
+            // поэтому принудительно закрываем стеки и уходим на экран входа.
+            (router as any).dismissAll?.();
+            router.replace('/' as any);
+          }
         },
       },
     ]);
