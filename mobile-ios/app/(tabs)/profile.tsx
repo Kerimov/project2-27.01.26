@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
  
 import { getProfile, updateProfile, type PatientProfile, type Sex } from '../../api/profile';
 import { me } from '../../api/me';
@@ -38,7 +38,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [aiData, setAiData] = useState<AdminAiSettingsResponse | null>(null);
@@ -95,6 +94,12 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (token) loadData();
   }, [token, loadData]);
+
+  useEffect(() => {
+    if (!token && !loading) {
+      router.replace('/index' as any);
+    }
+  }, [token, loading, router]);
 
   const loadAiSettings = useCallback(async () => {
     if (!token || user?.role !== 'ADMIN') return;
@@ -202,11 +207,12 @@ export default function ProfileScreen() {
   };
  
   const performLogout = async () => {
-    setLoggingOut(true);
     try {
       await logout();
     } finally {
-      router.replace('/' as any);
+      (router as any).dismissAll?.();
+      router.replace('/index' as any);
+      setTimeout(() => router.replace('/index' as any), 50);
     }
   };
 
@@ -224,10 +230,6 @@ export default function ProfileScreen() {
   };
  
   if (loading) {
-    if (loggingOut || !token) {
-      return <Redirect href="/" />;
-    }
-
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: theme.colors.background }}>
         <ActivityIndicator />
@@ -238,10 +240,6 @@ export default function ProfileScreen() {
     );
   }
 
-  if (loggingOut || !token) {
-    return <Redirect href="/" />;
-  }
- 
   return (
     <AppScreen contentContainerStyle={{ paddingBottom: 220 }}>
       <AppSection title="Профиль" subtitle={displayName}>
