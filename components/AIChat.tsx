@@ -223,6 +223,8 @@ export function AIChat() {
       case 'get_recommendations': return '💡 Рекомендации'
       case 'get_doctors': return '👨‍⚕️ Список врачей'
       case 'get_appointments': return '📋 Записи на приемы'
+      case 'get_reminders': return '🔔 Напоминания'
+      case 'get_documents': return '📄 Документы'
       case 'get_diary_entries':
       case 'add_diary_entry':
       case 'diary_weekly_review': return '📓 Дневник'
@@ -327,8 +329,19 @@ export function AIChat() {
                       </div>
                     )}
                     {message.functionName === 'get_analysis_results' && message.functionResult && (
-                      <div className="text-xs text-blue-600">
-                        Показаны последние {message.functionResult.length} анализов.
+                      <div className="space-y-1 text-xs text-blue-600">
+                        {Array.isArray(message.functionResult?.analyses) ? (
+                          <>
+                            <div>Показаны последние {message.functionResult.analyses.length} анализов.</div>
+                            {message.functionResult.link && (
+                              <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                                Открыть анализы →
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <div>Показаны последние {Array.isArray(message.functionResult) ? message.functionResult.length : 0} анализов.</div>
+                        )}
                       </div>
                     )}
                     {message.functionName === 'get_recommendations' && message.functionResult && (
@@ -418,8 +431,39 @@ export function AIChat() {
                       </div>
                     )}
                     {message.functionName === 'get_appointments' && message.functionResult && (
-                      <div className="text-xs text-indigo-600">
-                        Показано {message.functionResult.length} записей.
+                      <div className="space-y-2 text-xs text-indigo-700">
+                        {Array.isArray(message.functionResult?.appointments) ? (
+                          <>
+                            <div>Показано {message.functionResult.appointments.length} записей.</div>
+                            {message.functionResult.link && (
+                              <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                                Открыть мои записи →
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <div>Показано {Array.isArray(message.functionResult) ? message.functionResult.length : 0} записей.</div>
+                        )}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'reminders' && Array.isArray(message.functionResult.reminders) && (
+                      <div className="space-y-1 text-xs text-blue-700">
+                        <div>Показано {message.functionResult.reminders.length} напоминаний.</div>
+                        {message.functionResult.link && (
+                          <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                            Открыть напоминания →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {message.functionResult?.action === 'documents' && Array.isArray(message.functionResult.documents) && (
+                      <div className="space-y-1 text-xs text-slate-700">
+                        <div>Показано {message.functionResult.documents.length} документов.</div>
+                        {message.functionResult.link && (
+                          <a href={message.functionResult.link} className="text-primary hover:underline font-medium">
+                            Открыть документы →
+                          </a>
+                        )}
                       </div>
                     )}
                     {(message.functionResult?.action === 'diary_entries' || message.functionResult?.action === 'diary_entry_created') && (

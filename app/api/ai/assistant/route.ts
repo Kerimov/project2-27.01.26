@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
+import { callDeepSeekChat, isDeepSeekConfigured } from '@/lib/deepseek'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
@@ -281,12 +282,41 @@ function isNoIntent(message: string) {
 }
 
 function isDoctorIntent(message: string) {
-  if (isDiaryIntent(message) || isMedicationsIntent(message) || isCarePlanTasksIntent(message)) return false
+  if (
+    isAppointmentQueryIntent(message) ||
+    isDiaryIntent(message) ||
+    isMedicationsIntent(message) ||
+    isCarePlanTasksIntent(message) ||
+    isReminderIntent(message) ||
+    isDocumentsIntent(message) ||
+    isAnalysesListIntent(message)
+  ) return false
   return /врач|доктор|специалист|терапевт|кардиолог|невролог|эндокринолог|при[её]м|запис/i.test(message)
 }
 
 function isBookingIntent(message: string) {
   return /запис|при[её]м|свободн|слот|время|расписан/i.test(message)
+}
+
+function isAppointmentQueryIntent(message: string) {
+  const t = message.toLowerCase()
+  if (/записаться|запиши|записать|найди.*врач|покажи.*врач|свободн.*слот|хочу.*при[её]м/i.test(t)) return false
+  return (
+    /(?:мои|мой|покажи|какие|когда|ближайш|предстоящ).*(?:запис[ьи]?|при[её]м[ы]?)/i.test(t) ||
+    /(?:запис[ьи]?|при[её]м[ы]?).*(?:мои|предстоящ|ближайш)/i.test(t)
+  )
+}
+
+function isReminderIntent(message: string) {
+  return /напоминан|ремайндер|reminder/i.test(message)
+}
+
+function isDocumentsIntent(message: string) {
+  return /(?:мои|покажи|список|последн).*(?:документ|файл|загрузк)|(?:документ|файл).*(?:мои|последн)/i.test(message)
+}
+
+function isAnalysesListIntent(message: string) {
+  return /(?:мои|покажи|список|последн).*(?:анализ|показател)|(?:анализ|показател).*(?:мои|последн)/i.test(message)
 }
 
 function isDiaryIntent(message: string) {
@@ -408,6 +438,69 @@ function formatCarePlanTaskLine(task: any, index: number) {
   const status =
     task.status === 'COMPLETED' ? 'выполнено' : task.status === 'SNOOZED' ? 'отложено' : 'активно'
   return `${index + 1}. ${task.title} (${status}${dueStr})`
+}
+
+function formatAppointmentLine(appointment: any, index: number) {
+  const date = new Date(appointment.scheduledAt)
+  const doctorName = appointment.doctor?.user?.name || appointment.doctorName || 'Врач'
+  const specialization = appointment.doctor?.specialization ? `, ${appointment.doctor.specialization}` : ''
+  return `${index + 1}. ${date.toLocaleDateString('ru-RU')} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} — ${doctorName}${specialization}, статус: ${getStatusLabel(appointment.status)}`
+}
+
+function formatReminderLine(reminder: any, index: number) {
+  const date = new Date(reminder.dueAt)
+  const recurrence = reminder.recurrence && reminder.recurrence !== 'NONE' ? `, повтор: ${reminder.recurrence}` : ''
+  return `${index + 1}. ${reminder.title} — ${date.toLocaleDateString('ru-RU')} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}${recurrence}`
+}
+
+function formatDocumentLine(doc: any, index: number) {
+  const date = doc.studyDate || doc.uploadDate
+  const dateStr = date ? new Date(date).toLocaleDateString('ru-RU') : 'дата не указана'
+  return `${index + 1}. ${doc.fileName}${doc.studyType ? ` (${doc.studyType})` : ''} — ${dateStr}`
+}
+
+function formatAnalysisLine(analysis: any, index: number) {
+  const date = analysis.date || analysis.createdAt
+  const dateStr = date ? new Date(date).toLocaleDateString('ru-RU') : 'дата не указана'
+  return `${index + 1}. ${analysis.title || analysis.type || 'Анализ'} — ${dateStr}, статус: ${analysis.status || '—'}`
+}
+
+async function listAssistantAppointments(userId: string, params?: { upcoming?: boolean; status?: string }) {
+  const where: any = { patientId: userId }
+  if (params?.status) where.status = params.status
+  if (params?.upcoming !== false) where.scheduledAt = { gte: new Date() }
+  return prisma.appointment.findMany({
+    where,
+    include: { doctor: { include: { user: true } } },
+    orderBy: { scheduledAt: 'asc' },
+    take: 10,
+  })
+}
+
+async function listAssistantReminders(userId: string) {
+  return prisma.reminder.findMany({
+    where: { userId },
+    orderBy: { dueAt: 'asc' },
+    take: 10,
+  })
+}
+
+async function listAssistantDocuments(userId: string) {
+  return prisma.document.findMany({
+    where: { userId },
+    orderBy: { uploadDate: 'desc' },
+    take: 10,
+    select: { id: true, fileName: true, studyType: true, uploadDate: true, studyDate: true },
+  })
+}
+
+async function listAssistantAnalyses(userId: string) {
+  return prisma.analysis.findMany({
+    where: { userId },
+    orderBy: { date: 'desc' },
+    take: 10,
+    select: { id: true, title: true, type: true, date: true, status: true, createdAt: true },
+  })
 }
 
 async function listDiaryEntries(userId: string, limit = 7) {
@@ -930,6 +1023,81 @@ async function handleProjectActionIntent(input: {
         message: e instanceof Error ? e.message : 'Не удалось обновить задачу',
         data: { action: 'task_error' },
       }
+    }
+  }
+
+  if (isAppointmentQueryIntent(message)) {
+    const upcoming = !/прошедш|истори|все записи|все при[её]м/i.test(message)
+    const appointments = await listAssistantAppointments(userId, {
+      upcoming,
+      status: /отмен[её]н|cancel/i.test(message) ? 'cancelled' : undefined,
+    })
+
+    if (appointments.length === 0) {
+      return {
+        functionName: 'get_appointments',
+        message: upcoming
+          ? 'У вас нет предстоящих записей на приём. Если хотите записаться, напишите: «запиши меня к врачу» или «найди терапевта».'
+          : 'У вас пока нет записей на приёмы.',
+        data: { action: 'appointments_empty', appointments: [], link: '/my-appointments' },
+      }
+    }
+
+    return {
+      functionName: 'get_appointments',
+      message: `Ваши ${upcoming ? 'предстоящие ' : ''}записи на приём:\n${appointments.map(formatAppointmentLine).join('\n')}\n\nПолный список: /my-appointments`,
+      data: { action: 'appointments', appointments, link: '/my-appointments' },
+    }
+  }
+
+  if (isReminderIntent(message)) {
+    const reminders = await listAssistantReminders(userId)
+    if (reminders.length === 0) {
+      return {
+        functionName: 'get_reminders',
+        message: 'У вас нет напоминаний. Создать новое можно в разделе «Напоминания».',
+        data: { action: 'reminders_empty', reminders: [], link: '/reminders' },
+      }
+    }
+
+    return {
+      functionName: 'get_reminders',
+      message: `Ваши ближайшие напоминания:\n${reminders.map(formatReminderLine).join('\n')}\n\nУправление: /reminders`,
+      data: { action: 'reminders', reminders, link: '/reminders' },
+    }
+  }
+
+  if (isDocumentsIntent(message)) {
+    const documents = await listAssistantDocuments(userId)
+    if (documents.length === 0) {
+      return {
+        functionName: 'get_documents',
+        message: 'Документов пока нет. Загрузите анализы или медицинские документы в разделе «Документы».',
+        data: { action: 'documents_empty', documents: [], link: '/documents' },
+      }
+    }
+
+    return {
+      functionName: 'get_documents',
+      message: `Ваши последние документы:\n${documents.map(formatDocumentLine).join('\n')}\n\nОткрыть документы: /documents`,
+      data: { action: 'documents', documents, link: '/documents' },
+    }
+  }
+
+  if (isAnalysesListIntent(message)) {
+    const analyses = await listAssistantAnalyses(userId)
+    if (analyses.length === 0) {
+      return {
+        functionName: 'get_analysis_results',
+        message: 'Анализов пока нет. Загрузите документ с анализом в разделе «Документы», после распознавания он появится в «Анализы».',
+        data: { action: 'analyses_empty', analyses: [], link: '/analyses' },
+      }
+    }
+
+    return {
+      functionName: 'get_analysis_results',
+      message: `Ваши последние анализы:\n${analyses.map(formatAnalysisLine).join('\n')}\n\nОткрыть анализы: /analyses`,
+      data: { action: 'analyses', analyses, link: '/analyses' },
     }
   }
 
@@ -1891,6 +2059,36 @@ type AiResponseWithSources = {
   sources: RagSource[]
 }
 
+function buildAssistantSystemPrompt() {
+  return `Ты — AI-чат приложения «Персональный медицинский ассистент» (PMA).
+
+Ты отвечаешь на русском языке и помогаешь пользователю пользоваться приложением и понимать свои медицинские данные.
+
+Разделы приложения:
+- «Документы»: загрузка медицинских документов и анализов.
+- «Анализы»: распознанные анализы, показатели, динамика, план действий по документам.
+- «Дневник»: записи самочувствия, лекарства и план задач.
+- «Напоминания»: уведомления о задачах, анализах, лекарствах и приёмах.
+- «Мои записи»: записи пациента к врачу.
+- «Маркетплейс»: поиск клиник, лабораторий и медицинских организаций.
+- «AI-чат»: вопросы по данным пользователя, документам, дневнику и приложению.
+
+Правила безопасности:
+- Не ставь диагнозы и не назначай лечение.
+- Если есть красные флаги или риск — рекомендуй обратиться к врачу или в неотложную помощь.
+- Если данных недостаточно — прямо скажи, каких данных не хватает.
+- Не выдумывай анализы, записи, врачей, документы или назначения.
+
+Работа с источниками:
+- Если в сообщении есть блоки SOURCE, опирайся на них.
+- Если SOURCE нет, отвечай как помощник по приложению и общим медицинским вопросам, но без выдумывания персональных данных.
+
+Формат:
+- Коротко и по делу.
+- Для вопросов по приложению давай конкретный путь: например «Дневник → Лекарства».
+- Для медицинских вопросов: краткий вывод, что это может означать, что проверить, когда обратиться к врачу.`
+}
+
 function normalizeForSearch(input: string) {
   return (input || '')
     .toLowerCase()
@@ -2300,35 +2498,40 @@ async function generateAIResponse(
         ? await buildRagContext(userId, message, documentIds)
         : { sources: [], contextText: '' }
 
+  const systemPrompt = buildAssistantSystemPrompt()
+  const profileBlock = patientProfile
+    ? `\n\nПРОФИЛЬ ПАЦИЕНТА (контекст, если релевантно):\n${JSON.stringify(patientProfile)}\n`
+    : ''
+  const historyBlock = Array.isArray(history) && history.length > 0
+    ? `\n\nПОСЛЕДНИЕ СООБЩЕНИЯ:\n${history
+        .slice(-8)
+        .map((m: any) => `${m?.role === 'assistant' ? 'Ассистент' : 'Пользователь'}: ${String(m?.content || '').slice(0, 700)}`)
+        .join('\n')}`
+    : ''
+  const userBlock =
+    rag.contextText && rag.contextText.trim().length > 0
+      ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
+      : `${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
+
+  // DeepSeek — основной облачный LLM, если настроен ключ.
+  if (isDeepSeekConfigured()) {
+    try {
+      const text = await callDeepSeekChat({
+        system: systemPrompt,
+        user: userBlock,
+        temperature: 0.3,
+      })
+      return { response: text, sources: rag.sources }
+    } catch (error: any) {
+      console.error('DeepSeek error:', error)
+      // Падаем ниже на Ollama/fallback, чтобы чат оставался рабочим.
+    }
+  }
+
   // Используем Ollama если доступен
   const ollamaReady = isOllamaConfigured()
   if (ollamaReady) {
     try {
-      const systemPrompt = `Ты — персональный медицинский ассистент.
-
-Твоя задача: отвечать на вопрос пациента на русском языке.
-
-КРИТИЧЕСКИ ВАЖНО:
-- Если приложены источники (SOURCE), опирайся ТОЛЬКО на них и не выдумывай факты.
-- Если данных в SOURCE недостаточно — честно скажи, чего не хватает, и что нужно уточнить/загрузить.
-- Не ставь диагнозы. При рисках — рекомендуй обратиться к врачу/в неотложную помощь.
-- Объясняй медицинские термины простым языком.
-
-ФОРМАТ ОТВЕТА:
-1) Короткий вывод (1–3 предложения)
-2) Детали/объяснение по пунктам
-3) Что делать дальше (практические шаги)
-4) Источники: перечисли использованные SOURCE (например: SOURCE 1, SOURCE 2). Если у SOURCE есть URL — добавь его.`
-
-      const profileBlock = patientProfile
-        ? `\n\nПРОФИЛЬ ПАЦИЕНТА (контекст, если релевантно):\n${JSON.stringify(patientProfile)}\n`
-        : ''
-
-      const userBlock =
-        rag.contextText && rag.contextText.trim().length > 0
-          ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}\nВопрос пациента: ${message}`
-          : `Вопрос пациента: ${message}`
-
       const text = await callOllamaChat({
         system: systemPrompt,
         user: userBlock,

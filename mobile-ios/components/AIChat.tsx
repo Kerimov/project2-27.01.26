@@ -49,7 +49,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
       id: '1',
       role: 'assistant',
       content:
-        'Здравствуйте. Я помогу простыми словами разобраться в анализах, документах, записях и плане лечения. Напишите вопрос или выберите подсказку ниже.',
+        'Здравствуйте. Я помогу с анализами, записью к врачу и разделом «Дневник»: записи самочувствия, лекарства и план задач. Например: «мои лекарства», «задачи плана», «покажи мои записи на приёмы», «запиши в дневник: боль 3, сон 8».',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -211,6 +211,10 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         return '👨‍⚕️ Список врачей';
       case 'get_appointments':
         return '📋 Записи на приемы';
+      case 'get_reminders':
+        return '🔔 Напоминания';
+      case 'get_documents':
+        return '📄 Документы';
       case 'get_diary_entries':
       case 'add_diary_entry':
       case 'diary_weekly_review':
@@ -365,6 +369,38 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                       />
                     </View>
                   </View>
+                )}
+                {item.functionResult?.action === 'appointments' && (
+                  <AppButton
+                    title="Открыть мои записи"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => router.push('/appointments' as any)}
+                  />
+                )}
+                {item.functionResult?.action === 'reminders' && (
+                  <AppButton
+                    title="Открыть напоминания"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => router.push('/reminders' as any)}
+                  />
+                )}
+                {item.functionResult?.action === 'documents' && (
+                  <AppButton
+                    title="Открыть документы"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => router.push('/documents' as any)}
+                  />
+                )}
+                {item.functionResult?.action === 'analyses' && (
+                  <AppButton
+                    title="Открыть анализы"
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => router.push('/analyses' as any)}
+                  />
                 )}
                 {item.functionResult?.action === 'medications' && Array.isArray(item.functionResult.medications) && (
                   <View style={{ gap: theme.spacing.xs }}>
