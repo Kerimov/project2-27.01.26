@@ -99,6 +99,8 @@ export function mergeMarketplaceCompanies(
   }
   return Array.from(map.values());
 }
+
+export async function searchMarketplaceWithAI(params: {
   message: string;
   city?: string;
   includeWeb?: boolean;

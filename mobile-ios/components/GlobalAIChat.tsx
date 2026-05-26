@@ -13,7 +13,7 @@ export function GlobalAIChat() {
   const autoOpen = useAiChatLaunchStore((s) => s.autoOpen);
 
   const root = segments[0];
-  const isAuthScreen = root === 'index' || root === 'register';
+  const isAuthScreen = String(root) === 'index' || String(root) === 'register';
   const aboveTabBar = root === '(tabs)';
 
   if (isBootstrapping || !token || isAuthScreen) return null;
