@@ -49,6 +49,7 @@ export default function RootLayout() {
           <Stack.Screen name="reminder/create" options={{ title: 'Новое напоминание' }} />
           <Stack.Screen name="care-plan/create" options={{ title: 'Новая задача' }} />
           <Stack.Screen name="analyses/create" options={{ title: 'Новый анализ' }} />
+          <Stack.Screen name="analyses/compare" options={{ title: 'Сравнение анализов' }} />
           <Stack.Screen name="analysis/[id]" options={{ title: 'Анализ' }} />
           <Stack.Screen name="document/[id]" options={{ title: 'Документ' }} />
           <Stack.Screen name="appointment/create" options={{ title: 'Новая запись' }} />

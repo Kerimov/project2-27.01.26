@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { getAnalysis, deleteAnalysis, type AnalysisDetail } from '../../api/analyses';
 import {
-  fetchAnalysisTrend,
   fetchRiskTriage,
   generateAnalysisComments,
   generateCarePlanFromAnalysis,
@@ -50,7 +49,6 @@ export default function AnalysisDetailScreen() {
   const [riskLoading, setRiskLoading] = useState(false);
   const [aiComments, setAiComments] = useState<string | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
-  const [aiNote, setAiNote] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   const loadRisk = useCallback(async (analysisId: string) => {
@@ -379,44 +377,10 @@ export default function AnalysisDetailScreen() {
                 onPress={() => loadRisk(item.id)}
               />
               <AppButton
-                title="Интерпретация тренда"
+                title="Сравнить с другими анализами"
                 variant="secondary"
                 icon="chart.bar.fill"
-                loading={aiLoading}
-                onPress={async () => {
-                  const trendIndicator =
-                    indicators.find(
-                      (ind) =>
-                        ind.isNormal === false || ind.flag === 'high' || ind.flag === 'low'
-                    ) || indicators[0];
-                  if (!trendIndicator?.name) {
-                    Alert.alert(
-                      'Нет показателей',
-                      'В этом анализе нет числовых показателей для интерпретации тренда.'
-                    );
-                    return;
-                  }
-                  try {
-                    setAiLoading(true);
-                    const r = await fetchAnalysisTrend(item.id, trendIndicator.name);
-                    const text =
-                      r.interpretation ||
-                      r.summary ||
-                      r.text ||
-                      (r.result && typeof r.result === 'object' && 'tldr' in r.result
-                        ? String((r.result as { tldr?: string }).tldr)
-                        : null);
-                    setAiNote(
-                      text
-                        ? `Показатель: ${r.indicatorName || trendIndicator.name}\n\n${text}`
-                        : JSON.stringify(r)
-                    );
-                  } catch (e: any) {
-                    Alert.alert('Ошибка', e?.message || 'ИИ недоступен');
-                  } finally {
-                    setAiLoading(false);
-                  }
-                }}
+                onPress={() => router.push(`/analyses/compare?prefill=${item.id}` as any)}
               />
               <AppButton
                 title="План действий"
@@ -447,13 +411,6 @@ export default function AnalysisDetailScreen() {
                 }}
               />
             </View>
-            {aiNote ? (
-              <AppCard variant="glass" style={{ marginTop: theme.spacing.md }}>
-                <AppText variant="body" selectable>
-                  {aiNote}
-                </AppText>
-              </AppCard>
-            ) : null}
           </AppSection>
         </View>
       </AppSection>

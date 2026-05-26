@@ -92,3 +92,27 @@ export function extractAiComments(notes?: string | null): string | null {
   const part = notes.split(marker)[1];
   return part?.trim() || null;
 }
+
+function toNumeric(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const v = Number(value.replace(',', '.').replace(/[^\d.-]/g, ''));
+    return Number.isFinite(v) ? v : null;
+  }
+  return null;
+}
+
+export function getNumericIndicatorNames(results: unknown): string[] {
+  return parseAnalysisIndicators(results)
+    .filter((ind) => toNumeric(ind.value) !== null)
+    .map((ind) => ind.name);
+}
+
+export function getCommonNumericIndicators(analyses: Array<{ results: unknown }>): string[] {
+  if (analyses.length === 0) return [];
+  const perAnalysis = analyses.map((a) => new Set(getNumericIndicatorNames(a.results)));
+  const [first, ...rest] = perAnalysis;
+  const common = [...first].filter((name) => rest.every((set) => set.has(name)));
+  return common.sort((a, b) => a.localeCompare(b, 'ru'));
+}

@@ -111,6 +111,13 @@ export default function AnalysesScreen() {
             size="sm"
             onPress={() => router.push(`/analysis/${item.id}` as any)}
           />
+          <AppButton
+            title="Сравнить"
+            icon="chart.bar.fill"
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push('/analyses/compare' as any)}
+          />
           <AppButton title="Удалить" variant="ghost" size="sm" onPress={() => handleDelete(item)} />
         </View>
       </AppCard>
@@ -160,6 +167,13 @@ export default function AnalysesScreen() {
                   <AppText variant="caption" color="mutedText">
                     Откройте анализ, чтобы увидеть пояснения, отклонения и рекомендации простым языком.
                   </AppText>
+                  <AppButton
+                    title="Сравнить анализы"
+                    icon="chart.bar.fill"
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => router.push('/analyses/compare' as any)}
+                  />
                 </View>
               </AppCard>
             </AppSection>

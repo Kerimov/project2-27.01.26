@@ -6,8 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, Calendar, MapPin, User, FileText, Search, Filter, ChevronDown, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, Bell } from 'lucide-react'
+import { Plus, Calendar, MapPin, User, FileText, Search, Filter, ChevronDown, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, Bell, GitCompare } from 'lucide-react'
 import Link from 'next/link'
+import {
+  buildIndicatorSeries,
+  getCommonIndicatorNames,
+} from '@/lib/analysis-indicator-series'
 
 interface AnalysisResult {
   [key: string]: {
@@ -97,6 +101,11 @@ export default function AnalysesPage() {
   const [aiTrendRaw, setAiTrendRaw] = useState<string | null>(null)
   const [aiPlanText, setAiPlanText] = useState<string | null>(null)
   const [aiBusy, setAiBusy] = useState(false)
+  const [compareSelectedIds, setCompareSelectedIds] = useState<Set<string>>(new Set())
+  const [compareIndicator, setCompareIndicator] = useState<string>('')
+  const [compareAiTrend, setCompareAiTrend] = useState<AiTrendResult | null>(null)
+  const [compareAiTrendRaw, setCompareAiTrendRaw] = useState<string | null>(null)
+  const [compareAiBusy, setCompareAiBusy] = useState(false)
 
   useEffect(() => {
     if (token) {
@@ -345,6 +354,87 @@ export default function AnalysesPage() {
   const trendDelta = selectedValues.length >= 2 ? selectedValues[selectedValues.length - 1] - selectedValues[selectedValues.length - 2] : 0
   const trendLabel = selectedValues.length < 2 ? '—' : trendDelta > 0 ? 'Рост' : trendDelta < 0 ? 'Снижение' : 'Без изменений'
 
+  const compareAnalyses = useMemo(
+    () => analyses.filter((a) => compareSelectedIds.has(a.id)),
+    [analyses, compareSelectedIds]
+  )
+
+  const compareCommonIndicators = useMemo(
+    () => getCommonIndicatorNames(compareAnalyses.map((a) => ({ results: a.results }))),
+    [compareAnalyses]
+  )
+
+  const compareSeries = useMemo(() => {
+    if (!compareIndicator || compareAnalyses.length === 0) return []
+    return buildIndicatorSeries(
+      compareAnalyses.map((a) => ({ date: a.date, title: a.title, results: a.results })),
+      compareIndicator
+    )
+  }, [compareAnalyses, compareIndicator])
+
+  const compareValues = compareSeries.map((p) => p.value)
+  const compareTrendDelta =
+    compareValues.length >= 2 ? compareValues[compareValues.length - 1] - compareValues[compareValues.length - 2] : 0
+  const compareTrendLabel =
+    compareValues.length < 2 ? '—' : compareTrendDelta > 0 ? 'Рост' : compareTrendDelta < 0 ? 'Снижение' : 'Без изменений'
+
+  useEffect(() => {
+    if (!compareIndicator && compareCommonIndicators.length > 0) {
+      setCompareIndicator(compareCommonIndicators[0])
+    }
+    if (compareIndicator && !compareCommonIndicators.includes(compareIndicator)) {
+      setCompareIndicator(compareCommonIndicators[0] || '')
+    }
+  }, [compareCommonIndicators, compareIndicator])
+
+  const toggleCompareSelection = (analysisId: string) => {
+    setCompareSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(analysisId)) next.delete(analysisId)
+      else next.add(analysisId)
+      return next
+    })
+    setCompareAiTrend(null)
+    setCompareAiTrendRaw(null)
+  }
+
+  const callCompareAI = async () => {
+    if (!compareIndicator || compareAnalyses.length < 2 || compareSeries.length < 2) return
+    setCompareAiBusy(true)
+    setCompareAiTrend(null)
+    setCompareAiTrendRaw(null)
+    try {
+      const res = await fetch('/api/ai/analysis-trend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          indicatorName: compareIndicator,
+          analysisIds: compareAnalyses.map((a) => a.id),
+          series: compareSeries.map((p) => ({
+            date: p.date,
+            value: p.value,
+            unit: p.unit,
+            isNormal: p.isNormal,
+            title: p.title,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Ошибка AI')
+      if (data?.result && typeof data.result === 'object') {
+        setCompareAiTrend(data.result as AiTrendResult)
+      } else {
+        setCompareAiTrendRaw(typeof data?.response === 'string' ? data.response : JSON.stringify(data))
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Ошибка'
+      setCompareAiTrendRaw(`Ошибка: ${msg}`)
+    } finally {
+      setCompareAiBusy(false)
+    }
+  }
+
   const callAI = async (mode: 'trend' | 'plan') => {
     if (!selectedIndicator || selectedSeries.length === 0) return
     setAiBusy(true)
@@ -476,15 +566,15 @@ export default function AnalysesPage() {
         </div>
       </div>
 
-      {/* Динамика показателей + AI */}
+      {/* Динамика по всем анализам + AI */}
       {indicatorNames.length > 0 && (
         <Card className="web-card mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Динамика показателей
+              Динамика по всем анализам
             </CardTitle>
-            <CardDescription>Выберите показатель — увидите изменения по времени и получите AI‑интерпретацию.</CardDescription>
+            <CardDescription>Выберите показатель — увидите изменения по всем вашим анализам и получите AI‑интерпретацию.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
@@ -691,6 +781,177 @@ export default function AnalysesPage() {
         </div>
       </div>
 
+      {/* Сравнение выбранных анализов */}
+      {analyses.length > 0 && (
+        <Card className="web-card mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitCompare className="h-5 w-5" />
+              Сравнение выбранных анализов
+            </CardTitle>
+            <CardDescription>
+              Отметьте 2+ анализа в списке ниже, выберите общий показатель и получите AI‑интерпретацию динамики.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {compareAnalyses.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Анализы не выбраны — включите чекбоксы в списке.</p>
+              ) : (
+                compareAnalyses.map((a) => (
+                  <Badge key={a.id} variant="secondary">
+                    {a.title} · {formatDate(a.date)}
+                  </Badge>
+                ))
+              )}
+            </div>
+
+            {compareAnalyses.length < 2 ? (
+              <p className="text-sm text-muted-foreground">
+                Для тренда нужно минимум два анализа с одинаковым показателем.
+              </p>
+            ) : compareCommonIndicators.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                У выбранных анализов нет общих числовых показателей для сравнения.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1">Общий показатель</label>
+                    <select
+                      value={compareIndicator}
+                      onChange={(e) => setCompareIndicator(e.target.value)}
+                      className="w-full"
+                    >
+                      {compareCommonIndicators.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={compareAiBusy || compareSeries.length < 2}
+                    onClick={callCompareAI}
+                    className="flex items-center gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Интерпретировать динамику
+                  </Button>
+                </div>
+
+                {compareSeries.length >= 1 && (
+                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <Card className="web-card lg:col-span-1">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Последнее значение</p>
+                            <p className="text-2xl font-semibold">
+                              {compareSeries[compareSeries.length - 1].value}
+                              {compareSeries[compareSeries.length - 1].unit
+                                ? ` ${compareSeries[compareSeries.length - 1].unit}`
+                                : ''}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">Тренд: {compareTrendLabel}</p>
+                          </div>
+                          <svg width="140" height="36" viewBox="0 0 140 36" className="text-primary">
+                            <path
+                              d={sparklinePath(compareValues, 140, 36)}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                          </svg>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="web-card lg:col-span-2">
+                      <CardContent className="pt-6">
+                        <div className="text-sm font-medium mb-2">История по выбранным анализам</div>
+                        <div className="max-h-56 overflow-auto rounded-2xl border border-border">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted">
+                              <tr>
+                                <th className="text-left px-3 py-2">Дата</th>
+                                <th className="text-left px-3 py-2">Значение</th>
+                                <th className="text-left px-3 py-2">Анализ</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {compareSeries
+                                .slice()
+                                .reverse()
+                                .map((p) => (
+                                  <tr key={`${p.date}-${p.title}`} className="border-t">
+                                    <td className="px-3 py-2">{formatDate(p.date)}</td>
+                                    <td
+                                      className={`px-3 py-2 ${p.isNormal === false ? 'text-red-600 font-medium' : ''}`}
+                                    >
+                                      {p.value} {p.unit || ''}
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground">{p.title}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {(compareAiTrend || compareAiTrendRaw) && (
+                  <Card className="web-card mt-4">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        AI‑интерпретация сравнения
+                        {compareAiTrend?.confidence !== undefined && (
+                          <Badge variant="secondary">Уверенность: {compareAiTrend.confidence}%</Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {compareAiTrend ? (
+                        <div className="space-y-3 text-sm">
+                          <div className="whitespace-pre-wrap">{compareAiTrend.tldr}</div>
+                          {compareAiTrend.whatChanged?.length > 0 && (
+                            <div>
+                              <div className="font-medium mb-1">Что изменилось</div>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {compareAiTrend.whatChanged.slice(0, 5).map((x, idx) => (
+                                  <li key={idx}>{x}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {compareAiTrend.nextSteps?.length > 0 && (
+                            <div>
+                              <div className="font-medium mb-1">Что делать дальше</div>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {compareAiTrend.nextSteps.slice(0, 6).map((x, idx) => (
+                                  <li key={idx}>{x}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap text-sm">{compareAiTrendRaw}</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {analyses.length === 0 ? (
             <Card className="web-card">
               <CardContent className="text-center py-12">
@@ -828,7 +1089,16 @@ export default function AnalysesPage() {
                                 </div>
                               )}
 
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap items-center">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={compareSelectedIds.has(analysis.id)}
+                                    onChange={() => toggleCompareSelection(analysis.id)}
+                                    className="rounded border-border"
+                                  />
+                                  <span className="text-muted-foreground">Сравнить</span>
+                                </label>
                                 <Link href={`/analyses/${analysis.id}`}>
                                   <Button variant="outline" size="sm">
                                     Подробнее

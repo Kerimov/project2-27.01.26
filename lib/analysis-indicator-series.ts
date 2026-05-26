@@ -106,6 +106,21 @@ export function pickDefaultIndicatorName(resultsRaw: unknown): string | null {
   return numeric || names[0]
 }
 
+export function getNumericIndicatorNames(resultsRaw: unknown): string[] {
+  const map = parseAnalysisResultsMap(resultsRaw)
+  return Object.keys(map).filter((name) => toNumber(map[name]?.value) !== null)
+}
+
+export function getCommonIndicatorNames(
+  analyses: Array<{ results: unknown }>
+): string[] {
+  if (analyses.length === 0) return []
+  const perAnalysis = analyses.map((a) => new Set(getNumericIndicatorNames(a.results)))
+  const [first, ...rest] = perAnalysis
+  const common = [...first].filter((name) => rest.every((set) => set.has(name)))
+  return common.sort((a, b) => a.localeCompare(b, 'ru'))
+}
+
 export function buildIndicatorSeries(
   analyses: Array<{ date: Date | string; title: string; results: unknown }>,
   indicatorName: string

@@ -13,10 +13,27 @@ export type AnalysisTrendResult = {
   };
 };
 
+type TrendSeriesPoint = {
+  date: string;
+  value: number;
+  unit?: string;
+  isNormal?: boolean | null;
+  title?: string;
+};
+
 export async function fetchAnalysisTrend(analysisId: string, indicatorName?: string) {
+  return fetchAnalysisTrendComparison({ analysisId, indicatorName: indicatorName || '' });
+}
+
+export async function fetchAnalysisTrendComparison(params: {
+  analysisId?: string;
+  analysisIds?: string[];
+  indicatorName: string;
+  series?: TrendSeriesPoint[];
+}) {
   return apiJson<AnalysisTrendResult>('/api/ai/analysis-trend', {
     method: 'POST',
-    body: JSON.stringify({ analysisId, indicatorName }),
+    body: JSON.stringify(params),
     timeoutMs: 120000,
   });
 }

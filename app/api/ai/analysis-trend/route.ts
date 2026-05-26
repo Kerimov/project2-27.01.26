@@ -104,6 +104,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const analysisId = typeof body?.analysisId === 'string' ? body.analysisId.trim() : ''
     let indicatorName = typeof body?.indicatorName === 'string' ? body.indicatorName.trim() : ''
+    const analysisIdsRaw = Array.isArray(body?.analysisIds) ? body.analysisIds : []
+    const analysisIds = analysisIdsRaw
+      .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+      .map((id) => id.trim())
     const seriesRaw = Array.isArray(body?.series) ? body.series : []
 
     let series: TrendPoint[] = seriesRaw
@@ -137,13 +141,29 @@ export async function POST(request: NextRequest) {
       }
 
       if (series.length === 0) {
-        const all = await prisma.analysis.findMany({
-          where: { userId: payload.userId },
+        const where: { userId: string; id?: { in: string[] } } = { userId: payload.userId }
+        if (analysisIds.length > 0) {
+          where.id = { in: analysisIds }
+        }
+        const selected = await prisma.analysis.findMany({
+          where,
           orderBy: { date: 'asc' },
           select: { date: true, title: true, results: true },
         })
-        series = buildIndicatorSeries(all, indicatorName)
+        series = buildIndicatorSeries(selected, indicatorName)
       }
+    }
+
+    if (!analysisId && analysisIds.length > 0 && indicatorName && series.length === 0) {
+      const selected = await prisma.analysis.findMany({
+        where: { userId: payload.userId, id: { in: analysisIds } },
+        orderBy: { date: 'asc' },
+        select: { date: true, title: true, results: true },
+      })
+      if (selected.length === 0) {
+        return NextResponse.json({ error: 'Выбранные анализы не найдены' }, { status: 404 })
+      }
+      series = buildIndicatorSeries(selected, indicatorName)
     }
 
     if (!indicatorName) {
