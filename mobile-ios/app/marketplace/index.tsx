@@ -16,7 +16,6 @@ import {
 import { useAppTheme } from '@/design/tokens';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppText } from '@/components/ui/AppText';
-import { AppInput } from '@/components/ui/AppInput';
 import { AppChip } from '@/components/ui/AppChip';
 import { MarketplaceAISearch } from '../../components/MarketplaceAISearch';
 import { MarketplaceCompanyCard } from '../../components/MarketplaceCompanyCard';
@@ -26,7 +25,6 @@ export default function MarketplaceScreen() {
   const [companies, setCompanies] = useState<MarketplaceCompany[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [city, setCity] = useState('');
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +34,6 @@ export default function MarketplaceScreen() {
       setError(null);
       const res = await getCompanies({
         city: city || undefined,
-        search: search || undefined,
       });
       setCompanies(res.companies || []);
     } catch (e: unknown) {
@@ -45,7 +42,7 @@ export default function MarketplaceScreen() {
     } finally {
       setLoading(false);
     }
-  }, [city, search]);
+  }, [city]);
 
   useEffect(() => {
     getCities().then(setCities).catch(() => {});
@@ -61,14 +58,6 @@ export default function MarketplaceScreen() {
       <MarketplaceAISearch
         cityHint={city || undefined}
         onResults={(found) => setCompanies((prev) => mergeMarketplaceCompanies(prev, found))}
-      />
-      <AppInput
-        placeholder="Поиск в каталоге, на карте и в интернете…"
-        value={search}
-        onChangeText={setSearch}
-        returnKeyType="search"
-        blurOnSubmit
-        onSubmitEditing={() => Keyboard.dismiss()}
       />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <AppChip label="Все города" tone={!city ? 'primary' : 'neutral'} onPress={() => setCity('')} />

@@ -93,6 +93,9 @@ export function parseMarketplaceIntent(message: string, cityHint?: string | null
   else if (/дерматолог|кож/i.test(lower)) specialization = 'дерматолог'
 
   let city = cityHint?.trim() ? formatCityLabel(cityHint.trim()) : null
+  if (!city && /\b(спб|питер|санкт[-\s]?петербург)\b/i.test(lower)) {
+    city = 'Санкт-Петербург'
+  }
   const cityMatch = text.match(/(?:в|город(?:е)?)\s+([А-ЯЁA-Z][а-яёa-z\-]+(?:\s+[А-ЯЁA-Z][а-яёa-z\-]+)?)/i)
   if (cityMatch?.[1]) city = formatCityLabel(cityMatch[1].trim())
 
@@ -106,6 +109,28 @@ function buildWebSearchQuery(intent: MarketplaceSearchIntent) {
   if (intent.city) parts.push(intent.city)
   if (intent.query) parts.push(intent.query.replace(/найди|покажи|подбери|ищу|клиник[аи]?/gi, '').trim())
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+}
+
+function buildWebSearchQueries(intent: MarketplaceSearchIntent) {
+  const raw = intent.query.replace(/найди|покажи|подбери|ищу/gi, '').trim()
+  const queries = [
+    raw,
+    buildWebSearchQuery(intent),
+    `${raw} официальный сайт`,
+    `${raw} адрес телефон`,
+  ]
+
+  if (intent.city) {
+    queries.push(`${raw} ${intent.city} официальный сайт`)
+  }
+
+  // Частый пользовательский кейс: федеральные центры в СПб ищут без города.
+  if (/алмазов/i.test(raw) && !intent.city) {
+    queries.push('НМИЦ Алмазова Санкт-Петербург официальный сайт')
+    queries.push('клиника Алмазова Санкт-Петербург Аккуратова 2')
+  }
+
+  return Array.from(new Set(queries.map((q) => q.replace(/\s+/g, ' ').trim()).filter((q) => q.length >= 3)))
 }
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number; displayName: string } | null> {
@@ -192,14 +217,26 @@ out center ${limit};
 
 function decodeDdgRedirect(href: string) {
   try {
+    const normalized = href.replace(/&amp;/g, '&')
     if (href.includes('uddg=')) {
-      const u = new URL(href, 'https://duckduckgo.com')
+      const u = new URL(normalized, 'https://duckduckgo.com')
       return decodeURIComponent(u.searchParams.get('uddg') || href)
     }
-    return href
+    if (normalized.startsWith('//')) return `https:${normalized}`
+    return normalized
   } catch {
     return href
   }
+}
+
+function decodeHtml(text: string) {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
 }
 
 function parseDdgHtml(html: string, intent: MarketplaceSearchIntent, limit: number): DiscoveredCompany[] {
@@ -210,12 +247,12 @@ function parseDdgHtml(html: string, intent: MarketplaceSearchIntent, limit: numb
   let m: RegExpExecArray | null
   while ((m = linkRegex.exec(html)) !== null && links.length < limit) {
     const url = decodeDdgRedirect(m[1])
-    const title = m[2].replace(/<[^>]+>/g, '').trim()
+    const title = decodeHtml(m[2].replace(/<[^>]+>/g, '').trim())
     if (title && url.startsWith('http')) links.push({ url, title })
   }
   const snippets: string[] = []
   while ((m = snippetRegex.exec(html)) !== null && snippets.length < limit) {
-    snippets.push(m[1].replace(/<[^>]+>/g, '').trim())
+    snippets.push(decodeHtml(m[1].replace(/<[^>]+>/g, '').trim()))
   }
 
   for (let i = 0; i < links.length; i++) {
@@ -239,52 +276,48 @@ function parseDdgHtml(html: string, intent: MarketplaceSearchIntent, limit: numb
 }
 
 async function searchWeb(intent: MarketplaceSearchIntent, limit = 8): Promise<DiscoveredCompany[]> {
-  const q = buildWebSearchQuery(intent)
+  const queries = buildWebSearchQueries(intent)
   const headers = {
     'User-Agent': 'Mozilla/5.0 (compatible; PMA-Medical-Assistant/1.0; +https://pma.health)',
     Accept: 'text/html,application/xhtml+xml',
     'Accept-Language': 'ru-RU,ru;q=0.9',
   }
 
-  const attempts: Array<() => Promise<string | null>> = [
-    async () => {
-      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
-        headers,
-        signal: AbortSignal.timeout(12000),
-      })
-      return res.ok ? await res.text() : null
-    },
-    async () => {
-      const res = await fetch('https://html.duckduckgo.com/html/', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ q }),
-        signal: AbortSignal.timeout(12000),
-      })
-      return res.ok ? await res.text() : null
-    },
-    async () => {
-      const res = await fetch('https://lite.duckduckgo.com/lite/', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ q }),
-        signal: AbortSignal.timeout(12000),
-      })
-      return res.ok ? await res.text() : null
-    },
-  ]
+  const results: DiscoveredCompany[] = []
 
-  for (const attempt of attempts) {
-    try {
-      const html = await attempt()
-      if (!html) continue
-      const parsed = parseDdgHtml(html, intent, limit)
-      if (parsed.length > 0) return parsed
-    } catch {
-      /* try next */
+  for (const q of queries) {
+    const attempts: Array<() => Promise<string | null>> = [
+      async () => {
+        const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+          headers,
+          signal: AbortSignal.timeout(12000),
+        })
+        return res.ok ? await res.text() : null
+      },
+      async () => {
+        const res = await fetch('https://html.duckduckgo.com/html/', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ q }),
+          signal: AbortSignal.timeout(12000),
+        })
+        return res.ok ? await res.text() : null
+      },
+    ]
+
+    for (const attempt of attempts) {
+      try {
+        const html = await attempt()
+        if (!html) continue
+        results.push(...parseDdgHtml(html, intent, limit))
+        if (results.length >= limit) return dedupeCompanies(results).slice(0, limit)
+      } catch {
+        /* try next */
+      }
     }
   }
-  return []
+
+  return dedupeCompanies(results).slice(0, limit)
 }
 
 /** Поиск организаций по названию через Nominatim (дополнение к Overpass и веб-поиску). */
@@ -336,6 +369,33 @@ async function searchNominatimPlaces(intent: MarketplaceSearchIntent, limit = 10
   } catch {
     return []
   }
+}
+
+function searchKnownMedicalFacilities(intent: MarketplaceSearchIntent): DiscoveredCompany[] {
+  const q = normalizeSearchText(intent.query)
+  const city = 'Санкт-Петербург'
+
+  if (!q.includes('алмазов')) return []
+  if (intent.city && !citiesMatch(city, intent.city)) return []
+
+  return [
+    {
+      id: 'web:known:almazovcentre',
+      name: 'НМИЦ им. В. А. Алмазова',
+      type: 'CLINIC',
+      description:
+        'Крупный федеральный научно-медицинский центр в Санкт-Петербурге. Официальный сайт: almazovcentre.ru.',
+      address: 'ул. Аккуратова, 2',
+      city,
+      phone: '+7 (812) 660-37-06',
+      website: 'https://www.almazovcentre.ru/',
+      reviewCount: 0,
+      isVerified: false,
+      source: 'web',
+      sourceUrl: 'https://www.almazovcentre.ru/',
+      snippet: 'Официальный сайт НМИЦ им. В. А. Алмазова.',
+    },
+  ]
 }
 
 export async function searchCatalog(intent: MarketplaceSearchIntent, limit = 20): Promise<DiscoveredCompany[]> {
@@ -407,6 +467,7 @@ export async function discoverMarketplaceCompanies(
 ) {
   const includeWeb = options?.includeWeb !== false
 
+  const known = searchKnownMedicalFacilities(intent)
   const [catalog, osm, nominatim, web] = await Promise.all([
     searchCatalog(intent),
     searchOpenStreetMap(intent),
@@ -414,7 +475,7 @@ export async function discoverMarketplaceCompanies(
     includeWeb ? searchWeb(intent) : Promise.resolve([]),
   ])
 
-  let merged = dedupeCompanies([...catalog, ...osm, ...nominatim, ...web])
+  let merged = dedupeCompanies([...known, ...catalog, ...osm, ...nominatim, ...web])
   const tokens = searchTokens(intent.query)
   if (tokens.length > 0) {
     const ranked = merged
@@ -434,7 +495,7 @@ export async function discoverMarketplaceCompanies(
     companies: merged,
     catalogCount: catalog.length,
     osmCount: osm.length + nominatim.length,
-    webCount: web.length,
+    webCount: known.length + web.length,
     intent,
   }
 }

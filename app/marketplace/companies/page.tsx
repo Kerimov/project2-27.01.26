@@ -5,11 +5,10 @@ import { matchCityFromList, formatCityLabel } from '@/lib/marketplace-city'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { 
   MapPin, Phone, Globe, Star, Building2, TestTube, Pill, 
-  ShoppingBag, Dumbbell, UtensilsCrossed, Search, CheckCircle2 
+  ShoppingBag, Dumbbell, UtensilsCrossed, CheckCircle2 
 } from 'lucide-react'
 import Link from 'next/link'
 import { MarketplaceAIChat } from '@/components/MarketplaceAIChat'
@@ -59,7 +58,6 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedType, setSelectedType] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
   const [cityFilter, setCityFilter] = useState('')
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [total, setTotal] = useState(0)
@@ -136,14 +134,13 @@ export default function CompaniesPage() {
 
       if (selectedType !== 'all') params.append('type', selectedType)
       if (cityFilter && cityFilter !== 'all') params.append('city', cityFilter)
-      if (searchQuery) params.append('search', searchQuery)
       if (verifiedOnly) params.append('verified', 'true')
       if (userCoordinates) {
         params.append('lat', userCoordinates.lat.toString())
         params.append('lng', userCoordinates.lng.toString())
       }
       params.append('limit', '20')
-      if (searchQuery.trim() || (cityFilter && cityFilter !== 'all')) {
+      if (cityFilter && cityFilter !== 'all') {
         params.append('discover', 'true')
       }
 
@@ -169,7 +166,7 @@ export default function CompaniesPage() {
     } finally {
       if (seq === fetchSeq.current) setLoading(false)
     }
-  }, [selectedType, cityFilter, searchQuery, verifiedOnly, userCoordinates])
+  }, [selectedType, cityFilter, verifiedOnly, userCoordinates])
 
   useEffect(() => {
     fetchCompanies()
@@ -338,14 +335,6 @@ export default function CompaniesPage() {
     }
   }
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-    fetchCompanies()
-  }
-
   const formatPrice = (price: number, currency: string = 'RUB') => {
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
@@ -421,27 +410,10 @@ export default function CompaniesPage() {
           <MarketplaceAIChat cityHint={cityForAi} onResults={handleAiResults} />
         </div>
 
-        {/* Фильтры */}
+        {/* Фильтры каталога. Текстовый поиск оставлен только в AI-поиске выше. */}
         <div className="mb-8">
           <div className="glass-effect rounded-2xl p-6 shadow-medical">
-            <form onSubmit={handleSearch} className="space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="web-search-field">
-                    <Search className="web-search-icon h-5 w-5" />
-                    <Input
-                      placeholder="Поиск в каталоге, на карте и в интернете..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="web-search-input border-0 bg-white/50"
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="gradient-primary text-white hover:opacity-90">
-                  Найти
-                </Button>
-              </div>
-
+            <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <Select value={selectedType} onValueChange={setSelectedType}>
                   <SelectTrigger className="w-full sm:w-64 border-0 bg-white/50">
@@ -557,7 +529,7 @@ export default function CompaniesPage() {
                   </label>
                 </div>
               </div>
-            </form>
+            </div>
           </div>
         </div>
 
