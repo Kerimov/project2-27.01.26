@@ -10,6 +10,7 @@ export type AnalysisTrendResult = {
     whatChanged?: string[];
     nextSteps?: string[];
     confidence?: number;
+    perPoint?: Array<{ date: string; title?: string; summary: string }>;
   };
 };
 
@@ -30,6 +31,7 @@ export async function fetchAnalysisTrendComparison(params: {
   analysisIds?: string[];
   indicatorName: string;
   series?: TrendSeriesPoint[];
+  perPoint?: boolean;
 }) {
   return apiJson<AnalysisTrendResult>('/api/ai/analysis-trend', {
     method: 'POST',

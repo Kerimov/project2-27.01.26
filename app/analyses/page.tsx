@@ -67,6 +67,7 @@ type AiTrendResult = {
   redFlags: string[]
   nextSteps: string[]
   questionsToRefine: string[]
+  perPoint?: Array<{ date: string; title?: string; summary: string }>
 }
 
 function toNumber(value: unknown): number | null {
@@ -93,6 +94,20 @@ function sparklinePath(values: number[], width = 140, height = 36) {
   return `M ${points.join(' L ')}`
 }
 
+function lineChartPath(values: number[], width = 520, height = 140, padding = 10) {
+  if (values.length === 0) return { path: '', ys: [], min: 0, max: 0 }
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const step = values.length === 1 ? 0 : (width - padding * 2) / (values.length - 1)
+  const ys = values.map((v, idx) => {
+    const x = padding + idx * step
+    const y = height - padding - ((v - min) / range) * (height - padding * 2)
+    return { x, y }
+  })
+  const path = ys.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')
+  return { path, ys, min, max }
+}
 export default function AnalysesPage() {
   const { user, token } = useAuth()
   const [analyses, setAnalyses] = useState<Analysis[]>([])
@@ -446,6 +461,7 @@ export default function AnalysesPage() {
             isNormal: p.isNormal,
             title: p.title,
           })),
+          perPoint: true,
         }),
       })
       const data = await res.json()
@@ -964,6 +980,22 @@ export default function AnalysesPage() {
                     <Card className="web-card lg:col-span-2">
                       <CardContent className="pt-6">
                         <div className="text-sm font-medium mb-2">История по выбранным анализам</div>
+                        {compareSeries.length >= 2 && (
+                          <div className="mb-3 rounded-2xl border border-border bg-background p-3">
+                            <div className="text-xs text-muted-foreground mb-2">Общий график</div>
+                            {(() => {
+                              const { path, ys } = lineChartPath(compareValues, 520, 140, 10)
+                              return (
+                                <svg width={520} height={140} viewBox="0 0 520 140" className="w-full">
+                                  <path d={path} stroke="#2563eb" fill="none" strokeWidth={2} />
+                                  {ys.map((p, idx) => (
+                                    <circle key={idx} cx={p.x} cy={p.y} r={3} fill="#2563eb" />
+                                  ))}
+                                </svg>
+                              )
+                            })()}
+                          </div>
+                        )}
                         <div className="max-h-56 overflow-auto rounded-2xl border border-border">
                           <table className="w-full text-sm">
                             <thead className="bg-muted">
@@ -1028,6 +1060,21 @@ export default function AnalysesPage() {
                                   <li key={idx}>{x}</li>
                                 ))}
                               </ul>
+                            </div>
+                          )}
+                          {compareAiTrend.perPoint && compareAiTrend.perPoint.length > 0 && (
+                            <div>
+                              <div className="font-medium mb-1">AI‑разбор по каждому замеру</div>
+                              <div className="space-y-2">
+                                {compareAiTrend.perPoint.slice(0, 12).map((pp, idx) => (
+                                  <div key={idx} className="rounded-2xl border border-border bg-muted/30 p-3">
+                                    <div className="text-xs text-muted-foreground mb-1">
+                                      {pp.date ? formatDate(pp.date) : '—'}{pp.title ? ` · ${pp.title}` : ''}
+                                    </div>
+                                    <div className="text-sm whitespace-pre-wrap">{pp.summary}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>

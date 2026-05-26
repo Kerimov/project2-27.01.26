@@ -21,6 +21,20 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppChip } from '@/components/ui/AppChip';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
+function sparkline(values: number[]) {
+  const blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+  if (!values || values.length === 0) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values
+    .map((v) => {
+      const idx = Math.round(((v - min) / range) * (blocks.length - 1));
+      return blocks[Math.max(0, Math.min(blocks.length - 1, idx))];
+    })
+    .join('');
+}
+
 type CompareAnalysis = {
   id: string;
   title: string;
@@ -110,6 +124,9 @@ export default function CompareAnalysesScreen() {
   const [aiBusy, setAiBusy] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [probableNameByIndex, setProbableNameByIndex] = useState<Record<number, string> | null>(null);
+  const [aiPerPoint, setAiPerPoint] = useState<Array<{ date: string; title?: string; summary: string }> | null>(
+    null
+  );
 
   const load = useCallback(async () => {
     try {
@@ -187,6 +204,7 @@ export default function CompareAnalysesScreen() {
   }, [selected, indicatorKey, probableNameByIndex]);
 
   const series = seriesInfo.series;
+  const seriesValues = series.map((p) => p.value);
 
   useEffect(() => {
     if (!indicatorKey && commonGroups.length > 0) {
@@ -211,6 +229,7 @@ export default function CompareAnalysesScreen() {
     setAiText(null);
     setWarnings([]);
     setProbableNameByIndex(null);
+    setAiPerPoint(null);
   };
 
   const interpret = async () => {
@@ -218,10 +237,12 @@ export default function CompareAnalysesScreen() {
     try {
       setAiBusy(true);
       setAiText(null);
+      setAiPerPoint(null);
       const r = await fetchAnalysisTrendComparison({
         analysisIds: selected.map((a) => a.id),
         indicatorName: selectedGroup?.label || indicatorKey,
         series,
+        perPoint: true,
       });
       const text =
         r.interpretation ||
@@ -233,6 +254,9 @@ export default function CompareAnalysesScreen() {
       setAiText(
         text ? `Показатель: ${r.indicatorName || (selectedGroup?.label || indicatorKey)}\n\n${text}` : JSON.stringify(r)
       );
+      if (r?.result?.perPoint && Array.isArray(r.result.perPoint)) {
+        setAiPerPoint(r.result.perPoint.slice(0, 24));
+      }
     } catch (e: any) {
       Alert.alert('Ошибка', e?.message || 'ИИ недоступен');
     } finally {
@@ -383,6 +407,13 @@ export default function CompareAnalysesScreen() {
               {series.length > 0 ? (
                 <AppSection title="История значений">
                   <AppCard variant="glass">
+                    {series.length >= 2 ? (
+                      <View style={{ marginBottom: theme.spacing.sm }}>
+                        <AppText variant="caption" color="mutedText">
+                          Общий график: {sparkline(seriesValues)}
+                        </AppText>
+                      </View>
+                    ) : null}
                     <View style={{ gap: theme.spacing.sm }}>
                       {series
                         .slice()
@@ -431,6 +462,24 @@ export default function CompareAnalysesScreen() {
                 {aiText}
               </AppText>
             </AppCard>
+          ) : null}
+
+          {aiPerPoint && aiPerPoint.length > 0 ? (
+            <AppSection title="AI‑разбор по каждому замеру">
+              <View style={{ gap: theme.spacing.sm }}>
+                {aiPerPoint.slice(0, 12).map((pp, idx) => (
+                  <AppCard key={idx} variant="glass">
+                    <View style={{ gap: theme.spacing.xs }}>
+                      <AppText variant="caption" color="mutedText">
+                        {pp.date ? new Date(pp.date).toLocaleDateString('ru-RU') : '—'}
+                        {pp.title ? ` · ${pp.title}` : ''}
+                      </AppText>
+                      <AppText variant="body">{pp.summary}</AppText>
+                    </View>
+                  </AppCard>
+                ))}
+              </View>
+            </AppSection>
           ) : null}
         </View>
       </AppSection>

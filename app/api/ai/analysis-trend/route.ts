@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
     const analysisIds = analysisIdsRaw
       .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
       .map((id) => id.trim())
+    const perPoint = body?.perPoint === true
     const seriesRaw = Array.isArray(body?.series) ? body.series : []
 
     let series: TrendPoint[] = seriesRaw
@@ -241,7 +242,10 @@ export async function POST(request: NextRequest) {
   "confidence": 0,
   "redFlags": ["когда срочно к врачу/тревожные признаки (если применимо)"],
   "nextSteps": ["3–7 практических шагов: что сделать дальше"],
-  "questionsToRefine": ["что уточнить/какие данные добавить для повышения точности"]
+  "questionsToRefine": ["что уточнить/какие данные добавить для повышения точности"],
+  "perPoint": [
+    { "date": "ISO date", "title": "название документа", "summary": "1 предложение по этой точке и сравнению с предыдущей" }
+  ]
 }
 
 ПРАВИЛА confidence:
@@ -256,7 +260,9 @@ ${JSON.stringify(series, null, 2)}
 Вычисленные метрики:
 ${JSON.stringify({ last, prev, delta, deltaPct, min, max, heuristicConfidence }, null, 2)}
 
-Сделай интерпретацию динамики без диагноза. Укажи confidence (0..100).`
+Сделай интерпретацию динамики без диагноза. Укажи confidence (0..100).
+
+Если perPoint=true, заполни perPoint по каждой точке (коротко: что означает значение и как изменилось относительно предыдущей).`
 
     const text = await callOllamaChat({
       system: systemPrompt,
@@ -284,7 +290,19 @@ ${JSON.stringify({ last, prev, delta, deltaPct, min, max, heuristicConfidence },
           : heuristicConfidence,
       redFlags: Array.isArray((parsed as any).redFlags) ? (parsed as any).redFlags.slice(0, 7) : [],
       nextSteps: Array.isArray((parsed as any).nextSteps) ? (parsed as any).nextSteps.slice(0, 10) : [],
-      questionsToRefine: Array.isArray((parsed as any).questionsToRefine) ? (parsed as any).questionsToRefine.slice(0, 10) : []
+      questionsToRefine: Array.isArray((parsed as any).questionsToRefine) ? (parsed as any).questionsToRefine.slice(0, 10) : [],
+      perPoint:
+        perPoint && Array.isArray((parsed as any).perPoint)
+          ? (parsed as any).perPoint
+              .filter((x: any) => x && typeof x === 'object')
+              .slice(0, 24)
+              .map((x: any) => ({
+                date: typeof x.date === 'string' ? x.date : '',
+                title: typeof x.title === 'string' ? x.title : '',
+                summary: typeof x.summary === 'string' ? x.summary : '',
+              }))
+              .filter((x: any) => x.date && x.summary)
+          : undefined,
     }
 
     const interpretation = formatTrendForClient(result)
