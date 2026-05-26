@@ -666,13 +666,13 @@ export default function AnalysesPage() {
       {/* Фильтры и поиск */}
       <div className="mb-8 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <div className="web-search-field flex-1">
+            <Search className="web-search-icon h-4 w-4" />
             <Input
               placeholder="Поиск по названию, типу или лаборатории..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="web-search-input"
             />
           </div>
           <div className="flex items-center gap-2">

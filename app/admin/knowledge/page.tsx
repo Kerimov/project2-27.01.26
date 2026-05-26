@@ -274,14 +274,14 @@ export default function KnowledgeBasePage() {
 
         {/* Поиск и добавление */}
         <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+          <div className="web-search-field flex-1">
+            <Search className="web-search-icon h-5 w-5" />
             <Input
               type="text"
               placeholder="Поиск..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="web-search-input"
             />
           </div>
           <Button onClick={() => setShowForm(!showForm)}>

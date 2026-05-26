@@ -461,13 +461,13 @@ export default function CompaniesPage() {
             <form onSubmit={handleSearch} className="space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                  <div className="web-search-field">
+                    <Search className="web-search-icon h-5 w-5" />
                     <Input
                       placeholder="Поиск по названию или описанию..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 border-0 bg-white/50"
+                      className="web-search-input border-0 bg-white/50"
                     />
                   </div>
                 </div>

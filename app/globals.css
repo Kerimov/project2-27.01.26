@@ -244,6 +244,38 @@
     @apply mt-2 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg;
   }
 
+  .web-section-header {
+    @apply mb-8 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between;
+  }
+
+  .web-section-heading {
+    @apply flex min-w-0 items-start gap-4;
+  }
+
+  .web-section-title-block {
+    @apply min-w-0 flex-1;
+  }
+
+  .web-section-actions {
+    @apply flex w-full flex-wrap items-center gap-2 lg:w-auto lg:max-w-3xl lg:justify-end;
+  }
+
+  .web-section-actions > * {
+    @apply shrink-0;
+  }
+
+  .web-search-field {
+    @apply relative;
+  }
+
+  .web-search-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground;
+  }
+
+  .web-search-input {
+    padding-left: 2.75rem !important;
+  }
+
   .web-stat-card {
     @apply rounded-2xl border border-border bg-white p-5 shadow-medical;
   }

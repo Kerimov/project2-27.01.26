@@ -186,13 +186,13 @@ export default function AdminRemindersPage() {
 
           {/* Search */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="web-search-field flex-1 max-w-md">
+              <Search className="web-search-icon h-4 w-4" />
               <Input
                 placeholder="Поиск напоминаний..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="web-search-input"
               />
             </div>
             <Badge variant="secondary" className="px-3 py-1">

@@ -339,13 +339,13 @@ export default function DocumentsPage() {
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="web-search-field">
+                  <Search className="web-search-icon h-4 w-4" />
                   <Input
                     placeholder="Поиск по названию или типу..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="web-search-input"
                   />
                 </div>
               </div>
