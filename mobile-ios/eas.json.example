@@ -22,7 +22,7 @@
         "resourceClass": "m-medium"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://your-production-api.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://project2-27-01-26.vercel.app"
       }
     }
   },
