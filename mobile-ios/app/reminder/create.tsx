@@ -13,8 +13,8 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
 import {
   buildDueAtFromForm,
-  promptAddToIOSAfterReminderSaved,
-} from '../../lib/ios-reminders';
+  promptAddToPhoneAfterReminderSaved,
+} from '../../lib/phone-reminders';
 
 export default function CreateReminderScreen() {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function CreateReminderScreen() {
         channels: ['PUSH'],
       });
 
-      promptAddToIOSAfterReminderSaved(
+      promptAddToPhoneAfterReminderSaved(
         {
           title: title.trim(),
           notes: description.trim() || undefined,
@@ -63,7 +63,7 @@ export default function CreateReminderScreen() {
       <PatientSwitcher />
       <AppCard style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
         <AppText variant="caption" color="mutedText">
-          После сохранения можно добавить то же напоминание в «Напоминания» iPhone.
+          После сохранения мы предложим перенести напоминание в «Напоминания» iPhone.
         </AppText>
         <AppInput label="Название" value={title} onChangeText={setTitle} />
         <AppInput

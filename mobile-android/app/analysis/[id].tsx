@@ -20,6 +20,7 @@ import { AppChip } from '@/components/ui/AppChip';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { normalizePhoneReminderItem, promptTransferCreatedItemsToPhone } from '../../lib/phone-reminders';
 
 const AI_MARKER = '--- AI Комментарии ---';
 
@@ -426,7 +427,18 @@ export default function AnalysisDetailScreen() {
                   try {
                     setAiLoading(true);
                     const r = await generateCarePlanFromAnalysis(item.id);
-                    Alert.alert('Готово', r.message || 'Задачи добавлены в план');
+                    const transferItems = Array.isArray((r as any).reminders)
+                      ? (r as any).reminders
+                      : Array.isArray(r.tasks)
+                        ? r.tasks
+                        : [];
+                    promptTransferCreatedItemsToPhone(
+                      transferItems.map((task: unknown) => normalizePhoneReminderItem(task as any)),
+                      {
+                        title: 'План действий создан',
+                        message: `${r.message || 'Задачи добавлены в план'}\n\nПеренести их в календарь Android?`,
+                      }
+                    );
                   } catch (e: any) {
                     Alert.alert('Ошибка', e?.message || 'ИИ недоступен');
                   } finally {

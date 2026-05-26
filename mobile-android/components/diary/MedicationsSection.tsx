@@ -23,6 +23,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppFAB } from '@/components/ui/AppFAB';
 import { PatientSwitcher } from '../PatientSwitcher';
 import { useCaretakerStore } from '../../state/caretakerStore';
+import { normalizePhoneReminderItem, promptTransferCreatedItemsToPhone } from '../../lib/phone-reminders';
 
 
 export function MedicationsSection() {
@@ -151,7 +152,18 @@ export function MedicationsSection() {
       setPlanLoading(true);
       const res = await generateMedicationPlan(selectedPatientId || undefined);
       const text = res.tldr || res.message || JSON.stringify(res.schedule || res, null, 2);
-      Alert.alert('AI-план приёма', text);
+      const transferItems = Array.isArray(res.reminders) && res.reminders.length > 0
+        ? res.reminders
+        : Array.isArray(res.schedule)
+          ? res.schedule
+          : [];
+      promptTransferCreatedItemsToPhone(
+        transferItems.map((item: unknown) => normalizePhoneReminderItem(item as any, 'Приём лекарства')),
+        {
+          title: 'AI-план приёма',
+          message: `${text}\n\nПеренести напоминания в календарь Android?`,
+        }
+      );
     } catch (e: any) {
       Alert.alert('Ошибка', e?.message || 'Не удалось сгенерировать план');
     } finally {

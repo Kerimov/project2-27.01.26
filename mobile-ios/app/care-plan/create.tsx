@@ -11,7 +11,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppText } from '@/components/ui/AppText';
-import { promptAddReminderForCarePlanTask } from '../../lib/ios-reminders';
+import { promptAddReminderForCarePlanTask } from '../../lib/phone-reminders';
 
 export default function CreateCarePlanTaskScreen() {
   const router = useRouter();
@@ -76,7 +76,7 @@ export default function CreateCarePlanTaskScreen() {
     <AppScreen>
       <AppCard style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
         <AppText variant="caption" color="mutedText">
-          После добавления задачи можно создать напоминание в приложении и в «Напоминаниях» iPhone.
+          После добавления задачи мы предложим создать напоминание и перенести его в «Напоминания» iPhone.
         </AppText>
         <AppInput label="Задача" value={title} onChangeText={setTitle} />
         <AppInput label="Описание" value={description} onChangeText={setDescription} multiline />

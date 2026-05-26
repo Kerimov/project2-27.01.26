@@ -10,6 +10,11 @@ import { AppScreen } from '@/components/ui/AppScreen';
 import { AppCard } from '@/components/ui/AppCard';
 import { AppInput } from '@/components/ui/AppInput';
 import { AppButton } from '@/components/ui/AppButton';
+import { AppText } from '@/components/ui/AppText';
+import {
+  buildDueAtFromForm,
+  promptAddToPhoneAfterReminderSaved,
+} from '../../lib/phone-reminders';
 
 export default function CreateReminderScreen() {
   const router = useRouter();
@@ -26,8 +31,8 @@ export default function CreateReminderScreen() {
       Alert.alert('Ошибка', 'Укажите название');
       return;
     }
-    const datePart = dueDate.trim() || new Date().toISOString().slice(0, 10);
-    const dueAt = new Date(`${datePart}T${dueTime || '09:00'}:00`).toISOString();
+    const dueAtDate = buildDueAtFromForm(dueDate, dueTime);
+    const dueAt = dueAtDate.toISOString();
     try {
       setLoading(true);
       await createReminder(title.trim(), dueAt, {
@@ -35,7 +40,14 @@ export default function CreateReminderScreen() {
         patientId: selectedPatientId || undefined,
         channels: ['PUSH'],
       });
-      router.back();
+      promptAddToPhoneAfterReminderSaved(
+        {
+          title: title.trim(),
+          notes: description.trim() || undefined,
+          dueAt: dueAtDate,
+        },
+        () => router.back()
+      );
     } catch (e: any) {
       Alert.alert('Ошибка', e?.message || 'Не удалось создать');
     } finally {
@@ -47,6 +59,9 @@ export default function CreateReminderScreen() {
     <AppScreen>
       <PatientSwitcher />
       <AppCard style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
+        <AppText variant="caption" color="mutedText">
+          После сохранения мы предложим перенести напоминание в календарь Android.
+        </AppText>
         <AppInput label="Название" value={title} onChangeText={setTitle} />
         <AppInput
           label="Описание"
