@@ -48,8 +48,6 @@ export default function AnalysisDetailPage() {
   const [risk, setRisk] = useState<{ level: 'ok' | 'attention' | 'urgent'; confidence: number; reasons: string[]; redFlags: string[]; nextSteps: string[] } | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [planResult, setPlanResult] = useState<{ message: string; reminders: any[] } | null>(null)
-  const [doctorReportLoading, setDoctorReportLoading] = useState(false)
-  const [doctorReportDocId, setDoctorReportDocId] = useState<string | null>(null)
 
   useEffect(() => {
     if (token && params.id) {
@@ -209,36 +207,6 @@ export default function AnalysisDetailPage() {
     }
   }
 
-  const handleGenerateDoctorReport = async () => {
-    if (!analysis || !token) return
-    try {
-      setDoctorReportLoading(true)
-      setError(null)
-      setDoctorReportDocId(null)
-      const res = await fetch('/api/reports/doctor-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          analysisId: analysis.id,
-          days: 180,
-          complaints: '',
-          medications: ''
-        })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Ошибка формирования отчёта')
-      setDoctorReportDocId(data?.documentId || null)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Ошибка'
-      setError(msg)
-    } finally {
-      setDoctorReportLoading(false)
-    }
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'normal':
@@ -387,10 +355,6 @@ export default function AnalysisDetailPage() {
           <Button size="sm" onClick={handleGenerateCarePlan} disabled={planLoading} className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
             {planLoading ? 'План...' : 'Сформировать план'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleGenerateDoctorReport} disabled={doctorReportLoading} className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            {doctorReportLoading ? 'Отчёт...' : 'Сформировать для врача'}
           </Button>
           <Button 
             size="sm" 
@@ -551,24 +515,6 @@ export default function AnalysisDetailPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">План сформирован, но напоминания не созданы (проверьте данные и попробуйте снова).</p>
               )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Отчёт для врача */}
-        {doctorReportDocId && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Отчёт для врача готов
-              </CardTitle>
-              <CardDescription>Откройте и скачайте/распечатайте перед приёмом.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href={`/documents/${doctorReportDocId}`} className="text-primary hover:underline">
-                Открыть отчёт
-              </Link>
             </CardContent>
           </Card>
         )}
