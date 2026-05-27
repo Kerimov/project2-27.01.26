@@ -42,6 +42,7 @@
     "pdf-to-img": "^6.1.0",
     "postcss": "^8.4.38",
     "prisma": "^6.18.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.3.0",

@@ -1,3 +1,5 @@
+import { isAnalysisDeepDiveRequest, isAnalysisListOnlyRequest } from '@/lib/ai/assistant-analysis-intent'
+
 export type AssistantIntent =
   | 'appointments'
   | 'booking'
@@ -55,8 +57,11 @@ export function classifyAssistantIntent(message: string): AssistantIntentDecisio
   if (/(?:мои|покажи|список|последн).*(?:документ|файл|загрузк)|(?:документ|файл).*(?:мои|последн)/i.test(t)) {
     return { intent: 'documents', confidence: 0.9, reason: 'documents' }
   }
-  if (/(?:мои|покажи|список|последн).*(?:анализ|показател)|(?:анализ|показател).*(?:мои|последн)/i.test(t)) {
-    return { intent: 'analyses', confidence: 0.92, reason: 'analyses list' }
+  if (isAnalysisDeepDiveRequest(t)) {
+    return { intent: 'medical_question', confidence: 0.95, reason: 'analysis deep dive (RAG+LLM)' }
+  }
+  if (isAnalysisListOnlyRequest(t)) {
+    return { intent: 'analyses', confidence: 0.92, reason: 'analyses list only' }
   }
   if (/дневник|самочувств|настроен|сон|боль|боли|шаг|давлен|пульс|температур|симптом|вес|запис.*дневник/i.test(t)) {
     return { intent: 'diary', confidence: 0.9, reason: 'diary' }

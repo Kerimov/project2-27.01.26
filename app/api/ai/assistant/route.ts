@@ -3,6 +3,15 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { classifyAssistantIntent } from '@/lib/ai/assistant-router'
+import {
+  isAnalysisDeepDiveRequest,
+  isAnalysisListOnlyRequest,
+  shouldBypassProjectActionShortcut,
+} from '@/lib/ai/assistant-analysis-intent'
+import {
+  collectUserAbnormalIndicators,
+  formatAbnormalIndicatorsForChat,
+} from '@/lib/ai/assistant-abnormal-indicators'
 import { toLegacyAssistantResponse } from '@/lib/ai/assistant-contract'
 import { makeAssistantRequestId, logAssistantEvent } from '@/lib/ai/assistant-audit'
 import { tryAssistantLlm } from '@/lib/ai/assistant-llm'
@@ -193,13 +202,16 @@ export async function POST(request: NextRequest) {
     const normalizedDocumentIds: string[] =
       Array.isArray(documentIds) ? documentIds.filter((x) => typeof x === 'string' && x.trim().length > 0) : []
 
-    const projectAction = await handleProjectActionIntent({
-      message,
-      userId,
-      action,
-      pendingBooking,
-      intent: intentDecision.intent,
-    })
+    const bypassShortcut = shouldBypassProjectActionShortcut(intentDecision.intent, message)
+    const projectAction = bypassShortcut
+      ? null
+      : await handleProjectActionIntent({
+          message,
+          userId,
+          action,
+          pendingBooking,
+          intent: intentDecision.intent,
+        })
 
     if (projectAction) {
       const toolDefinition = getAssistantToolDefinition(projectAction.functionName)
@@ -232,7 +244,9 @@ export async function POST(request: NextRequest) {
           ? ragScope
           : normalizedDocumentIds.length > 0
             ? 'attached'
-            : 'app_knowledge'
+            : intentDecision.intent === 'app_help' || intentDecision.intent === 'smalltalk'
+              ? 'app_knowledge'
+              : 'patient_data'
 
     // RAG режим: либо по прикрепленным документам, либо "по всем данным пользователя".
     // В RAG режиме не запускаем авто-функции (иначе вопросы уйдут в get_analysis_results и потеряем цитирование).
@@ -1162,7 +1176,7 @@ async function handleProjectActionIntent(input: {
     }
   }
 
-  if (intent === 'analyses') {
+  if (intent === 'analyses' && isAnalysisListOnlyRequest(message)) {
     const analyses = await listAssistantAnalyses(userId)
     if (analyses.length === 0) {
       return {
@@ -2149,33 +2163,31 @@ type AiResponseWithSources = {
 }
 
 function buildAssistantSystemPrompt() {
-  return `Ты — AI-чат приложения «Персональный медицинский ассистент» (PMA).
+  return `Ты — полнофункциональный AI-чат приложения «Персональный медицинский ассистент» (PMA).
 
-Ты отвечаешь на русском языке и помогаешь пользователю пользоваться приложением и понимать свои медицинские данные.
+Ты отвечаешь на русском языке. У тебя есть доступ к данным личного кабинета пользователя (блоки SOURCE): анализы с показателями, документы, дневник, профиль. Ты можешь и должен разбирать их по запросу — не отказывайся от разбора анализов, отклонений и динамики, если данные есть в SOURCE.
 
 Разделы приложения:
 - «Документы»: загрузка медицинских документов и анализов.
-- «Анализы»: распознанные анализы, показатели, динамика, план действий по документам.
-- «Дневник»: записи самочувствия, лекарства и план задач.
-- «Напоминания»: уведомления о задачах, анализах, лекарствах и приёмах.
-- «Мои записи»: записи пациента к врачу.
-- «Маркетплейс»: поиск клиник, лабораторий и медицинских организаций.
-- «AI-чат»: вопросы по данным пользователя, документам, дневнику и приложению.
+- «Анализы»: распознанные анализы, показатели, сравнение, динамика.
+- «Дневник»: самочувствие, лекарства, план задач.
+- «Напоминания», «Мои записи», «Маркетплейс».
 
 Правила безопасности:
-- Не ставь диагнозы и не назначай лечение.
-- Если есть красные флаги или риск — рекомендуй обратиться к врачу или в неотложную помощь.
-- Если данных недостаточно — прямо скажи, каких данных не хватает.
-- Не выдумывай анализы, записи, врачей, документы или назначения.
+- Не ставь окончательные диагнозы и не назначай лечение (дозы, препараты).
+- При красных флагах — рекомендуй врача или неотложную помощь.
+- Не выдумывай анализы, цифры, записи или врачей — только SOURCE и профиль.
 
-Работа с источниками:
-- Если в сообщении есть блоки SOURCE, опирайся на них.
-- Если SOURCE нет, отвечай как помощник по приложению и общим медицинским вопросам, но без выдумывания персональных данных.
+Работа с данными:
+- Если пользователь просит «только отклонения» / «вне нормы» — перечисли только показатели с ⚠️ или явно вне референса, без полного списка всех анализов.
+- Если просит «разбор», «что значит», «интерпретацию» — дай структурированный разбор по SOURCE: вывод, возможные причины, что пересдать/обсудить с врачом.
+- Если SOURCE пуст — скажи, что данных нет, и подскажи загрузить документ в «Документы».
+- Не пиши «в чате нельзя» или «я не могу анализировать» — ты как раз для этого и предназначен.
 
 Формат:
-- Коротко и по делу.
-- Для вопросов по приложению давай конкретный путь: например «Дневник → Лекарства».
-- Для медицинских вопросов: краткий вывод, что это может означать, что проверить, когда обратиться к врачу.`
+- По делу, с подзаголовками при длинном ответе.
+- Для навигации по приложению — конкретный путь (например «Анализы → Сравнить»).
+- Для медицины: вывод → детали по показателям → что проверить → когда к врачу.`
 }
 
 function normalizeForSearch(input: string) {
@@ -2215,12 +2227,15 @@ function sanitizeRagSnippet(text: string) {
     .slice(0, 1600)
 }
 
-function scoreChunk(queryTokens: string[], chunkText: string) {
+function scoreChunk(queryTokens: string[], chunkText: string, opts?: { boostAbnormal?: boolean }) {
   const t = normalizeForSearch(chunkText)
   if (!t) return 0
   let score = 0
   for (const q of queryTokens) {
     if (t.includes(q)) score += 2
+  }
+  if (opts?.boostAbnormal && (t.includes('⚠️') || /вне норм|не в норм|isnormal.*false/i.test(t))) {
+    score += 6
   }
   return score
 }
@@ -2329,8 +2344,11 @@ async function buildRagContext(userId: string, message: string, documentIds: str
 
 async function buildAllUserRagContext(userId: string, message: string) {
   const queryTokens = tokenize(message)
+  const wantsMedicalDeep = isAnalysisDeepDiveRequest(message)
+  const wantsDeviations = /отклон|вне\s*норм|не\s*в\s*норм/i.test(normalizeForSearch(message))
+  const boostAbnormal = wantsDeviations || wantsMedicalDeep
 
-  const [docs, analyses, diary, kbIndicators] = await Promise.all([
+  const [docs, analyses, diary, kbIndicators, abnormalRows] = await Promise.all([
     prisma.document.findMany({
       where: { userId },
       orderBy: { uploadDate: 'desc' },
@@ -2408,10 +2426,27 @@ async function buildAllUserRagContext(userId: string, message: string) {
         console.error('[AI-ASSISTANT] Error fetching indicators:', error)
         return []
       }
-    })()
+    })(),
+    boostAbnormal ? collectUserAbnormalIndicators(userId) : Promise.resolve([]),
   ])
 
   const scored: Array<{ score: number; source: RagSource; snippet: string }> = []
+
+  if (abnormalRows.length > 0) {
+    const summary = formatAbnormalIndicatorsForChat(abnormalRows)
+    scored.push({
+      score: 100,
+      source: {
+        sourceType: 'analysis',
+        id: 'abnormal-summary',
+        label: 'Сводка: показатели вне нормы',
+        date: null,
+        url: '/analyses',
+        snippet: summary,
+      },
+      snippet: summary,
+    })
+  }
 
   // documents
   for (const d of docs) {
@@ -2446,7 +2481,8 @@ async function buildAllUserRagContext(userId: string, message: string) {
   }
 
   // analyses
-  for (const a of analyses) {
+  for (let ai = 0; ai < analyses.length; ai++) {
+    const a = analyses[ai]
     let parsed: any = null
     try {
       parsed = a?.results ? JSON.parse(a.results as unknown as string) : null
@@ -2460,7 +2496,8 @@ async function buildAllUserRagContext(userId: string, message: string) {
     const fullText = [header, indsText, notes].filter(Boolean).join('\n')
     const chunks = splitIntoChunks(fullText, 900, 120)
     for (const c of chunks) {
-      const s = scoreChunk(queryTokens, c)
+      let s = scoreChunk(queryTokens, c, { boostAbnormal })
+      if (wantsMedicalDeep && s === 0 && ai < 10) s = 1
       if (s > 0) {
         scored.push({
           score: s + 2,
@@ -2629,6 +2666,24 @@ async function generateAIResponse(
   // Fallback ответы
   const lowerMessage = message.toLowerCase()
 
+  if (isAnalysisDeepDiveRequest(message)) {
+    const abnormal = await collectUserAbnormalIndicators(userId)
+    if (abnormal.length > 0) {
+      const structured = formatAbnormalIndicatorsForChat(abnormal)
+      return {
+        response: `${structured}\n\n---\nПолный текстовый разбор с пояснениями сейчас недоступен: не отвечает AI-модель (DeepSeek/Ollama). Проверьте DEEPSEEK_API_KEY или запуск Ollama в настройках админки и перезапустите сервер.`,
+        sources: rag.sources,
+      }
+    }
+    if (rag.sources.length > 0) {
+      return {
+        response:
+          'По вашим данным есть источники для разбора, но AI-модель сейчас недоступна. Настройте DeepSeek (DEEPSEEK_API_KEY) или Ollama и повторите вопрос — тогда смогу дать полный разбор с пояснениями.',
+        sources: rag.sources,
+      }
+    }
+  }
+
   if (lowerMessage.match(/привет|здравствуй|добрый день/)) {
     return {
       response:
@@ -2663,12 +2718,15 @@ async function generateAIResponse(
 
   // Если есть источники, но LLM недоступен — скажем прямо и покажем, что нашли
   if (rag.sources.length > 0) {
+    const abnormal = await collectUserAbnormalIndicators(userId).catch(() => [])
+    const abnormalBlock =
+      abnormal.length > 0 ? `\n\n${formatAbnormalIndicatorsForChat(abnormal)}\n\n` : '\n\n'
     return {
       response:
-        `Я вижу ваши данные, но AI-модель сейчас недоступна.\n\nЯ могу использовать эти источники:\n${rag.sources
-          .slice(0, 3)
-          .map((s, idx) => `- SOURCE ${idx + 1}: ${s.label}${s.url ? ` (${s.url})` : ''}`)
-          .join('\n')}\n\nПроверьте настройки DeepSeek/Ollama — и я смогу сделать полноценный разбор по документам.`,
+        `Я вижу ваши данные, но AI-модель сейчас недоступна.${abnormalBlock}Источники:\n${rag.sources
+          .slice(0, 5)
+          .map((s, idx) => `- ${s.label}${s.url ? ` (${s.url})` : ''}`)
+          .join('\n')}\n\nПроверьте DeepSeek (DEEPSEEK_API_KEY) или Ollama в .env.local и в админке — после этого отвечу полноценным разбором.`,
       sources: rag.sources
     }
   }
