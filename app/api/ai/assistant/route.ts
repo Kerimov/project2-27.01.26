@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
-import { classifyAssistantIntent } from '@/lib/ai/assistant-router'
+import { classifyAssistantIntent, stripLeadingSmalltalk } from '@/lib/ai/assistant-router'
 import {
   isAnalysisDeepDiveRequest,
   isAnalysisListOnlyRequest,
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       Array.isArray(documentIds) ? documentIds.filter((x) => typeof x === 'string' && x.trim().length > 0) : []
 
     const bypassShortcut = shouldBypassProjectActionShortcut(intentDecision.intent, message)
-    const projectAction = bypassShortcut
+    let projectAction = bypassShortcut
       ? null
       : await handleProjectActionIntent({
           message,
@@ -212,6 +212,26 @@ export async function POST(request: NextRequest) {
           pendingBooking,
           intent: intentDecision.intent,
         })
+
+    // «Привет! покажи записи» — если intent всё же не операционный, повторяем без приветствия
+    const strippedCore = stripLeadingSmalltalk(message)
+    if (!projectAction && strippedCore && strippedCore.length < message.trim().length) {
+      const retryIntent = classifyAssistantIntent(strippedCore)
+      if (
+        retryIntent.intent !== intentDecision.intent &&
+        retryIntent.intent !== 'unknown' &&
+        retryIntent.intent !== 'smalltalk' &&
+        !shouldBypassProjectActionShortcut(retryIntent.intent, message)
+      ) {
+        projectAction = await handleProjectActionIntent({
+          message,
+          userId,
+          action,
+          pendingBooking,
+          intent: retryIntent.intent,
+        })
+      }
+    }
 
     if (projectAction) {
       const toolDefinition = getAssistantToolDefinition(projectAction.functionName)
@@ -2187,7 +2207,8 @@ function buildAssistantSystemPrompt() {
 Формат:
 - По делу, с подзаголовками при длинном ответе.
 - Для навигации по приложению — конкретный путь (например «Анализы → Сравнить»).
-- Для медицины: вывод → детали по показателям → что проверить → когда к врачу.`
+- Для медицины: вывод → детали по показателям → что проверить → когда к врачу.
+- Если пользователь просит «мои записи», «мои анализы», «напоминания» — отвечай данными из SOURCE, а не инструкцией «перейдите в раздел».`
 }
 
 function normalizeForSearch(input: string) {
