@@ -20,6 +20,7 @@ import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { AppListItem } from '@/components/ui/AppListItem';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useFloatingTabBarInsets } from '@/design/tab-bar';
+import { filterUpcomingActiveAppointments } from '@/lib/appointments-filter';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -61,8 +62,7 @@ export default function DashboardScreen() {
       ]);
       const kpi = (analytics?.kpi || {}) as any;
 
-      const upcoming = appointments
-        .filter((apt) => new Date(apt.scheduledAt) >= new Date() && apt.status !== 'cancelled')
+      const upcoming = filterUpcomingActiveAppointments(appointments)
         .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
         .slice(0, 3);
 
@@ -74,7 +74,7 @@ export default function DashboardScreen() {
       setStats({
         analysesCount: kpi.analysesCount ?? analyses.length,
         documentsCount: kpi.documentsCount ?? documents.length,
-        upcomingAppointments: kpi.upcomingAppointments ?? upcoming.length,
+        upcomingAppointments: upcoming.length,
         avgSleep: kpi.avgSleep ?? null,
         latestAnalysis,
         upcomingAppointmentsList: upcoming,

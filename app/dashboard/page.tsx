@@ -18,6 +18,7 @@ import {
   ShieldAlert
 } from 'lucide-react'
 import Link from 'next/link'
+import { filterUpcomingActiveAppointments } from '@/lib/appointments-filter'
 
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth()
@@ -80,13 +81,9 @@ export default function DashboardPage() {
         })
         if (apptRes.ok) {
           const { appointments: apiAppointments } = await apptRes.json()
-          const upcoming = (apiAppointments || []).filter(
-            (a: any) =>
-              new Date(a.scheduledAt) > new Date() &&
-              a.status !== 'cancelled' &&
-              ['scheduled', 'confirmed', 'rescheduled'].includes(a.status)
+          const upcoming = filterUpcomingActiveAppointments(apiAppointments || []).sort(
+            (a: any, b: any) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt)
           )
-          upcoming.sort((a: any, b: any) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt))
           setAppointments(upcoming.slice(0, 5))
         }
 

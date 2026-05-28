@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { ACTIVE_APPOINTMENT_STATUSES } from '@/lib/appointments-filter'
 import { parse as parseCookies } from 'cookie'
 
 export const runtime = 'nodejs'
@@ -30,7 +31,14 @@ export async function GET(req: NextRequest) {
     }),
     prisma.document.count({ where: { userId: user.userId } }),
     prisma.analysis.count({ where: { userId: user.userId } }),
-    prisma.appointment.findMany({ where: { patientId: user.userId, scheduledAt: { gte: new Date() } }, orderBy: { scheduledAt: 'asc' } })
+    prisma.appointment.findMany({
+      where: {
+        patientId: user.userId,
+        scheduledAt: { gte: new Date() },
+        status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    }),
   ])
 
   // Группируем по дню

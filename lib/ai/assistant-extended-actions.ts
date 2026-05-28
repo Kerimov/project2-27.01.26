@@ -169,7 +169,11 @@ export async function tryAssistantExtendedAction(input: {
       prisma.document.count({ where: { userId: patientId } }),
       prisma.analysis.count({ where: { userId: patientId } }),
       prisma.appointment.count({
-        where: { patientId, scheduledAt: { gte: new Date() }, status: { not: 'cancelled' } },
+        where: {
+          patientId,
+          scheduledAt: { gte: new Date() },
+          status: { in: ['scheduled', 'confirmed', 'rescheduled'] },
+        },
       }),
       prisma.healthDiaryEntry.findMany({
         where: { userId: patientId, entryDate: { gte: from, lte: to } },
