@@ -1,5 +1,5 @@
-import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -9,8 +9,18 @@ import { useAppTheme } from '@/design/tokens';
 import { useAuthStore } from '../../state/authStore';
 
 export default function TabLayout() {
+  const router = useRouter();
   const theme = useAppTheme();
   const { token, isBootstrapping, user } = useAuthStore();
+
+  // На некоторых девайсах <Redirect /> внутри Tabs может не срабатывать стабильно,
+  // поэтому дополнительно делаем императивный переход.
+  useEffect(() => {
+    if (isBootstrapping) return;
+    if (!token) {
+      router.replace('/' as any);
+    }
+  }, [token, isBootstrapping, router]);
 
   if (isBootstrapping) {
     return (
