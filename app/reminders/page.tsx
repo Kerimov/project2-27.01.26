@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -74,13 +74,7 @@ export default function RemindersPage() {
     else window.localStorage.removeItem('caretakerPatientId')
   }
 
-  useEffect(() => {
-    if (user && token) {
-      fetchReminders()
-    }
-  }, [user, token, patientId])
-
-  const fetchReminders = async () => {
+  const fetchReminders = useCallback(async () => {
     try {
       if (!token) return
 
@@ -105,7 +99,13 @@ export default function RemindersPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [patientId, token])
+
+  useEffect(() => {
+    if (user && token) {
+      fetchReminders()
+    }
+  }, [user, token, patientId, fetchReminders])
 
   const markAsCompleted = async (reminderId: string) => {
     try {

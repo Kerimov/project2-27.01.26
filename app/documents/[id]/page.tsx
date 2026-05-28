@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +30,7 @@ import {
   Trash2
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Document {
   id: string
@@ -83,15 +84,7 @@ export default function DocumentViewPage() {
     }>
   }>({})
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-    } else if (user && params.id) {
-      loadDocument()
-    }
-  }, [user, authLoading, params.id])
-
-  const loadDocument = async () => {
+  const loadDocument = useCallback(async () => {
     try {
       const response = await fetch(`/api/documents/${params.id}`)
       if (response.ok) {
@@ -105,7 +98,15 @@ export default function DocumentViewPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [params.id, router])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
+    } else if (user && params.id) {
+      loadDocument()
+    }
+  }, [user, authLoading, params.id, router, loadDocument])
 
   if (authLoading || isLoading) {
     return (
@@ -684,10 +685,13 @@ export default function DocumentViewPage() {
                 <CardTitle>Просмотр документа</CardTitle>
               </CardHeader>
               <CardContent>
-                <img
+                <Image
                   src={document.fileUrl}
-                  alt={document.fileName}
-                  className="w-full rounded-lg border"
+                  alt={document.fileName || 'Документ'}
+                  width={1200}
+                  height={1200}
+                  className="w-full h-auto rounded-lg border"
+                  unoptimized
                 />
               </CardContent>
             </Card>

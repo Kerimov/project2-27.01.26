@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,15 +36,7 @@ export default function DoctorAppointmentsPage() {
   const [formState, setFormState] = useState<{date: string; time: string; patientId: string; type: string;}>({ date: '', time: '09:00', patientId: '', type: 'consultation' })
   const [rescheduleFormState, setRescheduleFormState] = useState<{date: string; time: string;}>({ date: '', time: '09:00' })
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-      return
-    }
-    if (user) fetchAppointments()
-  }, [user, isLoading])
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       const lsToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       const res = await fetch('/api/doctor/appointments', {
@@ -58,7 +50,15 @@ export default function DoctorAppointmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+      return
+    }
+    if (user) fetchAppointments()
+  }, [user, isLoading, router, fetchAppointments])
 
   const handleStatusChange = async (appointmentId: string, action: 'cancelled' | 'reschedule') => {
     if (action === 'cancelled') {

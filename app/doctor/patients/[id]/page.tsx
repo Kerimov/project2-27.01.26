@@ -78,6 +78,26 @@ export default function PatientCardPage() {
     loadTrends()
   }, [params.id])
 
+  const quickPrompts = useMemo(() => {
+    return [
+      {
+        key: 'questions',
+        label: 'Вопросы пациенту',
+        text: 'Сформулируй 10 уточняющих вопросов пациенту (строго по источникам).'
+      },
+      {
+        key: 'labs',
+        label: 'Какие анализы докинуть',
+        text: 'Какие анализы/исследования стоит добавить и зачем (строго по данным источников)?'
+      },
+      {
+        key: 'trend',
+        label: 'Объяснить динамику',
+        text: 'Что может объяснить динамику показателей? Дай гипотезы и что проверить далее (строго по источникам).'
+      }
+    ]
+  }, [])
+
   function TrendChart({ series }: { series: { date: string; value: number }[] }) {
     if (!series || series.length === 0) return null
     const points = series.map(p => ({ x: new Date(p.date).getTime(), y: p.value }))
@@ -158,26 +178,6 @@ export default function PatientCardPage() {
     timelineMode === 'important'
       ? timeline.filter((x) => x.kind !== 'document').slice(0, 25)
       : timeline.slice(0, 35)
-
-  const quickPrompts = useMemo(() => {
-    return [
-      {
-        key: 'questions',
-        label: 'Вопросы пациенту',
-        text: 'Сформулируй 10 уточняющих вопросов пациенту (строго по источникам).'
-      },
-      {
-        key: 'labs',
-        label: 'Какие анализы докинуть',
-        text: 'Какие анализы/исследования стоит добавить и зачем (строго по данным источников)?'
-      },
-      {
-        key: 'trend',
-        label: 'Объяснить динамику',
-        text: 'Что может объяснить динамику показателей? Дай гипотезы и что проверить далее (строго по источникам).'
-      }
-    ]
-  }, [])
 
   async function askDoctorAI(message: string, mode: string) {
     try {

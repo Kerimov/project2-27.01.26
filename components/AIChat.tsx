@@ -338,7 +338,7 @@ export function AIChat() {
                     </div>
                     {message.functionName === 'book_appointment' && (
                       <div className="text-xs text-green-600">
-                        Запись успешно создана! Проверьте раздел "Мои записи".
+                        Запись успешно создана! Проверьте раздел «Мои записи».
                       </div>
                     )}
                     {message.functionName === 'get_analysis_results' && message.functionResult && (
@@ -478,7 +478,7 @@ export function AIChat() {
                     )}
                     {message.functionResult?.action === 'appointment_created' && (
                       <div className="text-xs text-green-600">
-                        Запись успешно создана! Проверьте раздел "Мои записи".
+                        Запись успешно создана! Проверьте раздел «Мои записи».
                       </div>
                     )}
                     {message.functionName === 'get_appointments' && message.functionResult && (

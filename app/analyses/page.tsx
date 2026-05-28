@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -129,13 +129,7 @@ export default function AnalysesPage() {
   const [compareWarnings, setCompareWarnings] = useState<string[]>([])
   const [compareProbableNameByIndex, setCompareProbableNameByIndex] = useState<Record<number, string> | null>(null)
 
-  useEffect(() => {
-    if (token) {
-      fetchAnalyses()
-    }
-  }, [token])
-
-  const fetchAnalyses = async () => {
+  const fetchAnalyses = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/analyses', {
@@ -155,7 +149,13 @@ export default function AnalysesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    if (token) {
+      fetchAnalyses()
+    }
+  }, [token, fetchAnalyses])
 
   // Группировка анализов по категориям
   const categorizeAnalyses = (analyses: Analysis[]): AnalysisCategory[] => {

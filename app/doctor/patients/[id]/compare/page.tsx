@@ -11,7 +11,7 @@ export default function PatientComparePage() {
   const params = useParams() as { id: string }
   const router = useRouter()
   const sp = useSearchParams()
-  const ids = (sp.get('ids') || '').split(',').filter(Boolean)
+  const ids = useMemo(() => (sp.get('ids') || '').split(',').filter(Boolean), [sp])
   const [data, setData] = useState<{ indicators: SeriesMap; insights?: string; analyses?: { id: string; date: string; title: string }[] } | null>(null)
 
   useEffect(() => {
@@ -29,9 +29,9 @@ export default function PatientComparePage() {
       else alert(json?.error || 'Ошибка загрузки сравнения')
     }
     load()
-  }, [params.id, sp])
+  }, [params.id, ids])
 
-  const indicators = data?.indicators || {}
+  const indicators = useMemo(() => data?.indicators || {}, [data])
   const palette = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
 
   function OverlayChart({ seriesByAnalysis }: { seriesByAnalysis: { analysisId: string; date: string; value: number; unit?: string|null }[] }) {
@@ -137,7 +137,9 @@ export default function PatientComparePage() {
     return res
   }, [indicators])
   const [active, setActive] = useState<string>('')
-  useEffect(()=>{ if (!active && indicatorList.length) setActive(indicatorList[0]) },[indicatorList])
+  useEffect(() => {
+    if (!active && indicatorList.length) setActive(indicatorList[0])
+  }, [active, indicatorList])
 
   return (
     <div className="web-page">

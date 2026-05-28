@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,13 +49,7 @@ export default function AnalysisDetailPage() {
   const [planLoading, setPlanLoading] = useState(false)
   const [planResult, setPlanResult] = useState<{ message: string; reminders: any[] } | null>(null)
 
-  useEffect(() => {
-    if (token && params.id) {
-      fetchAnalysis()
-    }
-  }, [token, params.id])
-
-  const fetchAnalysis = async () => {
+  const fetchAnalysis = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/analyses/${params.id}`, {
@@ -78,7 +72,13 @@ export default function AnalysisDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id, token])
+
+  useEffect(() => {
+    if (token && params.id) {
+      fetchAnalysis()
+    }
+  }, [token, params.id, fetchAnalysis])
 
   const fetchRisk = async () => {
     if (!analysis || !token) return

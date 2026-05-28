@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,18 +42,7 @@ export default function DoctorPatients() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-      return
-    }
-
-    if (user && token) {
-      fetchPatients()
-    }
-  }, [user, isLoading, router, token])
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     if (!token) return
     
     try {
@@ -75,7 +64,18 @@ export default function DoctorPatients() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+      return
+    }
+
+    if (user && token) {
+      fetchPatients()
+    }
+  }, [user, isLoading, router, token, fetchPatients])
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

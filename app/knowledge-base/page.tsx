@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -77,17 +77,7 @@ export default function KnowledgeBasePage() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (token) {
-      fetchStudyTypes();
-    }
-  }, [token]);
-
-  useEffect(() => {
-    filterStudyTypes();
-  }, [searchTerm, selectedCategory, studyTypes]);
-
-  const fetchStudyTypes = async () => {
+  const fetchStudyTypes = useCallback(async () => {
     if (!token) return;
     setIsLoading(true);
     try {
@@ -103,9 +93,9 @@ export default function KnowledgeBasePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
-  const filterStudyTypes = () => {
+  const filterStudyTypes = useCallback(() => {
     let filtered = studyTypes;
 
     if (selectedCategory !== 'all') {
@@ -126,7 +116,17 @@ export default function KnowledgeBasePage() {
     }
 
     setFilteredStudyTypes(filtered);
-  };
+  }, [searchTerm, selectedCategory, studyTypes]);
+
+  useEffect(() => {
+    if (token) {
+      fetchStudyTypes();
+    }
+  }, [token, fetchStudyTypes]);
+
+  useEffect(() => {
+    filterStudyTypes();
+  }, [filterStudyTypes]);
 
   const categories = Array.from(new Set(studyTypes.map(st => st.category)));
 

@@ -79,7 +79,7 @@ export default function Home() {
                   Персональный медицинский ассистент
                 </h1>
                 <p className="max-w-2xl text-lg leading-8 text-muted-foreground md:text-xl">
-                  Светлый, спокойный интерфейс для документов, анализов, записей, напоминаний и понятных AI-рекомендаций.
+                  Соберите в одном месте анализы, документы, записи к врачу и напоминания — и получайте понятный AI‑разбор отклонений и динамики.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -144,7 +144,7 @@ export default function Home() {
               Всё главное — в одном медицинском кабинете
             </h2>
             <p className="web-page-subtitle mx-auto">
-              Дизайн ориентирован на чтение: мягкие поверхности, крупные поля, понятные статусы и минимум визуального шума.
+              Храните историю анализов и документов, планируйте визиты, получайте подсказки по отклонениям и следите за трендами показателей.
             </p>
           </div>
 
@@ -189,10 +189,10 @@ export default function Home() {
         <section className="web-container">
           <div className="rounded-[2rem] bg-primary px-6 py-14 text-center text-primary-foreground shadow-medical-lg md:px-10">
             <h2 className="text-3xl md:text-5xl font-bold">
-              Начните заботиться о здоровье без перегруженного интерфейса
+              Начните вести здоровье в одном кабинете
             </h2>
             <p className="text-xl opacity-90 max-w-2xl mx-auto">
-              Веб-кабинет и мобильные приложения теперь оформлены в единой спокойной системе.
+              Документы, анализы, визиты и напоминания — с быстрым AI‑разбором и понятными следующими шагами.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-7">
               <Link href="/register">

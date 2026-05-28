@@ -10,7 +10,7 @@ import {
   Activity,
   Upload,
   FileText,
-  Image,
+  Image as ImageIcon,
   File,
   Trash2,
   Eye,
@@ -50,43 +50,8 @@ export default function DocumentsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [dragActive, setDragActive] = useState(false)
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-    } else if (user) {
-      loadDocuments()
-    }
-  }, [user, authLoading, router])
-
-  const loadDocuments = async () => {
-    try {
-      const response = await fetch('/api/documents')
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data.documents)
-
-        // Автоподхват незавершённых распознаваний и запуск опроса
-        const pending = data.documents.filter((d: Document) => !d.parsed)
-        setProcessingIds((prev) => {
-          const next = new Set(prev)
-          for (const doc of pending) {
-            if (!next.has(doc.id) && !pollTimersRef.current[doc.id]) {
-              next.add(doc.id)
-              void pollDocument(doc.id)
-            }
-          }
-          return next
-        })
-      }
-    } catch (error) {
-      console.error('Error loading documents:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   // Опрос одного документа до завершения распознавания
-  const pollDocument = async (id: string) => {
+  const pollDocument = useCallback(async (id: string) => {
     // Не запускаем второй раз для того же id
     if (pollTimersRef.current[id]) return
 
@@ -113,7 +78,42 @@ export default function DocumentsPage() {
     }
 
     pollTimersRef.current[id] = setTimeout(tick, 1500)
-  }
+  }, [])
+
+  const loadDocuments = useCallback(async () => {
+    try {
+      const response = await fetch('/api/documents')
+      if (response.ok) {
+        const data = await response.json()
+        setDocuments(data.documents)
+
+        // Автоподхват незавершённых распознаваний и запуск опроса
+        const pending = data.documents.filter((d: Document) => !d.parsed)
+        setProcessingIds((prev) => {
+          const next = new Set(prev)
+          for (const doc of pending) {
+            if (!next.has(doc.id) && !pollTimersRef.current[doc.id]) {
+              next.add(doc.id)
+              void pollDocument(doc.id)
+            }
+          }
+          return next
+        })
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [pollDocument])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
+    } else if (user) {
+      loadDocuments()
+    }
+  }, [user, authLoading, router, loadDocuments])
 
   // Очистка таймеров при размонтировании
   useEffect(() => {
@@ -133,23 +133,7 @@ export default function DocumentsPage() {
     }
   }, [])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      await handleFiles(e.dataTransfer.files)
-    }
-  }, [])
-
-  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      await handleFiles(e.target.files)
-    }
-  }
-
-  const handleFiles = async (files: FileList) => {
+  const handleFiles = useCallback(async (files: FileList) => {
     setIsUploading(true)
 
     for (let i = 0; i < files.length; i++) {
@@ -182,6 +166,22 @@ export default function DocumentsPage() {
     }
 
     setIsUploading(false)
+  }, [loadDocuments, pollDocument])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await handleFiles(e.dataTransfer.files)
+    }
+  }, [handleFiles])
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      await handleFiles(e.target.files)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -207,7 +207,7 @@ export default function DocumentsPage() {
   }
 
   const getFileIcon = (fileType: string) => {
-    if (fileType.includes('image')) return <Image className="h-5 w-5" />
+    if (fileType.includes('image')) return <ImageIcon className="h-5 w-5" />
     if (fileType.includes('pdf')) return <FileText className="h-5 w-5" />
     return <File className="h-5 w-5" />
   }

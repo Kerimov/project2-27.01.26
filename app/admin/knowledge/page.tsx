@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -87,13 +87,7 @@ export default function KnowledgeBasePage() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (token) {
-      fetchData();
-    }
-  }, [token, activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!token) return;
     setIsLoading(true);
     try {
@@ -119,7 +113,13 @@ export default function KnowledgeBasePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab, token]);
+
+  useEffect(() => {
+    if (token) {
+      fetchData();
+    }
+  }, [token, fetchData]);
 
   const handleCreateStudyType = async (e: React.FormEvent) => {
     e.preventDefault();

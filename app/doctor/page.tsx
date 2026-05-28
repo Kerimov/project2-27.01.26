@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -61,46 +61,7 @@ export default function DoctorDashboard() {
   const [requestNote, setRequestNote] = useState<string>('')
   const [requestBusy, setRequestBusy] = useState<boolean>(false)
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-      return
-    }
-
-    if (user) {
-      checkDoctorProfile()
-    }
-  }, [user, isLoading, router])
-
-  const checkDoctorProfile = async () => {
-    try {
-      // Если у пользователя роль не DOCTOR — сразу направляем в онбординг
-      if (user?.role !== 'DOCTOR') {
-        router.push('/doctor/setup')
-        return
-      }
-
-      // Передаём токен, чтобы не зависеть от cookie
-      const lsToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const token = lsToken || undefined
-
-      const response = await fetch('/api/doctor/profile', {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        fetchDoctorStats()
-      } else {
-        router.push('/doctor/setup')
-      }
-    } catch (error) {
-      console.error('Error checking doctor profile:', error)
-      router.push('/doctor/setup')
-    }
-  }
-
-  const fetchDoctorStats = async () => {
+  const fetchDoctorStats = useCallback(async () => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined
@@ -157,7 +118,46 @@ export default function DoctorDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [protocolPatientId, requestPatientId])
+
+  const checkDoctorProfile = useCallback(async () => {
+    try {
+      // Если у пользователя роль не DOCTOR — сразу направляем в онбординг
+      if (user?.role !== 'DOCTOR') {
+        router.push('/doctor/setup')
+        return
+      }
+
+      // Передаём токен, чтобы не зависеть от cookie
+      const lsToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const token = lsToken || undefined
+
+      const response = await fetch('/api/doctor/profile', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        fetchDoctorStats()
+      } else {
+        router.push('/doctor/setup')
+      }
+    } catch (error) {
+      console.error('Error checking doctor profile:', error)
+      router.push('/doctor/setup')
+    }
+  }, [router, user, fetchDoctorStats])
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+      return
+    }
+
+    if (user) {
+      checkDoctorProfile()
+    }
+  }, [user, isLoading, router, checkDoctorProfile])
 
   const riskBadge = (status: string | null | undefined) => {
     const s = String(status || '').toLowerCase()

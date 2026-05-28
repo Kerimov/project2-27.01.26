@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -104,7 +104,7 @@ export function DiaryEntriesPanel() {
 
   const uniqueTags = useMemo(() => Array.from(new Set(entries.flatMap(e => e.tags.map(t => t.tag.name)))), [entries])
 
-  async function fetchEntries() {
+  const fetchEntries = useCallback(async () => {
     if (!token) return
     setLoading(true)
     const params = new URLSearchParams()
@@ -117,9 +117,9 @@ export function DiaryEntriesPanel() {
     // Сортируем по дате (новые сверху)
     setEntries((data as Entry[]).slice().sort((a: Entry, b: Entry) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()))
     setLoading(false)
-  }
+  }, [from, patientId, tag, to, token])
 
-  useEffect(() => { fetchEntries() }, [token, patientId])
+  useEffect(() => { fetchEntries() }, [fetchEntries])
 
   useEffect(() => {
     if (!token) return
