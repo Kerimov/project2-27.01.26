@@ -59,6 +59,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
   const [availableDocuments, setAvailableDocuments] = useState<AttachedDocument[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [documentsLoadError, setDocumentsLoadError] = useState<string | null>(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -87,6 +88,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     if (!token) return;
     try {
       setAuthToken(token);
+      setDocumentsLoadError(null);
       const docs = await getDocuments();
       setAvailableDocuments(
         docs.map((doc) => ({
@@ -96,6 +98,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         }))
       );
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      setDocumentsLoadError(msg || 'Не удалось загрузить документы');
       console.error('Failed to fetch documents:', error);
     }
   }, [token]);
@@ -677,6 +681,14 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         />
 
         <View style={{ gap: theme.spacing.sm, paddingTop: theme.spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+          {documentsLoadError ? (
+            <AppCard variant="surface2">
+              <AppText variant="caption" color="danger">
+                Не удалось загрузить список документов для прикрепления: {documentsLoadError}
+              </AppText>
+              <AppButton title="Повторить" size="sm" variant="secondary" onPress={fetchDocuments} />
+            </AppCard>
+          ) : null}
           {selectedDocuments.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
               {selectedDocuments.map((docId) => {

@@ -43,8 +43,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ documents })
   } catch (error) {
     console.error('Get documents error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    const isDb =
+      /database|datasource|connection|prisma|p1000|p1001|p1002|p1011|p1012|p2021|sqlite|postgres|timeout/i.test(msg)
+    const hint = isDb ? 'Проблема соединения с базой данных на сервере.' : null
     return NextResponse.json(
-      { error: 'Ошибка получения документов' },
+      { error: 'Ошибка получения документов', hint },
       { status: 500 }
     )
   }
