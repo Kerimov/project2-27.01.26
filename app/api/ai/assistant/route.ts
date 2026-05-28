@@ -2203,12 +2203,84 @@ function buildAssistantSystemPrompt() {
 - Если просит «разбор», «что значит», «интерпретацию» — дай структурированный разбор по SOURCE: вывод, возможные причины, что пересдать/обсудить с врачом.
 - Если SOURCE пуст — скажи, что данных нет, и подскажи загрузить документ в «Документы».
 - Не пиши «в чате нельзя» или «я не могу анализировать» — ты как раз для этого и предназначен.
+- Не начинай каждый ответ с приветствия. Здоровайся только один раз в самом начале диалога (если уместно). В остальных сообщениях отвечай сразу по сути.
+- Всегда сначала просмотри все блоки SOURCE. Если там есть «СВОДКА (server)», используй цифры из неё для подсчётов (количество анализов/документов/записей/отклонений) и не придумывай числа.
 
 Формат:
 - По делу, с подзаголовками при длинном ответе.
 - Для навигации по приложению — конкретный путь (например «Анализы → Сравнить»).
 - Для медицины: вывод → детали по показателям → что проверить → когда к врачу.
 - Если пользователь просит «мои записи», «мои анализы», «напоминания» — отвечай данными из SOURCE, а не инструкцией «перейдите в раздел».`
+}
+
+function stripAssistantGreeting(text: string): string {
+  const t = String(text || '')
+  const trimmed = t.trimStart()
+  // Strip only if greeting is at the very start and there is more content after it
+  const m = trimmed.match(
+    /^(?:(?:привет|здравствуйте|здравствуй|добрый\s+(?:день|вечер|утро))[\s!.,-]*)([\s\S]+)$/i
+  )
+  if (!m) return t
+  const rest = (m[1] || '').trimStart()
+  if (rest.length < 8) return t
+  return rest
+}
+
+async function buildUserCabinetSnapshot(userId: string): Promise<string> {
+  const [analysesCount, documentsCount, upcomingAppointments, latestAnalysis] = await Promise.all([
+    prisma.analysis.count({ where: { userId } }),
+    prisma.document.count({ where: { userId } }),
+    prisma.appointment.count({
+      where: {
+        patientId: userId,
+        scheduledAt: { gte: new Date() },
+        status: { not: 'cancelled' },
+      } as any,
+    }),
+    prisma.analysis
+      .findFirst({
+        where: { userId },
+        orderBy: { date: 'desc' },
+        select: { id: true, title: true, date: true, results: true },
+      })
+      .catch(() => null),
+  ])
+
+  let latestAbnormal = 0
+  if (latestAnalysis?.results) {
+    try {
+      const parsed = JSON.parse(latestAnalysis.results as any)
+      const inds = Array.isArray(parsed?.indicators) ? parsed.indicators : []
+      latestAbnormal = inds.filter((i: any) => i?.isNormal === false || i?.normal === false).length
+    } catch {
+      latestAbnormal = 0
+    }
+  }
+
+  const latestDate =
+    latestAnalysis?.date instanceof Date
+      ? latestAnalysis.date.toISOString().slice(0, 10)
+      : latestAnalysis?.date
+        ? new Date(String(latestAnalysis.date)).toISOString().slice(0, 10)
+        : null
+
+  const payload = {
+    analysesCount,
+    documentsCount,
+    upcomingAppointments,
+    latestAnalysis: latestAnalysis
+      ? {
+          id: latestAnalysis.id,
+          title: latestAnalysis.title ?? 'Анализ',
+          date: latestDate,
+          abnormalIndicators: latestAbnormal,
+        }
+      : null,
+    note:
+      'Эта сводка рассчитана на сервере. Для подсчётов используй эти цифры и не пытайся пересчитывать вручную по тексту.',
+  }
+
+  return `СВОДКА (server):\n${JSON.stringify(payload, null, 2)}`
 }
 
 function normalizeForSearch(input: string) {
@@ -2369,7 +2441,7 @@ async function buildAllUserRagContext(userId: string, message: string) {
   const wantsDeviations = /отклон|вне\s*норм|не\s*в\s*норм/i.test(normalizeForSearch(message))
   const boostAbnormal = wantsDeviations || wantsMedicalDeep
 
-  const [docs, analyses, diary, kbIndicators, abnormalRows] = await Promise.all([
+  const [docs, analyses, diary, kbIndicators, abnormalRows, snapshot] = await Promise.all([
     prisma.document.findMany({
       where: { userId },
       orderBy: { uploadDate: 'desc' },
@@ -2449,9 +2521,25 @@ async function buildAllUserRagContext(userId: string, message: string) {
       }
     })(),
     boostAbnormal ? collectUserAbnormalIndicators(userId) : Promise.resolve([]),
+    buildUserCabinetSnapshot(userId).catch(() => null),
   ])
 
   const scored: Array<{ score: number; source: RagSource; snippet: string }> = []
+
+  if (snapshot) {
+    scored.push({
+      score: 95,
+      source: {
+        sourceType: 'analysis',
+        id: 'cabinet-snapshot',
+        label: 'Сводка кабинета: анализы/документы/записи',
+        date: null,
+        url: null,
+        snippet: snapshot,
+      },
+      snippet: snapshot,
+    })
+  }
 
   if (abnormalRows.length > 0) {
     const summary = formatAbnormalIndicatorsForChat(abnormalRows)
@@ -2676,7 +2764,7 @@ async function generateAIResponse(
 
   if (llm) {
     return {
-      response: llm.text,
+      response: stripAssistantGreeting(llm.text),
       sources: rag.sources,
       provider: llm.provider,
       model: llm.model,
