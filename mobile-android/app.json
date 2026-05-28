@@ -3,7 +3,7 @@
     "name": "Медицинский ассистент",
     "slug": "medical-assistant-android",
     "version": "1.0.4",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "medical-assistant-android",
     "userInterfaceStyle": "automatic",
