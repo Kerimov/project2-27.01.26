@@ -88,8 +88,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     setAuthToken(null);
-    await AsyncStorage.multiRemove([STORAGE_TOKEN_KEY, STORAGE_USER_KEY]);
-    set({ user: null, token: null });
+    // Важно: сначала сбрасываем состояние, чтобы UI/роутинг среагировали мгновенно.
+    // Очистку AsyncStorage делаем best-effort: на некоторых устройствах она может подвисать.
+    set({ user: null, token: null, error: null, isLoading: false });
+    try {
+      await Promise.race([
+        AsyncStorage.multiRemove([STORAGE_TOKEN_KEY, STORAGE_USER_KEY]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('AsyncStorage timeout')), 2000)),
+      ]);
+    } catch {
+      // ignore
+    }
   },
 }));
 
