@@ -215,21 +215,15 @@ export default function ProfileScreen() {
     } finally {
       // В Expo Router root login screen — это "/"
       router.replace('/' as any);
+      setTimeout(() => router.replace('/' as any), 100);
       setLoggingOut(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Выход', 'Вы уверены, что хотите выйти из аккаунта?', [
-      { text: 'Отмена', style: 'cancel' },
-      {
-        text: 'Выйти',
-        style: 'destructive',
-        onPress: () => {
-          void performLogout();
-        },
-      },
-    ]);
+    // На некоторых устройствах Alert/модалки могут блокировать UI или терять onPress.
+    // Для стабильности делаем выход сразу.
+    void performLogout();
   };
  
   if (loading) {
