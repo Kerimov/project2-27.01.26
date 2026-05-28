@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -68,7 +69,39 @@ export function DiaryEntriesPanel() {
   const router = useRouter()
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState<any>({ entryDate: new Date().toISOString().slice(0,16), mood: 3, painScore: 0, sleepHours: 8 })
+  const defaultForm = () => ({
+    entryDate: new Date().toISOString().slice(0, 16),
+    mood: 3,
+    painScore: 0,
+    sleepHours: 8,
+  })
+
+  const [form, setForm] = useState<any>(defaultForm())
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const formSectionRef = useRef<HTMLDivElement>(null)
+
+  const toDatetimeLocalValue = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 16)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const entryToForm = (entry: Entry) => ({
+    entryDate: toDatetimeLocalValue(entry.entryDate),
+    mood: entry.mood ?? '',
+    painScore: entry.painScore ?? '',
+    sleepHours: entry.sleepHours ?? '',
+    steps: entry.steps ?? '',
+    temperature: entry.temperature ?? '',
+    weight: entry.weight ?? '',
+    systolic: entry.systolic ?? '',
+    diastolic: entry.diastolic ?? '',
+    pulse: entry.pulse ?? '',
+    symptoms: entry.symptoms ?? '',
+    notes: entry.notes ?? '',
+    tags: entry.tags?.map((t) => t.tag.name).join(', ') ?? '',
+  })
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [order, setOrder] = useState<'desc'|'asc'>('desc')
@@ -142,13 +175,68 @@ export function DiaryEntriesPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  async function createEntry() {
+  function buildEntryPayload() {
+    const num = (v: unknown) => (v === '' || v == null ? undefined : Number(v))
+    return {
+      patientId,
+      entryDate: form.entryDate,
+      mood: num(form.mood),
+      painScore: num(form.painScore),
+      sleepHours: num(form.sleepHours),
+      steps: num(form.steps),
+      temperature: num(form.temperature),
+      weight: num(form.weight),
+      systolic: num(form.systolic),
+      diastolic: num(form.diastolic),
+      pulse: num(form.pulse),
+      symptoms: form.symptoms || undefined,
+      notes: form.notes || undefined,
+      tags: form.tags?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? [],
+    }
+  }
+
+  function cancelEdit() {
+    setEditingEntryId(null)
+    setForm(defaultForm())
+  }
+
+  function startEdit(entry: Entry) {
+    setEditingEntryId(entry.id)
+    setForm(entryToForm(entry))
+    setTimeout(() => formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+
+  async function saveEntry() {
     if (!token) return
-    const payload = { ...form, patientId, tags: form.tags?.split(',').map((s: string) => s.trim()).filter(Boolean) }
-    const res = await fetch('/api/diary/entries', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) })
+    const payload = buildEntryPayload()
+
+    if (editingEntryId) {
+      const res = await fetch(`/api/diary/entries/${editingEntryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        cancelEdit()
+        fetchEntries()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data?.error || 'Не удалось сохранить запись')
+      }
+      return
+    }
+
+    const res = await fetch('/api/diary/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    })
     if (res.ok) {
-      setForm({ entryDate: new Date().toISOString().slice(0,16), mood: 3, painScore: 0, sleepHours: 8 })
+      setForm(defaultForm())
       fetchEntries()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data?.error || 'Не удалось создать запись')
     }
   }
 
@@ -489,9 +577,9 @@ export function DiaryEntriesPanel() {
         </CardContent>
       </Card>
 
-      <Card className="bg-white/60">
+      <Card className="bg-white/60" ref={formSectionRef}>
         <CardHeader>
-          <CardTitle>Новая запись</CardTitle>
+          <CardTitle>{editingEntryId ? 'Редактирование записи' : 'Новая запись'}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -545,8 +633,13 @@ export function DiaryEntriesPanel() {
             <Label>Теги (через запятую)</Label>
             <Input value={form.tags ?? ''} onChange={e => setForm({ ...form, tags: e.target.value })} />
           </div>
-          <div className="col-span-2 md:col-span-4">
-            <Button onClick={createEntry}>Записать</Button>
+          <div className="col-span-2 md:col-span-4 flex flex-wrap gap-2">
+            <Button onClick={saveEntry}>{editingEntryId ? 'Сохранить' : 'Записать'}</Button>
+            {editingEntryId && (
+              <Button type="button" variant="outline" onClick={cancelEdit}>
+                Отмена
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -609,8 +702,14 @@ export function DiaryEntriesPanel() {
                     ))}
                   </div>
                 )}
-                <div className="ml-auto">
-                  <Button variant="outline" onClick={() => deleteEntry(e.id)}>Удалить</Button>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => startEdit(e)}>
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Редактировать
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => deleteEntry(e.id)}>
+                    Удалить
+                  </Button>
                 </div>
               </div>
             ))}

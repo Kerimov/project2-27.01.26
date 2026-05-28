@@ -46,14 +46,54 @@ export default function RemindersPage() {
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [loading, setLoading] = useState(true)
   const [patientId, setPatientId] = useState<string | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newReminder, setNewReminder] = useState({
+  const [showFormModal, setShowFormModal] = useState(false)
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null)
+  const [reminderForm, setReminderForm] = useState({
     title: '',
     description: '',
     dueAt: '',
     recurrence: 'NONE',
-    channels: ['EMAIL']
+    channels: ['EMAIL'] as string[]
   })
+
+  const emptyReminderForm = () => ({
+    title: '',
+    description: '',
+    dueAt: '',
+    recurrence: 'NONE',
+    channels: ['EMAIL'] as string[],
+  })
+
+  const toDatetimeLocalValue = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const openCreateModal = () => {
+    setEditingReminderId(null)
+    setReminderForm(emptyReminderForm())
+    setShowFormModal(true)
+  }
+
+  const openEditModal = (reminder: Reminder) => {
+    setEditingReminderId(reminder.id)
+    setReminderForm({
+      title: reminder.title,
+      description: reminder.description || '',
+      dueAt: toDatetimeLocalValue(reminder.dueAt),
+      recurrence: reminder.recurrence || 'NONE',
+      channels: Array.isArray(reminder.channels) ? [...reminder.channels] : ['EMAIL'],
+    })
+    setShowFormModal(true)
+  }
+
+  const closeFormModal = () => {
+    setShowFormModal(false)
+    setEditingReminderId(null)
+    setReminderForm(emptyReminderForm())
+  }
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -146,8 +186,8 @@ export default function RemindersPage() {
     }
   }
 
-  const createReminder = async () => {
-    if (!newReminder.title || !newReminder.dueAt) {
+  const saveReminder = async () => {
+    if (!reminderForm.title || !reminderForm.dueAt) {
       alert('Заполните обязательные поля: заголовок и дату')
       return
     }
@@ -155,32 +195,39 @@ export default function RemindersPage() {
     try {
       if (!token) return
 
-      const response = await fetch('/api/reminders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...newReminder, patientId })
-      })
+      const payload = {
+        title: reminderForm.title,
+        description: reminderForm.description || null,
+        dueAt: new Date(reminderForm.dueAt).toISOString(),
+        recurrence: reminderForm.recurrence,
+        channels: reminderForm.channels,
+        patientId,
+      }
+
+      const isEdit = Boolean(editingReminderId)
+      const qs = patientId ? `?patientId=${encodeURIComponent(patientId)}` : ''
+      const response = await fetch(
+        isEdit ? `/api/reminders/${editingReminderId}${qs}` : '/api/reminders',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      )
 
       if (response.ok) {
-        setShowCreateModal(false)
-        setNewReminder({
-          title: '',
-          description: '',
-          dueAt: '',
-          recurrence: 'NONE',
-          channels: ['EMAIL']
-        })
-        fetchReminders() // Обновляем список
+        closeFormModal()
+        fetchReminders()
       } else {
         const error = await response.json()
-        alert(error.error || 'Ошибка создания напоминания')
+        alert(error.error || (isEdit ? 'Ошибка обновления напоминания' : 'Ошибка создания напоминания'))
       }
     } catch (error) {
-      console.error('Ошибка создания напоминания:', error)
-      alert('Ошибка создания напоминания')
+      console.error('Ошибка сохранения напоминания:', error)
+      alert('Ошибка сохранения напоминания')
     }
   }
 
@@ -234,7 +281,7 @@ export default function RemindersPage() {
             Управляйте своими медицинскими напоминаниями
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={openCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
           Добавить напоминание
         </Button>
@@ -326,7 +373,7 @@ export default function RemindersPage() {
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Выполнено
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => openEditModal(reminder)} title="Редактировать">
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => deleteReminder(reminder.id)}>
@@ -379,7 +426,7 @@ export default function RemindersPage() {
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Выполнено
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => openEditModal(reminder)} title="Редактировать">
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => deleteReminder(reminder.id)}>
@@ -404,7 +451,7 @@ export default function RemindersPage() {
             <p className="text-muted-foreground mb-4">
               Создайте свое первое напоминание для отслеживания важных медицинских событий
             </p>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4 mr-2" />
               Добавить напоминание
             </Button>
@@ -412,19 +459,21 @@ export default function RemindersPage() {
         </Card>
       )}
 
-      {/* Модальное окно для создания напоминания */}
-      {showCreateModal && (
+      {/* Модальное окно создания / редактирования */}
+      {showFormModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-semibold mb-4">Создать напоминание</h2>
+            <h2 className="text-xl font-semibold mb-4">
+              {editingReminderId ? 'Редактировать напоминание' : 'Создать напоминание'}
+            </h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Заголовок *</label>
                 <input
                   type="text"
-                  value={newReminder.title}
-                  onChange={(e) => setNewReminder({...newReminder, title: e.target.value})}
+                  value={reminderForm.title}
+                  onChange={(e) => setReminderForm({ ...reminderForm, title: e.target.value })}
                   className="w-full p-2 border rounded-md"
                   placeholder="Например: Прием лекарства"
                 />
@@ -433,8 +482,8 @@ export default function RemindersPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Описание</label>
                 <textarea
-                  value={newReminder.description}
-                  onChange={(e) => setNewReminder({...newReminder, description: e.target.value})}
+                  value={reminderForm.description}
+                  onChange={(e) => setReminderForm({ ...reminderForm, description: e.target.value })}
                   className="w-full p-2 border rounded-md"
                   rows={3}
                   placeholder="Дополнительная информация"
@@ -445,8 +494,8 @@ export default function RemindersPage() {
                 <label className="block text-sm font-medium mb-1">Дата и время *</label>
                 <input
                   type="datetime-local"
-                  value={newReminder.dueAt}
-                  onChange={(e) => setNewReminder({...newReminder, dueAt: e.target.value})}
+                  value={reminderForm.dueAt}
+                  onChange={(e) => setReminderForm({ ...reminderForm, dueAt: e.target.value })}
                   className="w-full p-2 border rounded-md"
                 />
               </div>
@@ -454,8 +503,8 @@ export default function RemindersPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Повторение</label>
                 <select
-                  value={newReminder.recurrence}
-                  onChange={(e) => setNewReminder({...newReminder, recurrence: e.target.value})}
+                  value={reminderForm.recurrence}
+                  onChange={(e) => setReminderForm({ ...reminderForm, recurrence: e.target.value })}
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="NONE">Однократно</option>
@@ -473,12 +522,15 @@ export default function RemindersPage() {
                     <label key={channel} className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={newReminder.channels.includes(channel)}
+                        checked={reminderForm.channels.includes(channel)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setNewReminder({...newReminder, channels: [...newReminder.channels, channel]})
+                            setReminderForm({ ...reminderForm, channels: [...reminderForm.channels, channel] })
                           } else {
-                            setNewReminder({...newReminder, channels: newReminder.channels.filter(c => c !== channel)})
+                            setReminderForm({
+                              ...reminderForm,
+                              channels: reminderForm.channels.filter((c) => c !== channel),
+                            })
                           }
                         }}
                         className="mr-2"
@@ -493,14 +545,10 @@ export default function RemindersPage() {
             </div>
             
             <div className="flex gap-2 mt-6">
-              <Button onClick={createReminder} className="flex-1">
-                Создать
+              <Button onClick={saveReminder} className="flex-1">
+                {editingReminderId ? 'Сохранить' : 'Создать'}
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={closeFormModal} className="flex-1">
                 Отмена
               </Button>
             </div>
