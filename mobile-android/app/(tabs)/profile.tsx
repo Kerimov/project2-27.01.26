@@ -409,7 +409,6 @@ export default function ProfileScreen() {
             <AppSection title="Сервисы" subtitle="Как на веб-версии">
               <View style={{ gap: theme.spacing.sm }}>
                 <AppButton title="Аналитика" icon="chart.bar.fill" variant="secondary" onPress={() => router.push('/analytics' as any)} fullWidth />
-                <AppButton title="База знаний" icon="book.closed.fill" variant="secondary" onPress={() => router.push('/knowledge' as any)} fullWidth />
                 <AppButton title="Маркетплейс клиник" icon="building.2.fill" variant="secondary" onPress={() => router.push('/marketplace' as any)} fullWidth />
                 <AppButton title="Помощь и FAQ" icon="questionmark.circle.fill" variant="secondary" onPress={() => router.push('/help' as any)} fullWidth />
               </View>

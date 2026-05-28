@@ -13,10 +13,9 @@
 | Лекарства CRUD + AI-план | `medications`, `medication/*` |
 | Дневник CRUD + AI обзор/связь | `diary`, `diary/*` |
 | Напоминания | `reminders`, `reminder/create` |
-| Профиль + сервисы | `profile` → analytics, knowledge, marketplace, help |
+| Профиль + сервисы | `profile` → analytics, marketplace, help |
 | Куратор | `caretaker`, `PatientSwitcher` |
 | Аналитика | `analytics` + блок на главной |
-| База знаний | `knowledge` |
 | Маркетплейс | `marketplace`, `marketplace/[id]` |
 | Справка | `help` |
 

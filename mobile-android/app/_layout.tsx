@@ -61,7 +61,6 @@ export default function RootLayout() {
           <Stack.Screen name="diary/[id]" options={{ title: 'Дневник' }} />
           <Stack.Screen name="caretaker" options={{ title: 'Куратор' }} />
           <Stack.Screen name="help" options={{ title: 'Помощь' }} />
-          <Stack.Screen name="knowledge" options={{ title: 'База знаний' }} />
           <Stack.Screen name="analytics" options={{ title: 'Аналитика' }} />
           <Stack.Screen name="marketplace/index" options={{ title: 'Маркетплейс' }} />
           <Stack.Screen name="marketplace/[id]" options={{ title: 'Клиника' }} />
