@@ -6,9 +6,13 @@ import {
   getModelLabel,
   isProviderReadyAsync,
   resolveAISettings,
+  resolveAssistantSettings,
   resolveVisionModel,
   saveAISettings,
+  saveAssistantChatMode,
+  saveAssistantLlmRouter,
   type AIProviderId,
+  type AssistantChatMode,
 } from '@/lib/ai-runtime-settings'
 import { isDeepSeekConfigured } from '@/lib/deepseek'
 import { isOllamaReachable, isOllamaVisionAvailable } from '@/lib/ollama'
@@ -22,6 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   const settings = await resolveAISettings(true)
+  const assistant = await resolveAssistantSettings(true)
   const visionModel = await resolveVisionModel()
 
   const models = await Promise.all(
@@ -34,6 +39,7 @@ export async function GET(request: NextRequest) {
 
   const ollamaUp = await isOllamaReachable()
   const visionOk = await isOllamaVisionAvailable()
+  const agentAvailable = settings.provider === 'deepseek' && isDeepSeekConfigured()
 
   return NextResponse.json({
     settings: {
@@ -41,6 +47,11 @@ export async function GET(request: NextRequest) {
       model: settings.model,
       modelLabel: getModelLabel(settings.provider, settings.model),
       source: settings.source,
+      assistantChatMode: assistant.chatMode,
+      assistantLlmRouter: assistant.llmRouter,
+      assistantChatModeSource: assistant.chatModeSource,
+      assistantLlmRouterSource: assistant.llmRouterSource,
+      agentAvailable,
     },
     models,
     vision: {
@@ -71,18 +82,58 @@ export async function PUT(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const provider = body?.provider as AIProviderId | undefined
   const model = typeof body?.model === 'string' ? body.model.trim() : ''
+  const assistantChatMode = body?.assistantChatMode as AssistantChatMode | undefined
+  const assistantLlmRouter =
+    typeof body?.assistantLlmRouter === 'boolean' ? body.assistantLlmRouter : undefined
 
-  if (!provider || !['deepseek', 'ollama'].includes(provider)) {
-    return NextResponse.json({ error: 'Некорректный провайдер' }, { status: 400 })
+  const hasModelUpdate = Boolean(provider && model)
+  const hasAssistantUpdate = assistantChatMode !== undefined || assistantLlmRouter !== undefined
+
+  if (!hasModelUpdate && !hasAssistantUpdate) {
+    return NextResponse.json({ error: 'Нет данных для сохранения' }, { status: 400 })
   }
-  if (!model) {
-    return NextResponse.json({ error: 'Укажите модель' }, { status: 400 })
+
+  if (hasModelUpdate) {
+    if (!provider || !['deepseek', 'ollama'].includes(provider)) {
+      return NextResponse.json({ error: 'Некорректный провайдер' }, { status: 400 })
+    }
+    if (!model) {
+      return NextResponse.json({ error: 'Укажите модель' }, { status: 400 })
+    }
+  }
+
+  if (assistantChatMode && assistantChatMode !== 'hybrid' && assistantChatMode !== 'agent') {
+    return NextResponse.json({ error: 'Режим чата: hybrid или agent' }, { status: 400 })
   }
 
   try {
-    await saveAISettings(provider, model)
+    if (hasModelUpdate) {
+      await saveAISettings(provider!, model)
+    }
+    if (assistantChatMode !== undefined) {
+      await saveAssistantChatMode(assistantChatMode)
+    }
+    if (assistantLlmRouter !== undefined) {
+      await saveAssistantLlmRouter(assistantLlmRouter)
+    }
+
     const settings = await resolveAISettings(true)
+    const assistant = await resolveAssistantSettings(true)
     const ready = await isProviderReadyAsync(settings.provider)
+    const agentAvailable = settings.provider === 'deepseek' && isDeepSeekConfigured()
+
+    const notes: string[] = []
+    if (assistant.chatMode === 'agent' && !agentAvailable) {
+      notes.push('Режим Agent требует активный DeepSeek (выберите DeepSeek Chat и задайте DEEPSEEK_API_KEY).')
+    }
+    if (assistant.llmRouter && !ready) {
+      notes.push('LLM-router включён, но модель чата сейчас недоступна — проверьте ключ или Ollama.')
+    }
+
+    const modeLabel =
+      assistant.chatMode === 'agent' ? 'Agent (DeepSeek tools)' : 'Гибрид (правила + shortcuts)'
+    const routerLabel = assistant.llmRouter ? 'LLM-router: вкл' : 'LLM-router: выкл'
+
     return NextResponse.json({
       ok: true,
       settings: {
@@ -90,11 +141,20 @@ export async function PUT(request: NextRequest) {
         model: settings.model,
         modelLabel: getModelLabel(settings.provider, settings.model),
         source: settings.source,
+        assistantChatMode: assistant.chatMode,
+        assistantLlmRouter: assistant.llmRouter,
+        assistantChatModeSource: assistant.chatModeSource,
+        assistantLlmRouterSource: assistant.llmRouterSource,
+        agentAvailable,
       },
       ready,
-      message: ready
-        ? `Активна: ${getModelLabel(settings.provider, settings.model)}`
-        : `Сохранено: ${getModelLabel(settings.provider, settings.model)}. Настройте .env.local для запросов.`,
+      message: [
+        hasModelUpdate ? `Модель: ${getModelLabel(settings.provider, settings.model)}.` : null,
+        hasAssistantUpdate ? `Чат: ${modeLabel}, ${routerLabel}.` : null,
+        ...notes,
+      ]
+        .filter(Boolean)
+        .join(' '),
     })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Ошибка сохранения'

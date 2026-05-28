@@ -15,16 +15,9 @@ import {
   ruleBasedTriage,
 } from '@/lib/ai/risk-triage-core'
 import type { AssistantPatientContext } from '@/lib/ai/assistant-patient-context'
-import type { AssistantSafety, AssistantCard, AssistantUiAction } from '@/lib/ai/assistant-contract'
+import type { AssistantProjectActionResult } from '@/lib/ai/assistant-project-types'
 
-export type AssistantProjectActionResult = {
-  message: string
-  data: Record<string, unknown>
-  functionName: string
-  cards?: AssistantCard[]
-  actions?: AssistantUiAction[]
-  safety?: AssistantSafety
-}
+export type { AssistantProjectActionResult } from '@/lib/ai/assistant-project-types'
 
 function norm(s: string) {
   return (s || '').toLowerCase().replace(/ё/g, 'е').trim()

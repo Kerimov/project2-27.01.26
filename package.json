@@ -20,7 +20,7 @@
     "generate:jwt": "node scripts/generate-jwt-secret.js",
     "deploy:help": "node scripts/deploy-helper.js",
     "check:ollama": "node scripts/check-ollama.js",
-    "test:ai-assistant": "node scripts/test-ai-assistant-router.js"
+    "test:ai-assistant": "node scripts/test-ai-assistant-router.js && node scripts/test-ai-assistant-routing-policy.js && node scripts/test-ai-assistant-tool-executor.js && node scripts/test-ai-assistant-openai-tools.js"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",

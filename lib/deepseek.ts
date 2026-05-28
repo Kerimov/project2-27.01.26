@@ -11,6 +11,38 @@ export type LlmChatParams = {
   responseFormat?: { type: 'json_object' }
 }
 
+export type DeepSeekToolCall = {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+
+export type DeepSeekChatMessage =
+  | { role: 'system' | 'user'; content: string }
+  | { role: 'assistant'; content?: string | null; tool_calls?: DeepSeekToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string }
+
+import type { OpenAiFunctionTool } from '@/lib/ai/assistant-openai-tools'
+export type { OpenAiFunctionTool }
+
+export type DeepSeekCompletionResult = {
+  message: {
+    role: 'assistant'
+    content: string | null
+    tool_calls?: DeepSeekToolCall[]
+  }
+  model: string
+}
+
+export type DeepSeekCompletionParams = {
+  messages: DeepSeekChatMessage[]
+  temperature?: number
+  model?: string
+  responseFormat?: { type: 'json_object' }
+  tools?: OpenAiFunctionTool[]
+  toolChoice?: 'auto' | 'none' | 'required'
+}
+
 const DEFAULT_BASE = 'https://api.deepseek.com'
 const DEFAULT_MODEL = 'deepseek-chat'
 const TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 90_000)
@@ -32,7 +64,9 @@ export function shouldUseDeepSeek(): boolean {
   return isDeepSeekConfigured()
 }
 
-export async function callDeepSeekChat(params: LlmChatParams): Promise<string> {
+export async function callDeepSeekCompletion(
+  params: DeepSeekCompletionParams
+): Promise<DeepSeekCompletionResult> {
   const apiKey = process.env.DEEPSEEK_API_KEY?.trim()
   if (!apiKey) {
     throw new Error('DEEPSEEK_API_KEY не задан')
@@ -41,16 +75,17 @@ export async function callDeepSeekChat(params: LlmChatParams): Promise<string> {
   const model = params.model || getDeepSeekModel()
   const body: Record<string, unknown> = {
     model,
-    messages: [
-      { role: 'system', content: params.system },
-      { role: 'user', content: params.user },
-    ],
+    messages: params.messages,
     temperature: params.temperature ?? 0.3,
     stream: false,
   }
 
   if (params.responseFormat?.type === 'json_object') {
     body.response_format = params.responseFormat
+  }
+  if (params.tools?.length) {
+    body.tools = params.tools
+    body.tool_choice = params.toolChoice ?? 'auto'
   }
 
   const resp = await fetch(`${getDeepSeekBaseUrl()}/v1/chat/completions`, {
@@ -69,7 +104,49 @@ export async function callDeepSeekChat(params: LlmChatParams): Promise<string> {
   }
 
   const json = await resp.json()
-  const text = json?.choices?.[0]?.message?.content
+  const message = json?.choices?.[0]?.message
+  if (!message || message.role !== 'assistant') {
+    throw new Error('DeepSeek вернул некорректный ответ')
+  }
+
+  const content =
+    typeof message.content === 'string'
+      ? message.content
+      : message.content == null
+        ? null
+        : String(message.content)
+
+  const tool_calls = Array.isArray(message.tool_calls)
+    ? (message.tool_calls as DeepSeekToolCall[]).filter(
+        (tc) => tc?.type === 'function' && tc.function?.name
+      )
+    : undefined
+
+  if ((!content || !content.trim()) && (!tool_calls || tool_calls.length === 0)) {
+    throw new Error('DeepSeek вернул пустой ответ')
+  }
+
+  return {
+    message: {
+      role: 'assistant',
+      content,
+      tool_calls: tool_calls?.length ? tool_calls : undefined,
+    },
+    model,
+  }
+}
+
+export async function callDeepSeekChat(params: LlmChatParams): Promise<string> {
+  const result = await callDeepSeekCompletion({
+    messages: [
+      { role: 'system', content: params.system },
+      { role: 'user', content: params.user },
+    ],
+    temperature: params.temperature,
+    model: params.model,
+    responseFormat: params.responseFormat,
+  })
+  const text = result.message.content
   if (typeof text !== 'string' || text.trim().length === 0) {
     throw new Error('DeepSeek вернул пустой ответ')
   }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Bot, Check, Loader2, Settings } from 'lucide-react'
+import { ArrowLeft, Bot, Check, Loader2, MessageSquare, Settings } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,20 @@ type ProjectModel = {
   active: boolean
 }
 
+type AssistantChatMode = 'hybrid' | 'agent'
+
 type AiSettingsResponse = {
-  settings: { provider: string; model: string; modelLabel: string; source: string }
+  settings: {
+    provider: string
+    model: string
+    modelLabel: string
+    source: string
+    assistantChatMode?: AssistantChatMode
+    assistantLlmRouter?: boolean
+    assistantChatModeSource?: 'database' | 'env'
+    assistantLlmRouterSource?: 'database' | 'env'
+    agentAvailable?: boolean
+  }
   models: ProjectModel[]
   vision: { label: string; model: string; description: string; ready: boolean }
   envHints: { deepseek: boolean; ollama: boolean }
@@ -43,6 +55,8 @@ export default function AdminSettingsPage() {
   const [data, setData] = useState<AiSettingsResponse | null>(null)
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
+  const [assistantChatMode, setAssistantChatMode] = useState<AssistantChatMode>('hybrid')
+  const [assistantLlmRouter, setAssistantLlmRouter] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
@@ -62,6 +76,8 @@ export default function AdminSettingsPage() {
       setData(json)
       setProvider(json.settings.provider)
       setModel(json.settings.model)
+      setAssistantChatMode(json.settings.assistantChatMode === 'agent' ? 'agent' : 'hybrid')
+      setAssistantLlmRouter(Boolean(json.settings.assistantLlmRouter))
     } catch (e: unknown) {
       setMessage({
         type: 'error',
@@ -87,7 +103,12 @@ export default function AdminSettingsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ provider, model }),
+        body: JSON.stringify({
+          provider,
+          model,
+          assistantChatMode,
+          assistantLlmRouter,
+        }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'Ошибка сохранения')
@@ -102,6 +123,10 @@ export default function AdminSettingsPage() {
       setSaving(false)
     }
   }
+
+  const agentAvailable = data?.settings.agentAvailable ?? false
+  const activeChatMode = data?.settings.assistantChatMode === 'agent' ? 'agent' : 'hybrid'
+  const activeLlmRouter = Boolean(data?.settings.assistantLlmRouter)
 
   if (isLoading || loading) {
     return (
@@ -128,9 +153,9 @@ export default function AdminSettingsPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full gradient-primary mb-4 shadow-medical">
             <Settings className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold mb-2">AI-модель</h1>
+          <h1 className="text-3xl font-bold mb-2">AI — настройки</h1>
           <p className="text-muted-foreground">
-            Чат, ассистент и разбор анализов — одна активная модель на выбор
+            Модель для чата и режимы работы ассистента в личном кабинете
           </p>
         </div>
 
@@ -159,6 +184,9 @@ export default function AdminSettingsPage() {
                   onClick={() => {
                     setProvider(m.provider)
                     setModel(m.model)
+                    if (m.provider !== 'deepseek' && assistantChatMode === 'agent') {
+                      setAssistantChatMode('hybrid')
+                    }
                   }}
                   className={cn(
                     'text-left rounded-xl border px-4 py-4 transition-all hover:border-primary/50',
@@ -184,7 +212,104 @@ export default function AdminSettingsPage() {
                 </button>
               ))}
             </div>
+          </CardContent>
+        </Card>
 
+        <Card className="glass-effect border-0 shadow-medical mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Чат ассистента (ЛК пациента)
+            </CardTitle>
+            <CardDescription>
+              Сохраняется в базе. Сейчас: режим{' '}
+              <strong>{activeChatMode === 'agent' ? 'Agent' : 'Гибрид'}</strong>
+              {', LLM-router '}
+              <strong>{activeLlmRouter ? 'включён' : 'выключен'}</strong>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">Режим маршрутизации</p>
+              <div className="grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssistantChatMode('hybrid')}
+                  className={cn(
+                    'text-left rounded-lg border px-3 py-3 text-sm transition-all',
+                    assistantChatMode === 'hybrid'
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                      : 'border-border bg-white/80'
+                  )}
+                >
+                  <span className="font-medium">Гибрид</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Быстрые правила для записей, дневника и списков. Подходит для продакшена.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => agentAvailable && setAssistantChatMode('agent')}
+                  disabled={!agentAvailable}
+                  className={cn(
+                    'text-left rounded-lg border px-3 py-3 text-sm transition-all',
+                    assistantChatMode === 'agent'
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                      : 'border-border bg-white/80',
+                    !agentAvailable && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <span className="font-medium">Agent (DeepSeek tools)</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Модель сама выбирает инструменты (до 3 шагов). Только при активном DeepSeek Chat.
+                  </p>
+                  {!agentAvailable && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Выберите DeepSeek Chat выше и задайте DEEPSEEK_API_KEY в .env.local
+                    </p>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">LLM-router (уточнение intent)</p>
+              <p className="text-xs text-muted-foreground">
+                Если правила не уверены, короткий запрос к модели уточняет намерение (дневник vs врач и т.д.).
+                Имеет смысл в режиме «Гибрид».
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssistantLlmRouter(false)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2.5 text-sm font-medium transition-all',
+                    !assistantLlmRouter
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                      : 'border-border bg-white/80'
+                  )}
+                >
+                  Выключен
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssistantLlmRouter(true)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2.5 text-sm font-medium transition-all',
+                    assistantLlmRouter
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                      : 'border-border bg-white/80'
+                  )}
+                >
+                  Включён
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-effect border-0 shadow-medical mb-6">
+          <CardContent className="pt-6 space-y-4">
             {message && (
               <p
                 className={
@@ -205,8 +330,12 @@ export default function AdminSettingsPage() {
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              Применить
+              Сохранить все настройки
             </Button>
+
+            <p className="text-xs text-muted-foreground text-center">
+              Перезапуск сервера не нужен — настройки применяются сразу.
+            </p>
           </CardContent>
         </Card>
 

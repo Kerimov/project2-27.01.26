@@ -1,0 +1,81 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isCarePlanIntent = isCarePlanIntent;
+exports.isYesIntent = isYesIntent;
+exports.isNoIntent = isNoIntent;
+exports.isDoctorIntent = isDoctorIntent;
+exports.isBookingIntent = isBookingIntent;
+exports.isReminderIntent = isReminderIntent;
+exports.isDocumentsIntent = isDocumentsIntent;
+exports.isAnalysesListIntent = isAnalysesListIntent;
+exports.isMedicationsIntent = isMedicationsIntent;
+exports.isCarePlanTasksIntent = isCarePlanTasksIntent;
+exports.isAddCarePlanTaskIntent = isAddCarePlanTaskIntent;
+exports.isAddDiaryIntent = isAddDiaryIntent;
+exports.isDiaryReviewIntent = isDiaryReviewIntent;
+const assistant_diary_intent_1 = require("./assistant-diary-intent");
+const assistant_diary_intent_2 = require("./assistant-diary-intent");
+function isCarePlanIntent(message) {
+    const t = (message || '').toLowerCase();
+    return (/план|пошагов|что делать дальше|следующие шаги|напоминан|reminder|задач/i.test(t) &&
+        !/не делай|не создавай|без напоминаний/i.test(t));
+}
+function isYesIntent(message) {
+    return /^(да|ага|ок|okay|yes|подтверждаю|запиши|давай|согласен|согласна)([.! ]|$)/i.test(message.trim());
+}
+function isNoIntent(message) {
+    return /^(нет|не надо|отмена|отмени|cancel|стоп)([.! ]|$)/i.test(message.trim());
+}
+function isAppointmentQueryIntent(message) {
+    const t = message.toLowerCase();
+    if (/записаться|запиши|записать|найди.*врач|покажи.*врач|свободн.*слот|хочу.*при[её]м/i.test(t))
+        return false;
+    return (/(?:мои|мой|покажи|какие|когда|ближайш|предстоящ).*(?:запис[ьи]?|при[её]м[ы]?)/i.test(t) ||
+        /(?:запис[ьи]?|при[её]м[ы]?).*(?:мои|предстоящ|ближайш)/i.test(t));
+}
+function isDoctorIntent(message) {
+    if (isAppointmentQueryIntent(message) ||
+        (0, assistant_diary_intent_1.isDiaryTopicIntent)(message) ||
+        isMedicationsIntent(message) ||
+        isCarePlanTasksIntent(message) ||
+        isReminderIntent(message) ||
+        isDocumentsIntent(message) ||
+        isAnalysesListIntent(message)) {
+        return false;
+    }
+    return /врач|доктор|специалист|терапевт|кардиолог|невролог|эндокринолог|при[её]м|запис/i.test(message);
+}
+function isBookingIntent(message) {
+    if ((0, assistant_diary_intent_1.isDiaryWriteIntent)(message))
+        return false;
+    return (0, assistant_diary_intent_2.isAppointmentBookingIntent)(message);
+}
+function isReminderIntent(message) {
+    return /напоминан|ремайндер|reminder/i.test(message);
+}
+function isDocumentsIntent(message) {
+    return /(?:мои|покажи|список|последн).*(?:документ|файл|загрузк)|(?:документ|файл).*(?:мои|последн)/i.test(message);
+}
+function isAnalysesListIntent(message) {
+    return /(?:мои|покажи|список|последн).*(?:анализ|показател)|(?:анализ|показател).*(?:мои|последн)/i.test(message);
+}
+function isMedicationsIntent(message) {
+    return (/лекарств|препарат|таблетк|бад|медикамент|что принимаю|список.*лекарств|расписан.*при[её]м/i.test(message) &&
+        !/рекомендац|совет.*леч/i.test(message));
+}
+function isCarePlanTasksIntent(message) {
+    const t = (message || '').toLowerCase();
+    if (/планов.*при[её]м|плановый осмотр/i.test(t))
+        return false;
+    return (/план действий|мои задачи|задач|активн.*задач|отложен|выполнен|согласован|что сделать|следующ.*шаг/i.test(t) &&
+        !/планов.*при[её]м|плановый осмотр/i.test(t));
+}
+function isAddCarePlanTaskIntent(message) {
+    return /(?:добав|создай|новая)\s+задач/i.test(message) || /задач[ау]:\s*\S/i.test(message);
+}
+function isAddDiaryIntent(message) {
+    return (0, assistant_diary_intent_1.isDiaryWriteIntent)(message);
+}
+function isDiaryReviewIntent(message) {
+    return /обзор|недел|итог|что влияло|корреляц/i.test(message) && (0, assistant_diary_intent_1.isDiaryTopicIntent)(message);
+}

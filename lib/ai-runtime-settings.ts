@@ -45,6 +45,15 @@ export const PROJECT_VISION_MODEL = {
 const KEY_PROVIDER = 'ai_provider'
 const KEY_MODEL = 'ai_model'
 const KEY_VISION_MODEL = 'ai_vision_model'
+const KEY_ASSISTANT_CHAT_MODE = 'assistant_chat_mode'
+const KEY_ASSISTANT_LLM_ROUTER = 'assistant_llm_router'
+
+export type AssistantChatMode = 'hybrid' | 'agent'
+
+let assistantModeCache: AssistantChatMode | null = null
+let assistantModeCacheTime = 0
+let assistantLlmRouterCache: boolean | null = null
+let assistantLlmRouterCacheTime = 0
 
 let cache: ResolvedAISettings | null = null
 let cacheTime = 0
@@ -122,6 +131,151 @@ export function getResolvedAISettingsSync(): ResolvedAISettings {
 export function invalidateAISettingsCache(): void {
   cache = null
   cacheTime = 0
+  assistantModeCache = null
+  assistantModeCacheTime = 0
+  assistantLlmRouterCache = null
+  assistantLlmRouterCacheTime = 0
+}
+
+function parseAssistantChatMode(value: string | undefined): AssistantChatMode | null {
+  if (value === 'hybrid' || value === 'agent') return value
+  return null
+}
+
+function envAssistantChatMode(): AssistantChatMode {
+  const v = process.env.ASSISTANT_CHAT_MODE?.trim().toLowerCase()
+  if (v === 'agent') return 'agent'
+  return 'hybrid'
+}
+
+export async function resolveAssistantChatMode(force = false): Promise<AssistantChatMode> {
+  if (!force && assistantModeCache && Date.now() - assistantModeCacheTime < CACHE_TTL_MS) {
+    return assistantModeCache
+  }
+
+  let mode: AssistantChatMode = envAssistantChatMode()
+  try {
+    const row = await prisma.systemSetting.findUnique({
+      where: { key: KEY_ASSISTANT_CHAT_MODE },
+    })
+    mode = parseAssistantChatMode(row?.value?.trim()) ?? mode
+  } catch {
+    /* ignore */
+  }
+
+  assistantModeCache = mode
+  assistantModeCacheTime = Date.now()
+  return mode
+}
+
+export function getResolvedAssistantChatModeSync(): AssistantChatMode {
+  return assistantModeCache ?? envAssistantChatMode()
+}
+
+export async function saveAssistantChatMode(mode: AssistantChatMode): Promise<void> {
+  if (mode !== 'hybrid' && mode !== 'agent') {
+    throw new Error('Режим чата: hybrid или agent')
+  }
+  await prisma.systemSetting.upsert({
+    where: { key: KEY_ASSISTANT_CHAT_MODE },
+    create: { key: KEY_ASSISTANT_CHAT_MODE, value: mode },
+    update: { value: mode },
+  })
+  assistantModeCache = mode
+  assistantModeCacheTime = Date.now()
+}
+
+function envAssistantLlmRouter(): boolean {
+  const v = process.env.ASSISTANT_LLM_ROUTER?.trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'on'
+}
+
+function parseAssistantLlmRouter(value: string | undefined): boolean | null {
+  if (value === undefined || value === null) return null
+  const v = value.trim().toLowerCase()
+  if (v === '1' || v === 'true' || v === 'on') return true
+  if (v === '0' || v === 'false' || v === 'off') return false
+  return null
+}
+
+/** LLM-router при низкой уверенности rule-router (настройка из админки или .env) */
+export async function resolveAssistantLlmRouter(force = false): Promise<boolean> {
+  if (!force && assistantLlmRouterCache !== null && Date.now() - assistantLlmRouterCacheTime < CACHE_TTL_MS) {
+    return assistantLlmRouterCache
+  }
+
+  let enabled = envAssistantLlmRouter()
+  try {
+    const row = await prisma.systemSetting.findUnique({
+      where: { key: KEY_ASSISTANT_LLM_ROUTER },
+    })
+    const parsed = parseAssistantLlmRouter(row?.value)
+    if (parsed !== null) {
+      enabled = parsed
+    }
+  } catch {
+    /* ignore */
+  }
+
+  assistantLlmRouterCache = enabled
+  assistantLlmRouterCacheTime = Date.now()
+  return enabled
+}
+
+export function getResolvedAssistantLlmRouterSync(): boolean {
+  return assistantLlmRouterCache ?? envAssistantLlmRouter()
+}
+
+export async function saveAssistantLlmRouter(enabled: boolean): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { key: KEY_ASSISTANT_LLM_ROUTER },
+    create: { key: KEY_ASSISTANT_LLM_ROUTER, value: enabled ? '1' : '0' },
+    update: { value: enabled ? '1' : '0' },
+  })
+  assistantLlmRouterCache = enabled
+  assistantLlmRouterCacheTime = Date.now()
+}
+
+export type ResolvedAssistantSettings = {
+  chatMode: AssistantChatMode
+  llmRouter: boolean
+  chatModeSource: 'database' | 'env'
+  llmRouterSource: 'database' | 'env'
+}
+
+export async function resolveAssistantSettings(force = false): Promise<ResolvedAssistantSettings> {
+  const [chatMode, llmRouter] = await Promise.all([
+    resolveAssistantChatMode(force),
+    resolveAssistantLlmRouter(force),
+  ])
+
+  let chatModeSource: 'database' | 'env' = 'env'
+  let llmRouterSource: 'database' | 'env' = 'env'
+  try {
+    const rows = await prisma.systemSetting.findMany({
+      where: { key: { in: [KEY_ASSISTANT_CHAT_MODE, KEY_ASSISTANT_LLM_ROUTER] } },
+    })
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    if (parseAssistantChatMode(map[KEY_ASSISTANT_CHAT_MODE]?.trim()) !== null) {
+      chatModeSource = 'database'
+    }
+    if (parseAssistantLlmRouter(map[KEY_ASSISTANT_LLM_ROUTER]) !== null) {
+      llmRouterSource = 'database'
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return { chatMode, llmRouter, chatModeSource, llmRouterSource }
+}
+
+/** Agent с tool calling — только DeepSeek */
+export async function shouldUseAssistantAgent(): Promise<boolean> {
+  await resolveAISettings()
+  await resolveAssistantChatMode()
+  if (getResolvedAISettingsSync().provider !== 'deepseek') return false
+  if (!isDeepSeekConfigured()) return false
+  return getResolvedAssistantChatModeSync() === 'agent'
 }
 
 export async function saveAISettings(provider: AIProviderId, model: string): Promise<void> {
