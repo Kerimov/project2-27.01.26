@@ -2,7 +2,7 @@
   "expo": {
     "name": "Медицинский ассистент",
     "slug": "medical-assistant-android",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "medical-assistant-android",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.pma.health.assistant",
-      "versionCode": 9,
+      "versionCode": 10,
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -38,6 +38,15 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
       "expo-router",
       [
         "expo-calendar",
@@ -56,7 +65,8 @@
             "backgroundColor": "#FFFFFF"
           }
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true,
