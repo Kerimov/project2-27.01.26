@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getAnalyses } from '../../api/analyses';
@@ -19,12 +19,14 @@ import { AppMetricCard } from '@/components/ui/AppMetricCard';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { AppListItem } from '@/components/ui/AppListItem';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useFloatingTabBarInsets } from '@/design/tab-bar';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, token } = useAuthStore();
   const theme = useAppTheme();
   const bp = useBreakpoint();
+  const { tabBarHeight } = useFloatingTabBarInsets();
   const { width: screenWidth } = useWindowDimensions();
 
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function DashboardScreen() {
         : 'Загрузите анализ или документ, и AI соберёт персональную картину здоровья.';
 
   return (
-    <AppScreen>
+    <AppScreen contentContainerStyle={{ paddingBottom: tabBarHeight + theme.spacing.xl }}>
       <View style={{ gap: theme.spacing.xl }}>
         <AppCard variant="hero">
           <View style={{ gap: theme.spacing.lg }}>
@@ -316,7 +318,12 @@ function QuickAction({
 }) {
   const theme = useAppTheme();
   return (
-    <AppCard padded={false} variant="interactive" style={{ width, overflow: 'hidden' }}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [{ width, opacity: pressed ? 0.92 : 1 }]}
+    >
+      <AppCard padded={false} variant="interactive" style={{ width: '100%', overflow: 'hidden' }}>
       <View style={{ padding: theme.spacing.md, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm }}>
       <View style={{ width: 42, height: 42, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
         <IconSymbol name={icon} size={20} color={theme.colors.primary} />
@@ -325,7 +332,7 @@ function QuickAction({
         {label}
       </AppText>
       </View>
-      <AppButton title="Открыть" size="sm" variant="ghost" onPress={onPress} style={{ borderRadius: 0 }} />
-    </AppCard>
+      </AppCard>
+    </Pressable>
   );
 }
