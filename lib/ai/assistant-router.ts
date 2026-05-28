@@ -1,4 +1,9 @@
-import { isAnalysisDeepDiveRequest, isAnalysisListOnlyRequest } from '@/lib/ai/assistant-analysis-intent'
+import { isAnalysisDeepDiveRequest, isAnalysisListOnlyRequest } from './assistant-analysis-intent'
+import {
+  isAppointmentBookingIntent,
+  isDiaryTopicIntent,
+  isDiaryWriteIntent,
+} from './assistant-diary-intent'
 
 export type AssistantIntent =
   | 'appointments'
@@ -52,7 +57,15 @@ function classifyCoreIntent(t: string): AssistantIntentDecision | null {
     return { intent: 'app_help', confidence: 0.95, reason: 'app help request' }
   }
 
-  if (/записаться|запиши|записать|хочу.*прием|свободн.*слот|слот|время.*врач|для записи к врач|на запись к врач/i.test(t)) {
+  if (isDiaryWriteIntent(t)) {
+    return { intent: 'diary', confidence: 0.98, reason: 'diary write (priority)' }
+  }
+
+  if (isDiaryTopicIntent(t)) {
+    return { intent: 'diary', confidence: 0.92, reason: 'diary topic (priority)' }
+  }
+
+  if (isAppointmentBookingIntent(t)) {
     return { intent: 'booking', confidence: 0.95, reason: 'booking request' }
   }
 
@@ -82,10 +95,6 @@ function classifyCoreIntent(t: string): AssistantIntentDecision | null {
 
   if (isAnalysisListOnlyRequest(t)) {
     return { intent: 'analyses', confidence: 0.92, reason: 'analyses list only' }
-  }
-
-  if (/дневник|самочувств|настроен|сон|боль|боли|шаг|давлен|пульс|температур|симптом|вес|запис.*дневник/i.test(t)) {
-    return { intent: 'diary', confidence: 0.9, reason: 'diary' }
   }
 
   if (/лекарств|препарат|таблетк|бад|медикамент|что принимаю|список.*лекарств|расписан.*прием/i.test(t)) {

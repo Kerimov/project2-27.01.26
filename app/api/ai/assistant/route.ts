@@ -10,6 +10,12 @@ import {
   shouldBypassProjectActionShortcut,
 } from '@/lib/ai/assistant-analysis-intent'
 import {
+  hasDiaryMetrics,
+  isAppointmentBookingIntent,
+  isDiaryTopicIntent,
+  isDiaryWriteIntent,
+} from '@/lib/ai/assistant-diary-intent'
+import {
   collectUserAbnormalIndicators,
   formatAbnormalIndicatorsForChat,
 } from '@/lib/ai/assistant-abnormal-indicators'
@@ -410,7 +416,8 @@ function isDoctorIntent(message: string) {
 }
 
 function isBookingIntent(message: string) {
-  return /запис|при[её]м|свободн|слот|время|расписан/i.test(message)
+  if (isDiaryWriteIntent(message)) return false
+  return isAppointmentBookingIntent(message)
 }
 
 function isAppointmentQueryIntent(message: string) {
@@ -435,15 +442,11 @@ function isAnalysesListIntent(message: string) {
 }
 
 function isDiaryIntent(message: string) {
-  return /дневник|самочувств|настроен|сон|бол[ьи]|шаг|давлен|пульс|температур|симптом|вес|запис.*дневник/i.test(message)
+  return isDiaryTopicIntent(message)
 }
 
 function isAddDiaryIntent(message: string) {
-  return /(добав|запиш|внес|отмет|сохран).*(дневник|запис|самочувств)/i.test(message) || hasDiaryMetrics(message)
-}
-
-function hasDiaryMetrics(message: string) {
-  return /(?:боль|сон|настроен|давлен|пульс|шаг|температур|вес)\s*[:\s]*\d/i.test(message)
+  return isDiaryWriteIntent(message)
 }
 
 function isDiaryReviewIntent(message: string) {
@@ -1204,6 +1207,23 @@ async function handleProjectActionIntent(input: {
     }
   }
 
+  if (isDiaryWriteIntent(message)) {
+    try {
+      const entry = await createDiaryEntryFromMessage(userId, message)
+      return {
+        functionName: 'add_diary_entry',
+        message: `Запись добавлена в дневник на ${new Date(entry.entryDate).toLocaleString('ru-RU')}. Откройте «Дневник → Записи» для просмотра.`,
+        data: { action: 'diary_entry_created', entry },
+      }
+    } catch (e) {
+      return {
+        functionName: 'add_diary_entry',
+        message: e instanceof Error ? e.message : 'Не удалось сохранить запись',
+        data: { action: 'diary_error' },
+      }
+    }
+  }
+
   if (intent === 'appointments') {
     const upcoming = !/прошедш|истори|все записи|все при[её]м/i.test(message)
     const appointments = await listAssistantAppointments(userId, {
@@ -1637,9 +1657,14 @@ async function createCarePlanFromDocuments(userId: string, message: string, docu
 // Анализ сообщения и определение нужной функции
 async function analyzeMessageAndDetermineFunction(message: string, userId: string) {
   const lowerMessage = message.toLowerCase()
+
+  if (isDiaryWriteIntent(message)) {
+    return null
+  }
   
   // Запись на прием - сначала показываем список врачей
-  if (lowerMessage.match(/записать|записаться|запись.*прием|прием.*врач|когда.*врач/) && 
+  if (lowerMessage.match(/записать|записаться|запись.*прием|прием.*врач|когда.*врач/) &&
+      !lowerMessage.match(/дневник/) && 
       !lowerMessage.match(/\d{1,2}:\d{2}/) && // Нет времени
       !lowerMessage.match(/\d{1,2}[.\-/]\d{1,2}/)) { // Нет даты
     // Если нет конкретной даты/времени, показываем список врачей

@@ -20,6 +20,8 @@ execFileSync(
     '--esModuleInterop',
     '--outDir',
     outDir,
+    'lib/ai/assistant-analysis-intent.ts',
+    'lib/ai/assistant-diary-intent.ts',
     'lib/ai/assistant-router.ts',
   ],
   { cwd: root, stdio: 'inherit' }
@@ -31,12 +33,15 @@ const cases = [
   ['Покажи мои записи на приемы', 'appointments'],
   ['Покажи свободные слоты для записи к врачу', 'booking'],
   ['запиши меня к кардиологу завтра', 'booking'],
+  ['запиши в дневник: боль 3, сон 8', 'diary'],
+  ['Сделай запись в дневник', 'diary'],
+  ['добавь в дневник настроение 7', 'diary'],
   ['покажи список врачей', 'doctors'],
   ['мои лекарства', 'medications'],
   ['задачи плана', 'care_plan'],
   ['покажи мои напоминания', 'reminders'],
   ['покажи мои документы', 'documents'],
-  ['покажи последние анализы', 'analyses'],
+  ['покажи мои анализы', 'analyses'],
   ['что значит гемоглобин', 'medical_question'],
 ]
 
