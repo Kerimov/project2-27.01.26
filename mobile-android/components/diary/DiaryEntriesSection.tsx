@@ -5,7 +5,7 @@ import {
   FlatList,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { getDiaryEntries, deleteDiaryEntry, type DiaryEntry } from '../../api/diary';
 import { diaryWeeklyReview, diaryIndicatorLink } from '../../api/ai-diary';
@@ -64,6 +64,14 @@ export function DiaryEntriesSection() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  // Обновляем при возвращении на экран (после создания/редактирования записи)
+  useFocusEffect(
+    useCallback(() => {
+      loadEntries();
+      return () => {};
+    }, [loadEntries])
+  );
 
   const handleDelete = async (entry: DiaryEntry) => {
     Alert.alert(

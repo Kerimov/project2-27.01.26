@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { getAnalyses } from '../../api/analyses';
 import { getAppointments } from '../../api/appointments';
@@ -88,6 +88,14 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  // Обновляем данные при возвращении на вкладку (иначе меняются только после перезапуска приложения)
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+      return () => {};
+    }, [loadDashboard])
+  );
 
   const displayFirstName = useMemo(() => {
     const fullName = user?.name?.trim() ?? '';

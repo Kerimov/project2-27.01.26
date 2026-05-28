@@ -6,7 +6,7 @@ import {
   Pressable,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
   getCarePlanTasks,
@@ -62,6 +62,14 @@ export function CarePlanSection() {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  // Обновляем при возврате на экран (после создания/редактирования задач)
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+      return () => {};
+    }, [loadTasks])
+  );
 
   const handleComplete = async (task: CarePlanTask) => {
     try {

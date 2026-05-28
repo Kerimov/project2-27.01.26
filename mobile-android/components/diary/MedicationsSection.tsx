@@ -5,7 +5,7 @@ import {
   FlatList,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
   getMedications,
@@ -55,6 +55,14 @@ export function MedicationsSection() {
   useEffect(() => {
     loadMedications();
   }, [loadMedications]);
+
+  // Обновляем при возврате на экран (после создания/редактирования лекарства)
+  useFocusEffect(
+    useCallback(() => {
+      loadMedications();
+      return () => {};
+    }, [loadMedications])
+  );
 
   const handleDelete = async (medication: PatientMedication) => {
     Alert.alert(
