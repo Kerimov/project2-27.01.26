@@ -6,7 +6,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MessageCircle, Send, X, Bot, User, Loader2, Paperclip, FileText, XCircle, Trash2 } from 'lucide-react'
+import {
+  MessageCircle,
+  Send,
+  X,
+  Bot,
+  User,
+  Loader2,
+  Paperclip,
+  FileText,
+  XCircle,
+  Trash2,
+  Maximize2,
+  Minimize2,
+  PanelBottomClose,
+  PanelBottomOpen,
+} from 'lucide-react'
+import {
+  CHAT_DOCUMENT_ANALYZE_PROMPT,
+  formatDocumentOcrSummary,
+  pollDocumentUntilParsed,
+  type DocumentForChat,
+} from '@/lib/chat/document-chat'
 
 interface Message {
   id: string
@@ -51,6 +72,17 @@ type PendingBooking = {
   notes?: string | null
 }
 
+type ChatPanelSize = 'default' | 'large' | 'fullscreen'
+
+const CHAT_PANEL_CLASS: Record<ChatPanelSize, string> = {
+  default:
+    'fixed bottom-6 right-6 z-50 w-[min(24rem,calc(100vw-1.5rem))] h-[min(600px,calc(100vh-5rem))]',
+  large:
+    'fixed bottom-4 right-4 z-50 w-[min(42rem,calc(100vw-2rem))] h-[min(85vh,52rem)]',
+  fullscreen:
+    'fixed inset-2 sm:inset-4 z-50 w-auto h-auto max-w-none rounded-xl',
+}
+
 export function AIChat() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -69,8 +101,34 @@ export function AIChat() {
   const [showDocumentSelector, setShowDocumentSelector] = useState(false)
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null)
   const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const [panelSize, setPanelSize] = useState<ChatPanelSize>('default')
+  const [showQuickSuggestions, setShowQuickSuggestions] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = window.localStorage.getItem('aiChatShowSuggestions')
+    if (stored === '0') setShowQuickSuggestions(false)
+  }, [])
+
+  const toggleQuickSuggestions = () => {
+    setShowQuickSuggestions((prev) => {
+      const next = !prev
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('aiChatShowSuggestions', next ? '1' : '0')
+      }
+      return next
+    })
+  }
+
+  const cyclePanelSize = () => {
+    setPanelSize((prev) => {
+      if (prev === 'default') return 'large'
+      if (prev === 'large') return 'fullscreen'
+      return 'default'
+    })
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -115,6 +173,147 @@ export function AIChat() {
   const removeSelectedDocument = (documentId: string) => {
     setSelectedDocuments(prev => prev.filter(id => id !== documentId))
   }
+
+  const fetchDocumentForChat = useCallback(async (id: string): Promise<DocumentForChat | null> => {
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/documents/${id}`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) return null
+    const data = await res.json().catch(() => ({}))
+    return data.document as DocumentForChat
+  }, [])
+
+  const requestAssistantReply = useCallback(
+    async (params: {
+      content: string
+      documentIds: string[]
+      attachedDocs?: AttachedDocument[]
+      action?: AssistantAction
+      historySnapshot?: Message[]
+    }) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/ai/assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          message: params.content,
+          history: params.historySnapshot ?? messages,
+          documentIds: params.documentIds,
+          ragScope: params.documentIds.length > 0 ? 'attached' : 'patient_data',
+          action: params.action,
+          pendingBooking,
+          patientId: localStorage.getItem('caretakerPatientId') || undefined,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Ошибка получения ответа')
+      return data
+    },
+    [messages, pendingBooking]
+  )
+
+  const runDocumentPipeline = useCallback(
+    async (uploaded: AttachedDocument[]) => {
+      if (uploaded.length === 0) return
+
+      const statusId = `ocr-status-${Date.now()}`
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: statusId,
+          role: 'assistant',
+          content: `⏳ Распознаю ${uploaded.length === 1 ? 'документ' : `${uploaded.length} документа`}… Это может занять до 2 минут.`,
+          timestamp: new Date(),
+        },
+      ])
+      setIsLoading(true)
+
+      const parsedDocs: DocumentForChat[] = []
+      for (const item of uploaded) {
+        let doc = await pollDocumentUntilParsed(item.id, { fetchDoc: fetchDocumentForChat })
+        if (doc && !doc.parsed) {
+          const token = localStorage.getItem('token')
+          await fetch(`/api/documents/${item.id}/process`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }).catch(() => null)
+          doc = await pollDocumentUntilParsed(item.id, { maxAttempts: 45, fetchDoc: fetchDocumentForChat })
+        }
+        if (doc) parsedDocs.push(doc)
+      }
+
+      setMessages((prev) => prev.filter((m) => m.id !== statusId))
+
+      const summaryParts = parsedDocs.map((d) => formatDocumentOcrSummary(d))
+      if (summaryParts.length > 0) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `ocr-${Date.now()}`,
+            role: 'assistant',
+            content: `**Результат распознавания (OCR):**\n\n${summaryParts.join('\n\n---\n\n')}`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+
+      const docIds = uploaded.map((d) => d.id)
+      setSelectedDocuments(docIds)
+
+      const userMessage: Message = {
+        id: `user-analyze-${Date.now()}`,
+        role: 'user',
+        content: CHAT_DOCUMENT_ANALYZE_PROMPT,
+        timestamp: new Date(),
+        attachedDocuments: uploaded,
+      }
+      setMessages((prev) => [...prev, userMessage])
+
+      try {
+        const data = await requestAssistantReply({
+          content: CHAT_DOCUMENT_ANALYZE_PROMPT,
+          documentIds: docIds,
+          attachedDocs: uploaded,
+        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: data.response,
+            timestamp: new Date(),
+            functionResult: data.functionResult,
+            functionName: data.functionName,
+            provider: data.provider,
+            requestId: data.requestId,
+            sources: Array.isArray(data.sources) ? data.sources : undefined,
+          },
+        ])
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `analyze-err-${Date.now()}`,
+            role: 'assistant',
+            content:
+              'OCR завершён, но AI-разбор сейчас недоступен. Проверьте DeepSeek/Ollama в настройках или откройте документ в разделе «Анализы».',
+            timestamp: new Date(),
+          },
+        ])
+      } finally {
+        setSelectedDocuments([])
+        setIsLoading(false)
+      }
+    },
+    [fetchDocumentForChat, requestAssistantReply]
+  )
 
   const uploadFilesToCabinet = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files)
@@ -167,15 +366,21 @@ export function AIChat() {
         return merged
       })
       setSelectedDocuments((prev) => [...new Set([...prev, ...uploaded.map((d) => d.id)])])
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `upload-${Date.now()}`,
-          role: 'assistant',
-          content: `Загружено файлов: ${uploaded.length}. Идёт OCR — задайте вопрос по документу (например: «разбери прикреплённый анализ»).${errors.length ? `\n\nНе загружено: ${errors.join('; ')}` : ''}`,
-          timestamp: new Date(),
-        },
-      ])
+      if (errors.length) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `upload-warn-${Date.now()}`,
+            role: 'assistant',
+            content: `Не загружено: ${errors.join('; ')}`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+      setIsUploadingFile(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      void runDocumentPipeline(uploaded)
+      return
     } else if (errors.length) {
       setMessages((prev) => [
         ...prev,
@@ -190,88 +395,82 @@ export function AIChat() {
 
     setIsUploadingFile(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  }, [runDocumentPipeline])
 
   const sendChatMessage = async (content: string, action?: AssistantAction) => {
-    if (!content.trim() || isLoading) return
+    if (!content.trim() || isLoading || isUploadingFile) return
 
-    const attachedDocs = selectedDocuments.map(id => 
-      availableDocuments.find(doc => doc.id === id)!
-    )
+    const documentIdsForRequest = [...selectedDocuments]
+    const attachedDocs = documentIdsForRequest
+      .map((id) => availableDocuments.find((doc) => doc.id === id)!)
+      .filter(Boolean)
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
-      attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined
+      attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined,
     }
 
-    const documentIdsForRequest = [...selectedDocuments]
-
-    setMessages(prev => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage])
     setInput('')
     setSelectedDocuments([])
     setShowDocumentSelector(false)
     setIsLoading(true)
 
     try {
-      // Получаем токен из localStorage
-      const token = localStorage.getItem('token')
-      
-      const response = await fetch('/api/ai/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` })
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: userMessage.content,
-          history: messages,
-          documentIds: documentIdsForRequest,
-          ragScope: documentIdsForRequest.length > 0 ? 'attached' : 'patient_data',
-          action,
-          pendingBooking,
-          patientId:
-            typeof window !== 'undefined'
-              ? window.localStorage.getItem('caretakerPatientId') || undefined
-              : undefined,
-        })
+      if (documentIdsForRequest.length > 0) {
+        for (const id of documentIdsForRequest) {
+          const doc = await fetchDocumentForChat(id)
+          if (doc && !doc.parsed) {
+            const token = localStorage.getItem('token')
+            await fetch(`/api/documents/${id}/process`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            }).catch(() => null)
+            await pollDocumentUntilParsed(id, { maxAttempts: 30, fetchDoc: fetchDocumentForChat })
+          }
+        }
+      }
+
+      const data = await requestAssistantReply({
+        content: userMessage.content,
+        documentIds: documentIdsForRequest,
+        attachedDocs,
+        action,
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.response,
-          timestamp: new Date(),
-          functionResult: data.functionResult,
-          functionName: data.functionName,
-          provider: data.provider,
-          requestId: data.requestId,
-          sources: Array.isArray(data.sources) ? data.sources : undefined
-        }
-        const nextPending = data.functionResult?.pendingBooking || null
-        if (data.functionResult?.action === 'appointment_created' || data.functionResult?.action === 'booking_cancelled') {
-          setPendingBooking(null)
-        } else {
-          setPendingBooking(nextPending)
-        }
-        setMessages(prev => [...prev, assistantMessage])
-      } else {
-        throw new Error(data.error || 'Ошибка получения ответа')
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date(),
+        functionResult: data.functionResult,
+        functionName: data.functionName,
+        provider: data.provider,
+        requestId: data.requestId,
+        sources: Array.isArray(data.sources) ? data.sources : undefined,
       }
-    } catch (error) {
+      const nextPending = data.functionResult?.pendingBooking || null
+      if (
+        data.functionResult?.action === 'appointment_created' ||
+        data.functionResult?.action === 'booking_cancelled'
+      ) {
+        setPendingBooking(null)
+      } else {
+        setPendingBooking(nextPending)
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: 'Извините, произошла ошибка. Проверьте сеть и попробуйте ещё раз.',
-        timestamp: new Date()
+        timestamp: new Date(),
       }
-      setMessages(prev => [...prev, errorMessage])
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
@@ -345,19 +544,50 @@ export function AIChat() {
     )
   }
 
+  const panelSizeLabel =
+    panelSize === 'default' ? 'Расширить окно' : panelSize === 'large' ? 'На весь экран' : 'Обычный размер'
+
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[600px] shadow-2xl z-50 flex flex-col">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 border-b">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+    <Card className={`${CHAT_PANEL_CLASS[panelSize]} shadow-2xl flex flex-col min-h-0`}>
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 border-b shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <Bot className="h-6 w-6 text-primary" />
           </div>
-          <div>
-            <CardTitle className="text-lg">AI Ассистент</CardTitle>
-            <CardDescription className="text-xs">Персональный медицинский помощник</CardDescription>
+          <div className="min-w-0">
+            <CardTitle className="text-lg truncate">AI Ассистент</CardTitle>
+            <CardDescription className="text-xs truncate">
+              {panelSize === 'fullscreen' ? 'Полноэкранный режим' : 'Персональный медицинский помощник'}
+            </CardDescription>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={cyclePanelSize}
+            title={panelSizeLabel}
+            className="h-8 w-8"
+          >
+            {panelSize === 'fullscreen' ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleQuickSuggestions}
+            title={showQuickSuggestions ? 'Скрыть быстрые подсказки' : 'Показать быстрые подсказки'}
+            className="h-8 w-8"
+          >
+            {showQuickSuggestions ? (
+              <PanelBottomClose className="h-4 w-4" />
+            ) : (
+              <PanelBottomOpen className="h-4 w-4" />
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -378,7 +608,7 @@ export function AIChat() {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -391,7 +621,11 @@ export function AIChat() {
                 <Bot className="h-4 w-4 text-primary" />
               </div>
             )}
-            <div className="flex flex-col gap-2 max-w-[80%]">
+            <div
+              className={`flex flex-col gap-2 ${
+                panelSize === 'fullscreen' ? 'max-w-[min(48rem,85%)]' : 'max-w-[80%]'
+              }`}
+            >
               {message.attachedDocuments && message.attachedDocuments.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {message.attachedDocuments.map(doc => (
@@ -716,7 +950,7 @@ export function AIChat() {
         <div ref={messagesEndRef} />
       </CardContent>
 
-      <div className="p-4 border-t space-y-2">
+      <div className="p-4 border-t space-y-2 shrink-0">
         {/* Прикрепленные документы */}
         {selectedDocuments.length > 0 && (
           <div className="flex flex-wrap gap-1 pb-2 border-b">
@@ -804,91 +1038,103 @@ export function AIChat() {
           </div>
         )}
 
-        {/* Ввод сообщения */}
-        {/* Быстрые действия */}
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">Быстрые подсказки</span>
           <Button
-            variant="outline"
+            type="button"
+            variant="ghost"
             size="sm"
-            onClick={() => sendChatMessage('Хочу записаться на прием')}
-            disabled={isLoading}
-            className="text-xs"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={toggleQuickSuggestions}
           >
-            📅 Запись на прием
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи список врачей')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            👨‍⚕️ Врачи
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мои результаты анализов')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            📊 Анализы
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мои записи на приемы')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            📋 Мои записи
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мой дневник')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            📓 Дневник
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мои лекарства')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            💊 Лекарства
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи задачи плана')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            ✅ План
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мои напоминания')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            🔔 Напоминания
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sendChatMessage('Покажи мои документы')}
-            disabled={isLoading}
-            className="text-xs"
-          >
-            📄 Документы
+            {showQuickSuggestions ? 'Скрыть' : 'Показать'}
           </Button>
         </div>
+        {showQuickSuggestions && (
+          <div className="flex flex-wrap gap-2 mb-2 max-h-28 overflow-y-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Хочу записаться на прием')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              📅 Запись на прием
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи список врачей')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              👨‍⚕️ Врачи
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мои результаты анализов')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              📊 Анализы
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мои записи на приемы')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              📋 Мои записи
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мой дневник')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              📓 Дневник
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мои лекарства')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              💊 Лекарства
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи задачи плана')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              ✅ План
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мои напоминания')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              🔔 Напоминания
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendChatMessage('Покажи мои документы')}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              📄 Документы
+            </Button>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button

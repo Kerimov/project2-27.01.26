@@ -26,6 +26,12 @@ import { AppFAB } from '@/components/ui/AppFAB';
 import { AppStatusBadge } from '@/components/ui/AppStatusBadge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { openAssistantLink } from '@/lib/assistant-routes';
+import {
+  CHAT_DOCUMENT_ANALYZE_PROMPT,
+  formatDocumentOcrSummaryMobile,
+  pollDocumentUntilParsedMobile,
+  requestDocumentAnalysisInChat,
+} from '@/lib/document-chat-pipeline';
 
 type AttachedDocument = {
   id: string;
@@ -116,6 +122,84 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     setSelectedDocuments((prev) => prev.filter((id) => id !== documentId));
   };
 
+  const runDocumentPipeline = useCallback(
+    async (attached: AttachedDocument) => {
+      if (!token) return;
+      const statusId = `ocr-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: statusId,
+          role: 'assistant',
+          content: `⏳ Распознаю «${attached.fileName}»…`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      setIsLoading(true);
+      try {
+        let detail = await pollDocumentUntilParsedMobile(attached.id);
+        if (detail && !detail.parsed) {
+          await reprocessDocument(attached.id).catch(() => null);
+          detail = await pollDocumentUntilParsedMobile(attached.id, 45);
+        }
+        setMessages((prev) => prev.filter((m) => m.id !== statusId));
+        if (detail) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `ocr-done-${Date.now()}`,
+              role: 'assistant',
+              content: `Результат OCR:\n\n${formatDocumentOcrSummaryMobile(detail)}`,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-doc-${Date.now()}`,
+            role: 'user',
+            content: CHAT_DOCUMENT_ANALYZE_PROMPT,
+            timestamp: new Date().toISOString(),
+            attachedDocuments: [attached],
+          },
+        ]);
+        const data = await requestDocumentAnalysisInChat([attached.id]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: data.response,
+            timestamp: data.timestamp,
+            functionResult: data.functionResult,
+            functionName: data.functionName,
+            provider: data.provider,
+            requestId: data.requestId,
+            sources: Array.isArray(data.sources) ? data.sources : undefined,
+          },
+        ]);
+      } catch (e: unknown) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `ocr-err-${Date.now()}`,
+            role: 'assistant',
+            content:
+              e instanceof Error
+                ? `Не удалось завершить разбор: ${e.message}`
+                : 'Не удалось завершить разбор документа.',
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+        setSelectedDocuments([]);
+      }
+    },
+    [token]
+  );
+
   const uploadAndAttach = useCallback(
     async (uri: string, fileName: string, mimeType: string) => {
       if (!token) return;
@@ -134,24 +218,16 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
           if (prev.some((d) => d.id === attached.id)) return prev;
           return [attached, ...prev];
         });
-        setSelectedDocuments((prev) => (prev.includes(attached.id) ? prev : [...prev, attached.id]));
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `upload-${Date.now()}`,
-            role: 'assistant',
-            content: `Файл «${doc.fileName}» загружен. Идёт OCR — задайте вопрос по документу.`,
-            timestamp: new Date().toISOString(),
-          },
-        ]);
+        setSelectedDocuments([attached.id]);
+        setIsUploadingFile(false);
+        void runDocumentPipeline(attached);
       } catch (e: unknown) {
+        setIsUploadingFile(false);
         const msg = e instanceof Error ? e.message : 'Не удалось загрузить';
         Alert.alert('Ошибка загрузки', msg);
-      } finally {
-        setIsUploadingFile(false);
       }
     },
-    [token]
+    [token, runDocumentPipeline]
   );
 
   const handleChatPickImage = useCallback(async () => {

@@ -2507,7 +2507,8 @@ async function buildRagContext(userId: string, message: string, documentIds: str
       doctor: true,
       findings: true,
       rawText: true,
-      indicators: true
+      indicators: true,
+      parsed: true,
     }
   })
 
@@ -2528,10 +2529,20 @@ async function buildRagContext(userId: string, message: string, documentIds: str
         scored.push({ score: s, docId: d.id, docMeta: d, snippet: c })
       }
     }
-    // fallback: если совпадений нет, добавляем короткий фрагмент, чтобы AI видел документ
-    if (queryTokens.length > 0 && scored.filter((x) => x.docId === d.id).length === 0) {
-      const fallback = (d.findings || indicatorText || d.rawText || '').toString().slice(0, 900)
-      if (fallback) scored.push({ score: 1, docId: d.id, docMeta: d, snippet: fallback })
+    // Явно прикреплённые документы — всегда включаем содержимое (даже без ключевых слов в вопросе)
+    const hasDocChunks = scored.some((x) => x.docId === d.id)
+    if (!hasDocChunks) {
+      const fallback = (indicatorText || d.findings || d.rawText || '').toString().slice(0, 2400)
+      if (fallback) {
+        scored.push({ score: documentIds.length > 0 ? 50 : 1, docId: d.id, docMeta: d, snippet: fallback })
+      } else if (!d.parsed) {
+        scored.push({
+          score: 10,
+          docId: d.id,
+          docMeta: d,
+          snippet: `[Документ «${d.fileName}» ещё обрабатывается (OCR). Подождите и повторите вопрос.]`,
+        })
+      }
     }
   }
 
