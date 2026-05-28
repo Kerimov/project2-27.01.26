@@ -9,7 +9,7 @@ import { getAnalytics } from '../../api/analytics';
 import { setAuthToken } from '../../api/client';
 import { useAuthStore } from '../../state/authStore';
 import { useAppTheme } from '@/design/tokens';
-import { useBreakpoint } from '@/design/responsive';
+import { useBreakpoint, useContentPadding } from '@/design/responsive';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { AppSection } from '@/components/ui/AppSection';
 import { AppCard } from '@/components/ui/AppCard';
@@ -25,6 +25,7 @@ export default function DashboardScreen() {
   const { user, token } = useAuthStore();
   const theme = useAppTheme();
   const bp = useBreakpoint();
+  const pad = useContentPadding();
   const { width: screenWidth } = useWindowDimensions();
 
   const [loading, setLoading] = useState(true);
@@ -131,8 +132,12 @@ export default function DashboardScreen() {
   }
 
   const isNarrowPhone = bp === 'phone' && screenWidth < 390;
-  const cardWidth = isNarrowPhone ? '100%' : bp === 'phone' ? '48%' : bp === 'tablet' ? '31%' : '23%';
-  const quickActionWidth = isNarrowPhone ? '100%' : bp === 'phone' ? '48%' : bp === 'tablet' ? '31%' : '23%';
+  const metricCols = isNarrowPhone ? 1 : bp === 'phone' ? 2 : bp === 'tablet' ? 3 : 4;
+  const gap = theme.spacing.md;
+  const contentWidth = Math.max(320, screenWidth - pad.horizontal * 2);
+  const metricCardPx = Math.floor((contentWidth - gap * (metricCols - 1)) / metricCols);
+  const quickActionCols = isNarrowPhone ? 1 : bp === 'phone' ? 2 : bp === 'tablet' ? 3 : 4;
+  const quickActionPx = Math.floor((contentWidth - gap * (quickActionCols - 1)) / quickActionCols);
   const firstName = displayFirstName || user?.name || 'Пользователь';
   const nextAppointment = stats.upcomingAppointmentsList[0];
   const latestAnalysisTitle = stats.latestAnalysis?.title || stats.latestAnalysis?.studyType || 'Анализ';
@@ -215,7 +220,7 @@ export default function DashboardScreen() {
               caption={stats.latestAnalysis ? `последний: ${formatDate(stats.latestAnalysis.date)}` : 'пока нет данных'}
               icon="waveform.path.ecg"
               tone={abnormalCount > 0 ? 'warning' : 'primary'}
-              style={{ width: cardWidth }}
+              style={{ width: metricCardPx }}
               onPress={() => router.push('/analyses' as any)}
             />
             <AppMetricCard
@@ -224,7 +229,7 @@ export default function DashboardScreen() {
               caption="распознавание и вопросы"
               icon="doc.text.fill"
               tone="info"
-              style={{ width: cardWidth }}
+              style={{ width: metricCardPx }}
               onPress={() => router.push('/documents' as any)}
             />
             <AppMetricCard
@@ -233,7 +238,7 @@ export default function DashboardScreen() {
               caption={nextAppointment ? 'ближайшая запланирована' : 'нет активных записей'}
               icon="calendar"
               tone="success"
-              style={{ width: cardWidth }}
+              style={{ width: metricCardPx }}
               onPress={() => router.push('/appointments' as any)}
             />
             <AppMetricCard
@@ -242,7 +247,7 @@ export default function DashboardScreen() {
               caption="средний показатель"
               icon="moon.fill"
               tone="ai"
-              style={{ width: cardWidth }}
+              style={{ width: metricCardPx }}
               onPress={() => router.push('/diary' as any)}
             />
           </View>
@@ -288,15 +293,15 @@ export default function DashboardScreen() {
         <AppSection title="Разделы" subtitle="Быстрый доступ ко всем функциям">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             <QuickAction
-              width={quickActionWidth}
+              width={quickActionPx}
               icon="book.fill"
               label="Дневник"
               onPress={() => router.push('/(tabs)/diary' as any)}
             />
-            <QuickAction width={quickActionWidth} icon="bell.fill" label="Напоминания" onPress={() => router.push('/reminders' as any)} />
-            <QuickAction width={quickActionWidth} icon="book.closed.fill" label="Знания" onPress={() => router.push('/knowledge' as any)} />
-            <QuickAction width={quickActionWidth} icon="building.2.fill" label="Клиники" onPress={() => router.push('/marketplace' as any)} />
-            <QuickAction width={quickActionWidth} icon="questionmark.circle.fill" label="Помощь" onPress={() => router.push('/help' as any)} />
+            <QuickAction width={quickActionPx} icon="bell.fill" label="Напоминания" onPress={() => router.push('/reminders' as any)} />
+            <QuickAction width={quickActionPx} icon="book.closed.fill" label="Знания" onPress={() => router.push('/knowledge' as any)} />
+            <QuickAction width={quickActionPx} icon="building.2.fill" label="Клиники" onPress={() => router.push('/marketplace' as any)} />
+            <QuickAction width={quickActionPx} icon="questionmark.circle.fill" label="Помощь" onPress={() => router.push('/help' as any)} />
           </View>
         </AppSection>
       </View>

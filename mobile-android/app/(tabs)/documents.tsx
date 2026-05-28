@@ -240,10 +240,23 @@ export default function DocumentsScreen() {
     ]);
   };
 
+  const formatRuDate = (value: unknown): string => {
+    if (!value) return '—';
+    const d = new Date(String(value));
+    if (Number.isNaN(d.getTime())) return '—';
+    try {
+      return d.toLocaleDateString('ru-RU');
+    } catch {
+      return '—';
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    const n = typeof bytes === 'number' ? bytes : Number(bytes);
+    if (!Number.isFinite(n) || n < 0) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const renderItem = ({ item }: { item: DocumentSummary }) => (
@@ -271,7 +284,7 @@ export default function DocumentsScreen() {
                   <AppStatusBadge label={item.parsed ? 'Готов' : 'OCR'} tone={item.parsed ? 'success' : 'warning'} />
                 </View>
                 <AppText variant="caption" color="mutedText">
-                  {new Date(item.uploadDate).toLocaleDateString('ru-RU')} · {formatFileSize(item.fileSize)}
+                  {formatRuDate(item.uploadDate)} · {formatFileSize(item.fileSize)}
                 </AppText>
                 {item.studyType ? (
                   <AppText variant="caption" color="mutedText">

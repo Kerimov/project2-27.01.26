@@ -32,7 +32,7 @@ export function AppMetricCard({
   const soft = theme.colors[`${tone}Soft` as keyof typeof theme.colors] || theme.colors.primarySoft;
 
   const content = (
-    <AppCard variant="glass" style={[{ flex: 1, minHeight: 132 }, style]}>
+    <AppCard variant="glass" style={[{ minHeight: 132 }, style]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
         <View style={{ flex: 1, gap: theme.spacing.xs }}>
           <AppText variant="caption" color="mutedText">
@@ -67,7 +67,7 @@ export function AppMetricCard({
   if (disabled || !rest.onPress) return content;
 
   return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [{ flex: 1, opacity: pressed ? 0.9 : 1 }]} {...rest}>
+    <Pressable accessibilityRole="button" style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]} {...rest}>
       {content}
     </Pressable>
   );
