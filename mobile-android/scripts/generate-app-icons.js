@@ -2,7 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const BLACK = { r: 0, g: 0, b: 0, alpha: 1 };
+const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
 async function main() {
   const [, , sourceArg, outDirArg] = process.argv;
@@ -24,38 +25,38 @@ async function main() {
 
   await base
     .clone()
-    .resize(size, size, { fit: 'contain', background: BLACK })
+    .resize(size, size, { fit: 'contain', background: WHITE })
     .png()
     .toFile(path.join(outDir, 'icon.png'));
 
   await base
     .clone()
-    .resize(safe, safe, { fit: 'contain', background: BLACK })
+    .resize(safe, safe, { fit: 'contain', background: WHITE })
     .extend({
       top: Math.floor((size - safe) / 2),
       bottom: Math.ceil((size - safe) / 2),
       left: Math.floor((size - safe) / 2),
       right: Math.ceil((size - safe) / 2),
-      background: BLACK,
+      background: WHITE,
     })
     .png()
     .toFile(path.join(outDir, 'android-icon-foreground.png'));
 
   await sharp({
-    create: { width: size, height: size, channels: 3, background: BLACK },
+    create: { width: size, height: size, channels: 3, background: WHITE },
   })
     .png()
     .toFile(path.join(outDir, 'android-icon-background.png'));
 
   await base
     .clone()
-    .resize(safe, safe, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(safe, safe, { fit: 'contain', background: TRANSPARENT })
     .extend({
       top: Math.floor((size - safe) / 2),
       bottom: Math.ceil((size - safe) / 2),
       left: Math.floor((size - safe) / 2),
       right: Math.ceil((size - safe) / 2),
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      background: TRANSPARENT,
     })
     .greyscale()
     .normalize()
@@ -64,13 +65,13 @@ async function main() {
 
   await base
     .clone()
-    .resize(512, 512, { fit: 'contain', background: BLACK })
+    .resize(512, 512, { fit: 'contain', background: WHITE })
     .png()
     .toFile(path.join(outDir, 'splash-icon.png'));
 
   await base
     .clone()
-    .resize(192, 192, { fit: 'contain', background: BLACK })
+    .resize(192, 192, { fit: 'contain', background: WHITE })
     .png()
     .toFile(path.join(outDir, 'favicon.png'));
 
