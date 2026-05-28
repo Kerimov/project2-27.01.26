@@ -28,6 +28,13 @@ import {
   pollDocumentUntilParsed,
   type DocumentForChat,
 } from '@/lib/chat/document-chat'
+import {
+  clearAssistantChatStorage,
+  createDefaultAssistantMessages,
+  loadAssistantChatFromStorage,
+  saveAssistantChatToStorage,
+  type StoredPendingBooking,
+} from '@/lib/chat/assistant-chat-storage'
 
 interface Message {
   id: string
@@ -86,14 +93,7 @@ const CHAT_PANEL_CLASS: Record<ChatPanelSize, string> = {
 export function AIChat() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Здравствуйте! Я ИИ-ассистент персонального медицинского кабинета (не врач). Помогаю с анализами, дневником, лекарствами, планом ухода, напоминаниями и записью к врачу — без диагнозов и назначений.\n\nКакая задача сегодня: посмотреть анализы, добавить запись в дневник, проверить лекарства или записаться к врачу?\n\nНапишите вопрос — при наличии данных укажу последние отклонения. Примеры: «покажи анализы за месяц», «запиши в дневник: головная боль, сон 6 ч», «выведи отклонения».',
-      timestamp: new Date()
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>(() => createDefaultAssistantMessages() as Message[])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [availableDocuments, setAvailableDocuments] = useState<AttachedDocument[]>([])
@@ -105,6 +105,26 @@ export function AIChat() {
   const [showQuickSuggestions, setShowQuickSuggestions] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [chatStorageReady, setChatStorageReady] = useState(false)
+
+  useEffect(() => {
+    const restored = loadAssistantChatFromStorage()
+    if (restored?.messages?.length) {
+      setMessages(restored.messages as Message[])
+      if (restored.pendingBooking) {
+        setPendingBooking(restored.pendingBooking as PendingBooking)
+      }
+    }
+    setChatStorageReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!chatStorageReady) return
+    saveAssistantChatToStorage(
+      messages as Parameters<typeof saveAssistantChatToStorage>[0],
+      pendingBooking as StoredPendingBooking | null
+    )
+  }, [messages, pendingBooking, chatStorageReady])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -503,14 +523,8 @@ export function AIChat() {
   }
 
   const clearChat = () => {
-    setMessages([
-      {
-        id: '1',
-        role: 'assistant',
-        content: 'Здравствуйте! Я ИИ-ассистент персонального медицинского кабинета (не врач). Помогаю с анализами, дневником, лекарствами, планом ухода, напоминаниями и записью к врачу — без диагнозов и назначений.\n\nКакая задача сегодня: посмотреть анализы, добавить запись в дневник, проверить лекарства или записаться к врачу?\n\nНапишите вопрос — при наличии данных укажу последние отклонения. Примеры: «покажи анализы за месяц», «запиши в дневник: головная боль, сон 6 ч», «выведи отклонения».',
-        timestamp: new Date()
-      }
-    ])
+    clearAssistantChatStorage()
+    setMessages(createDefaultAssistantMessages() as Message[])
     setSelectedDocuments([])
     setShowDocumentSelector(false)
     setPendingBooking(null)
