@@ -80,7 +80,12 @@ export default function DashboardPage() {
         })
         if (apptRes.ok) {
           const { appointments: apiAppointments } = await apptRes.json()
-          const upcoming = (apiAppointments || []).filter((a: any) => new Date(a.scheduledAt) > new Date())
+          const upcoming = (apiAppointments || []).filter(
+            (a: any) =>
+              new Date(a.scheduledAt) > new Date() &&
+              a.status !== 'cancelled' &&
+              ['scheduled', 'confirmed', 'rescheduled'].includes(a.status)
+          )
           upcoming.sort((a: any, b: any) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt))
           setAppointments(upcoming.slice(0, 5))
         }

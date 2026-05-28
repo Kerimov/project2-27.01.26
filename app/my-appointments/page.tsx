@@ -134,6 +134,8 @@ export default function MyAppointmentsPage() {
         return <Badge variant="destructive">Отменено</Badge>
       case 'no_show':
         return <Badge variant="destructive" className="bg-red-100 text-red-800">Не явился</Badge>
+      case 'rescheduled':
+        return <Badge variant="default" className="bg-amber-100 text-amber-900">Перенесено</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
@@ -154,9 +156,18 @@ export default function MyAppointmentsPage() {
     }
   }
 
-  const isUpcoming = (scheduledAt: string) => {
-    return new Date(scheduledAt) > new Date()
-  }
+  const isUpcoming = (scheduledAt: string) => new Date(scheduledAt) > new Date()
+
+  const isCancelled = (status: string) => status === 'cancelled'
+
+  const isActiveStatus = (status: string) =>
+    status === 'scheduled' || status === 'confirmed' || status === 'rescheduled'
+
+  const sortByScheduledAsc = (a: Appointment, b: Appointment) =>
+    new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+
+  const sortByScheduledDesc = (a: Appointment, b: Appointment) =>
+    new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
 
   const isWithin48h = (scheduledAt: string) => {
     const t = new Date(scheduledAt).getTime()
@@ -265,8 +276,24 @@ export default function MyAppointmentsPage() {
     return null
   }
 
-  const upcomingAppointments = appointments.filter(app => isUpcoming(app.scheduledAt))
-  const pastAppointments = appointments.filter(app => !isUpcoming(app.scheduledAt))
+  const cancelledAppointments = appointments
+    .filter((app) => isCancelled(app.status))
+    .sort(sortByScheduledDesc)
+
+  const upcomingAppointments = appointments
+    .filter((app) => !isCancelled(app.status))
+    .filter((app) => isUpcoming(app.scheduledAt) && isActiveStatus(app.status))
+    .sort(sortByScheduledAsc)
+
+  const pastAppointments = appointments
+    .filter((app) => !isCancelled(app.status))
+    .filter((app) => !(isUpcoming(app.scheduledAt) && isActiveStatus(app.status)))
+    .sort(sortByScheduledDesc)
+
+  const hasAnyAppointments =
+    upcomingAppointments.length > 0 ||
+    pastAppointments.length > 0 ||
+    cancelledAppointments.length > 0
 
   return (
     <div className="web-page">
@@ -320,7 +347,7 @@ export default function MyAppointmentsPage() {
         {/* Upcoming Appointments */}
         {upcomingAppointments.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4 text-blue-900">Предстоящие записи</h2>
+            <h2 className="text-2xl font-bold mb-4 text-blue-900">Актуальные записи</h2>
             <div className="grid gap-4">
               {upcomingAppointments.map((appointment) => (
                 <Card key={appointment.id} className="glass-effect border-0 shadow-medical">
@@ -433,6 +460,24 @@ export default function MyAppointmentsPage() {
           </div>
         )}
 
+        {upcomingAppointments.length === 0 && hasAnyAppointments && (
+          <Card className="glass-effect border-0 shadow-medical mb-8">
+            <CardContent className="p-8 text-center">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-semibold mb-1">Нет предстоящих записей</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Актуальные визиты появятся здесь после записи к врачу
+              </p>
+              <Link href="/appointments">
+                <Button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Записаться на прием
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Past Appointments */}
         {pastAppointments.length > 0 && (
           <div>
@@ -495,8 +540,62 @@ export default function MyAppointmentsPage() {
           </div>
         )}
 
+        {/* Cancelled Appointments */}
+        {cancelledAppointments.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4 text-red-900/80">Отменено</h2>
+            <div className="grid gap-4">
+              {cancelledAppointments.map((appointment) => (
+                <Card key={appointment.id} className="glass-effect border border-red-100 shadow-medical opacity-80">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-50 rounded-lg">
+                          <Stethoscope className="h-5 w-5 text-red-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">{appointment.doctor.user.name}</h3>
+                          <p className="text-sm text-muted-foreground">{appointment.doctor.specialization}</p>
+                        </div>
+                      </div>
+                      {getStatusBadge(appointment.status)}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {new Date(appointment.scheduledAt).toLocaleDateString('ru-RU', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {new Date(appointment.scheduledAt).toLocaleTimeString('ru-RU', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{getAppointmentTypeLabel(appointment.appointmentType)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* No Appointments */}
-        {appointments.length === 0 && (
+        {!hasAnyAppointments && (
           <Card className="glass-effect border-0 shadow-medical">
             <CardContent className="p-12 text-center">
               <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
