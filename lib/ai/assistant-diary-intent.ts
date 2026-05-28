@@ -30,7 +30,19 @@ export function isDiaryWriteIntent(message: string): boolean {
 
 export function isDiaryTopicIntent(message: string): boolean {
   const t = normAssistantMessage(message)
-  return /дневник|самочувств|настроен|сон|бол[ьи]|шаг|давлен|пульс|температур|симптом|вес|запис.*дневник/i.test(t)
+  if (!t) return false
+
+  if (/дневник|самочувств|запис.*дневник/i.test(t)) return true
+  if (/(?:покажи|мои|открой|последн|записи|сделай\s+запись).*(?:дневник|самочувств)/i.test(t)) return true
+  if (/(?:дневник|самочувств).*(?:покажи|записи|запис)/i.test(t)) return true
+
+  if (hasDiaryMetrics(message)) return true
+  if (/(?:запиши|отметь|зафиксируй).*(?:боль|сон|настроен|давлен|пульс|температур|шаг|вес)/i.test(t)) {
+    return true
+  }
+  if (/обзор|недел|итог|корреляц/i.test(t) && /дневник|сон|боль|настроен/i.test(t)) return true
+
+  return false
 }
 
 /** Запись на приём к врачу — без ложных срабатываний на «запиши в дневник». */

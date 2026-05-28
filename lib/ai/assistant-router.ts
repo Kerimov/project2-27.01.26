@@ -4,6 +4,7 @@ import {
   isDiaryTopicIntent,
   isDiaryWriteIntent,
 } from './assistant-diary-intent'
+import { isGeneralMedicalQuestion } from './assistant-medical-intent'
 
 export type AssistantIntent =
   | 'appointments'
@@ -59,6 +60,10 @@ function classifyCoreIntent(t: string): AssistantIntentDecision | null {
 
   if (isDiaryWriteIntent(t)) {
     return { intent: 'diary', confidence: 0.98, reason: 'diary write (priority)' }
+  }
+
+  if (isGeneralMedicalQuestion(t)) {
+    return { intent: 'medical_question', confidence: 0.93, reason: 'medical advice question (priority)' }
   }
 
   if (isDiaryTopicIntent(t)) {
