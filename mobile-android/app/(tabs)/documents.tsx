@@ -7,8 +7,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 
 import { getDocuments, uploadDocument, deleteDocument, reprocessDocument, type DocumentSummary } from '../../api/documents';
 import { useAuthStore } from '../../state/authStore';
@@ -114,6 +112,7 @@ export default function DocumentsScreen() {
 
   const handlePickImage = async () => {
     try {
+      const ImagePicker = await import('expo-image-picker');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Ошибка', 'Необходимо разрешение на доступ к галерее');
@@ -140,6 +139,7 @@ export default function DocumentsScreen() {
 
   const handleTakePhoto = async () => {
     try {
+      const ImagePicker = await import('expo-image-picker');
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Ошибка', 'Необходимо разрешение на использование камеры');
@@ -182,6 +182,7 @@ export default function DocumentsScreen() {
 
   const handlePickFile = async () => {
     try {
+      const DocumentPicker = await import('expo-document-picker');
       const result = await DocumentPicker.getDocumentAsync({
         type: [
           'application/pdf',
