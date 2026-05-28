@@ -308,7 +308,6 @@ export default function DashboardScreen() {
             />
             <QuickAction width={quickActionPx} icon="bell.fill" label="Напоминания" onPress={() => router.push('/reminders' as any)} />
             <QuickAction width={quickActionPx} icon="building.2.fill" label="Клиники" onPress={() => router.push('/marketplace' as any)} />
-            <QuickAction width={quickActionPx} icon="questionmark.circle.fill" label="Помощь" onPress={() => router.push('/help' as any)} />
           </View>
         </AppSection>
       </View>
