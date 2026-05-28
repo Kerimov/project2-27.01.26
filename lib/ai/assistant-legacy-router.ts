@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { makeMoscowDateTime } from '@/lib/appointment-local-datetime'
 import { isDiaryWriteIntent } from './assistant-diary-intent'
 
 export type LegacyFunctionCall = {
@@ -355,8 +356,7 @@ async function bookAppointment(params: any, userId: string) {
       }
     }
     
-    // Создаем запись на прием
-    const scheduledAt = new Date(`${date}T${time}:00`)
+    const scheduledAt = makeMoscowDateTime(date, time)
     
     const appointment = await prisma.appointment.create({
       data: {

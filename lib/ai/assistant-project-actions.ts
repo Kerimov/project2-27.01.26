@@ -1,4 +1,15 @@
 import { prisma } from '@/lib/db'
+import {
+  addMoscowDays,
+  formatMoscowDate,
+  formatMoscowTime,
+  getMoscowDateYmd,
+  getMoscowHour,
+  getMoscowMinutes,
+  makeMoscowDateTime,
+  parseDateYmd,
+  resolveAppointmentInstant,
+} from '@/lib/appointment-local-datetime'
 import { isAnalysisListOnlyRequest } from './assistant-analysis-intent'
 import { isDiaryWriteIntent } from './assistant-diary-intent'
 import type { AssistantIntent } from './assistant-router'
@@ -352,11 +363,11 @@ function extractDateFromMessage(message: string): string | null {
   if (!dateMatch) return null
 
   if (dateMatch[4]) {
-    const d = new Date()
     const word = dateMatch[4].toLowerCase()
-    if (word === 'завтра') d.setDate(d.getDate() + 1)
-    if (word === 'послезавтра') d.setDate(d.getDate() + 2)
-    return d.toISOString().slice(0, 10)
+    const todayYmd = getMoscowDateYmd()
+    if (word === 'сегодня') return todayYmd
+    if (word === 'завтра') return addMoscowDays(todayYmd, 1)
+    if (word === 'послезавтра') return addMoscowDays(todayYmd, 2)
   }
 
   if (dateMatch[1] && dateMatch[2]) {
@@ -449,36 +460,27 @@ async function findAssistantDoctors(params: { specialization?: string | null; do
 }
 
 function makeDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`)
+  return makeMoscowDateTime(date, time)
 }
 
-function formatSlotTime(date: Date) {
-  return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-}
+async function getAssistantSlots(doctorId: string, dateYmd: string): Promise<AssistantSlot[]> {
+  try {
+    parseDateYmd(dateYmd)
+  } catch {
+    return []
+  }
 
-function formatDateForSlotLookup(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-async function getAssistantSlots(doctorId: string, date: string): Promise<AssistantSlot[]> {
-  const selectedDate = new Date(date)
-  if (Number.isNaN(selectedDate.getTime())) return []
-
-  const startOfDay = new Date(selectedDate)
-  startOfDay.setHours(9, 0, 0, 0)
-
-  const endOfDay = new Date(selectedDate)
-  endOfDay.setHours(21, 0, 0, 0)
+  const dayStart = makeMoscowDateTime(dateYmd, '00:00')
+  const dayEndExclusive = makeMoscowDateTime(addMoscowDays(dateYmd, 1), '00:00')
+  const slotStart = makeMoscowDateTime(dateYmd, '09:00')
+  const slotEnd = makeMoscowDateTime(dateYmd, '21:00')
 
   const bookedAppointments = await prisma.appointment.findMany({
     where: {
       doctorId,
       scheduledAt: {
-        gte: startOfDay,
-        lt: endOfDay,
+        gte: dayStart,
+        lt: dayEndExclusive,
       },
       status: {
         in: ['scheduled', 'confirmed'],
@@ -489,19 +491,19 @@ async function getAssistantSlots(doctorId: string, date: string): Promise<Assist
 
   const booked = new Set(bookedAppointments.map((a) => new Date(a.scheduledAt).getTime()))
   const slots: AssistantSlot[] = []
-  const current = new Date(startOfDay)
   const now = new Date()
+  let current = slotStart
 
-  while (current < endOfDay) {
+  while (current < slotEnd) {
     if (current > now) {
       const isBooked = booked.has(current.getTime())
       slots.push({
         time: current.toISOString(),
-        timeString: formatSlotTime(current),
+        timeString: formatMoscowTime(current),
         available: !isBooked,
       })
     }
-    current.setMinutes(current.getMinutes() + 15)
+    current = new Date(current.getTime() + 15 * 60 * 1000)
   }
 
   return slots
@@ -509,12 +511,10 @@ async function getAssistantSlots(doctorId: string, date: string): Promise<Assist
 
 async function getNextAssistantSlots(doctorId: string, daysAhead = 7, limit = 8) {
   const result: Array<AssistantSlot & { date: string }> = []
-  const start = new Date()
+  const todayYmd = getMoscowDateYmd()
 
   for (let offset = 0; offset < daysAhead && result.length < limit; offset += 1) {
-    const day = new Date(start)
-    day.setDate(start.getDate() + offset)
-    const date = formatDateForSlotLookup(day)
+    const date = addMoscowDays(todayYmd, offset)
     const slots = (await getAssistantSlots(doctorId, date)).filter((slot) => slot.available)
     for (const slot of slots) {
       result.push({ ...slot, date })
@@ -526,29 +526,27 @@ async function getNextAssistantSlots(doctorId: string, daysAhead = 7, limit = 8)
 }
 
 function buildDateOptions(daysAhead = 7) {
-  const start = new Date()
+  const todayYmd = getMoscowDateYmd()
   return Array.from({ length: daysAhead }, (_, offset) => {
-    const day = new Date(start)
-    day.setDate(start.getDate() + offset)
-    const date = formatDateForSlotLookup(day)
+    const date = addMoscowDays(todayYmd, offset)
     const label =
       offset === 0
         ? 'Сегодня'
         : offset === 1
           ? 'Завтра'
-          : day.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+          : formatMoscowDate(makeMoscowDateTime(date, '12:00'), { day: '2-digit', month: '2-digit' })
     return { date, label }
   })
 }
 
 function buildPendingBooking(doctor: AssistantDoctor, scheduledAt: string, appointmentType: string, notes?: string | null): PendingBooking {
-  const date = new Date(scheduledAt)
+  const instant = new Date(scheduledAt)
   return {
     doctorId: doctor.id,
     doctorName: doctor.name,
     specialization: doctor.specialization,
-    scheduledAt,
-    timeString: formatSlotTime(date),
+    scheduledAt: instant.toISOString(),
+    timeString: formatMoscowTime(instant),
     appointmentType,
     notes: notes || null,
   }
@@ -583,14 +581,14 @@ async function createAppointmentFromPending(userId: string, pending: PendingBook
     throw new Error('Только пациенты могут записываться на прием')
   }
 
-  const appointmentDate = new Date(pending.scheduledAt)
+  const appointmentDate = resolveAppointmentInstant(pending.scheduledAt, pending.timeString)
   if (Number.isNaN(appointmentDate.getTime())) throw new Error('Некорректное время записи')
   if (appointmentDate <= new Date()) throw new Error('Нельзя записаться на прошедшее время')
 
-  const hour = appointmentDate.getHours()
+  const hour = getMoscowHour(appointmentDate)
   if (hour < 9 || hour >= 21) throw new Error('Запись возможна только с 9:00 до 21:00')
 
-  const minutes = appointmentDate.getMinutes()
+  const minutes = getMoscowMinutes(appointmentDate)
   if (minutes % 15 !== 0) throw new Error('Время записи должно быть кратно 15 минутам')
 
   const existingAppointment = await prisma.appointment.findFirst({
@@ -598,10 +596,20 @@ async function createAppointmentFromPending(userId: string, pending: PendingBook
       doctorId: pending.doctorId,
       scheduledAt: appointmentDate,
       status: { in: ['scheduled', 'confirmed'] },
-    }
+    },
+    include: {
+      doctor: {
+        include: {
+          user: { select: { name: true, email: true } },
+        },
+      },
+    },
   })
 
-  if (existingAppointment) throw new Error('Это время уже занято')
+  if (existingAppointment) {
+    if (existingAppointment.patientId === userId) return existingAppointment
+    throw new Error('Это время уже занято')
+  }
 
   const appointment = await prisma.appointment.create({
     data: {
@@ -718,7 +726,7 @@ export async function handleProjectActionIntent(input: {
       const scheduledAt = new Date(appointment.scheduledAt)
       return {
         functionName: 'book_appointment',
-        message: `Запись создана: ${scheduledAt.toLocaleDateString('ru-RU')} в ${formatSlotTime(scheduledAt)}, врач ${appointment.doctor.user.name}. Она появится в разделе «Мои записи».`,
+        message: `Запись создана: ${formatMoscowDate(scheduledAt)} в ${formatMoscowTime(scheduledAt)}, врач ${appointment.doctor.user.name}. Она появится в разделе «Мои записи».`,
         data: {
           action: 'appointment_created',
           appointment,
@@ -748,7 +756,7 @@ export async function handleProjectActionIntent(input: {
     const date = new Date(action.scheduledAt)
     return {
       functionName: 'select_slot',
-      message: `Подтвердите запись: ${doctor.name}, ${doctor.specialization}, ${date.toLocaleDateString('ru-RU')} в ${pending.timeString}. Записать?`,
+      message: `Подтвердите запись: ${doctor.name}, ${doctor.specialization}, ${formatMoscowDate(date)} в ${pending.timeString}. Записать?`,
       data: {
         action: 'booking_pending',
         pendingBooking: pending,
@@ -1009,8 +1017,8 @@ export async function handleProjectActionIntent(input: {
     return {
       functionName: 'get_available_slots',
       message: slots.length
-        ? `Свободное время у ${doctor.name} на ${new Date(date).toLocaleDateString('ru-RU')}: ${slots.map((s) => s.timeString).join(', ')}. Выберите слот.`
-        : `На ${new Date(date).toLocaleDateString('ru-RU')} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
+        ? `Свободное время у ${doctor.name} на ${formatMoscowDate(makeMoscowDateTime(date, '12:00'))}: ${slots.map((s) => s.timeString).join(', ')}. Выберите слот.`
+        : `На ${formatMoscowDate(makeMoscowDateTime(date, '12:00'))} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
       data: { action: 'slots', doctors: [doctor], slots, date },
     }
   }
@@ -1062,7 +1070,7 @@ export async function handleProjectActionIntent(input: {
       const pending = buildPendingBooking(doctor, matchingSlot.time, appointmentType)
       return {
         functionName: 'select_slot',
-        message: `Могу записать к ${doctor.name} на ${new Date(matchingSlot.time).toLocaleDateString('ru-RU')} в ${matchingSlot.timeString}. Подтвердить запись?`,
+        message: `Могу записать к ${doctor.name} на ${formatMoscowDate(new Date(matchingSlot.time))} в ${matchingSlot.timeString}. Подтвердить запись?`,
         data: { action: 'booking_pending', doctors: [doctor], pendingBooking: pending },
       }
     }
@@ -1072,8 +1080,8 @@ export async function handleProjectActionIntent(input: {
   return {
     functionName: 'get_available_slots',
     message: visibleSlots.length
-      ? `Свободное время у ${doctor.name} на ${new Date(date).toLocaleDateString('ru-RU')}: ${visibleSlots.map((s) => s.timeString).join(', ')}. Выберите удобный слот.`
-      : `На ${new Date(date).toLocaleDateString('ru-RU')} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
+      ? `Свободное время у ${doctor.name} на ${formatMoscowDate(makeMoscowDateTime(date, '12:00'))}: ${visibleSlots.map((s) => s.timeString).join(', ')}. Выберите удобный слот.`
+      : `На ${formatMoscowDate(makeMoscowDateTime(date, '12:00'))} у ${doctor.name} свободных слотов нет. Попробуйте другую дату.`,
     data: { action: 'slots', doctors: [doctor], slots: visibleSlots, date },
   }
 }

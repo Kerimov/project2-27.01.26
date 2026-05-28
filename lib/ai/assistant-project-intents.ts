@@ -10,7 +10,9 @@ export function isCarePlanIntent(message: string) {
 }
 
 export function isYesIntent(message: string) {
-  return /^(да|ага|ок|okay|yes|подтверждаю|запиши|давай|согласен|согласна)([.! ]|$)/i.test(message.trim())
+  const t = message.trim()
+  if (t.length > 60) return false
+  return /^(да|ага|ок|okay|yes|подтверждаю(?:\s+запись)?|согласен|согласна)([.! ]|$)/i.test(t)
 }
 
 export function isNoIntent(message: string) {

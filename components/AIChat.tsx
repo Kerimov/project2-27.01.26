@@ -397,8 +397,11 @@ export function AIChat() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [runDocumentPipeline])
 
+  const requestInFlightRef = useRef(false)
+
   const sendChatMessage = async (content: string, action?: AssistantAction) => {
-    if (!content.trim() || isLoading || isUploadingFile) return
+    if (!content.trim() || isLoading || isUploadingFile || requestInFlightRef.current) return
+    requestInFlightRef.current = true
 
     const documentIdsForRequest = [...selectedDocuments]
     const attachedDocs = documentIdsForRequest
@@ -472,6 +475,7 @@ export function AIChat() {
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
+      requestInFlightRef.current = false
       setIsLoading(false)
     }
   }
