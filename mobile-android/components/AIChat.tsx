@@ -277,15 +277,11 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
             </View>
           )}
 
-          <AppCard
-            variant={isUser ? 'surface' : 'glass'}
+          <View
             style={{
               backgroundColor: isUser ? theme.colors.primary : theme.colors.surface2,
               padding: theme.spacing.md,
-              // На некоторых Android оболочках тонкая рамка "glass" визуально режет текст.
-              // Для сообщений ассистента делаем мягкий фон без рамки.
-              borderWidth: isUser ? undefined : 0,
-              borderColor: isUser ? 'transparent' : 'transparent',
+              borderRadius: theme.radius.xl,
             }}>
             <AppText
               variant="body"
@@ -570,7 +566,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
               }}>
               {time}
             </AppText>
-          </AppCard>
+          </View>
 
           {isUser && (
             <View

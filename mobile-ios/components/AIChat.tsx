@@ -273,12 +273,11 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
             </View>
           )}
 
-          <AppCard
-            variant={isUser ? 'surface' : 'glass'}
+          <View
             style={{
-              backgroundColor: isUser ? theme.colors.primary : undefined,
+              backgroundColor: isUser ? theme.colors.primary : theme.colors.surface2,
               padding: theme.spacing.md,
-              borderColor: isUser ? 'transparent' : theme.colors.borderStrong,
+              borderRadius: theme.radius.xl,
             }}>
             <AppText
               variant="body"
@@ -563,7 +562,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
               }}>
               {time}
             </AppText>
-          </AppCard>
+          </View>
 
           {isUser && (
             <View
