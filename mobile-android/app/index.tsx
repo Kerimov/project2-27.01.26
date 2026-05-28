@@ -22,8 +22,8 @@ export default function LoginScreen() {
   const { bootstrap, isBootstrapping, isLoading, error, login } = useAuthStore();
   const theme = useAppTheme();
 
-  const [email, setEmail] = useState('seed@example.com');
-  const [password, setPassword] = useState('seed1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const baseUrlHint = useMemo(() => API_BASE_URL, []);
 
