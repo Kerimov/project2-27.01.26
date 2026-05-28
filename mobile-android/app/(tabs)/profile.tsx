@@ -45,6 +45,7 @@ export default function ProfileScreen() {
   const [aiModel, setAiModel] = useState('');
   const [aiSaving, setAiSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
  
   const [form, setForm] = useState({
     sex: '' as Sex | '',
@@ -207,12 +208,14 @@ export default function ProfileScreen() {
   };
  
   const performLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
     try {
       await logout();
     } finally {
-      (router as any).dismissAll?.();
-      router.replace('/index' as any);
-      setTimeout(() => router.replace('/index' as any), 50);
+      // В Expo Router root login screen — это "/"
+      router.replace('/' as any);
+      setLoggingOut(false);
     }
   };
 
@@ -439,7 +442,14 @@ export default function ProfileScreen() {
             />
           </View>
  
-          <AppButton title="Выйти" variant="danger" onPress={handleLogout} fullWidth />
+          <AppButton
+            title={loggingOut ? 'Выходим…' : 'Выйти'}
+            variant="danger"
+            onPress={handleLogout}
+            disabled={loggingOut}
+            loading={loggingOut}
+            fullWidth
+          />
  
           {error ? (
             <AppCard variant="surface2">
