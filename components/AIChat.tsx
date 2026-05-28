@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,7 +58,7 @@ export function AIChat() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент по данным личного кабинета.\n\n• 📊 Разбор анализов, отклонений, динамики\n• 📓 Дневник, лекарства, план действий\n• 📅 Запись к врачу, напоминания\n\nПримеры: «выведи отклонения по анализам», «разбери последний анализ крови», «покажи мои анализы» (список), «запиши в дневник: боль 3, сон 8».',
+      content: 'Здравствуйте! Я ИИ-ассистент персонального медицинского кабинета (не врач). Помогаю с анализами, дневником, лекарствами, планом ухода, напоминаниями и записью к врачу — без диагнозов и назначений.\n\nКакая задача сегодня: посмотреть анализы, добавить запись в дневник, проверить лекарства или записаться к врачу?\n\nНапишите вопрос — при наличии данных укажу последние отклонения. Примеры: «покажи анализы за месяц», «запиши в дневник: головная боль, сон 6 ч», «выведи отклонения».',
       timestamp: new Date()
     }
   ])
@@ -68,7 +68,9 @@ export function AIChat() {
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
   const [showDocumentSelector, setShowDocumentSelector] = useState(false)
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null)
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -114,6 +116,82 @@ export function AIChat() {
     setSelectedDocuments(prev => prev.filter(id => id !== documentId))
   }
 
+  const uploadFilesToCabinet = useCallback(async (files: FileList | File[]) => {
+    const list = Array.from(files)
+    if (list.length === 0) return
+
+    setIsUploadingFile(true)
+    setShowDocumentSelector(true)
+    const token = localStorage.getItem('token')
+    const patientId = localStorage.getItem('caretakerPatientId')
+    const uploaded: AttachedDocument[] = []
+    const errors: string[] = []
+
+    for (const file of list) {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (patientId) formData.append('patientId', patientId)
+
+      try {
+        const response = await fetch('/api/documents/upload', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
+          body: formData,
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          errors.push(`${file.name}: ${data.error || 'ошибка загрузки'}`)
+          continue
+        }
+        const doc = data.document
+        if (doc?.id) {
+          uploaded.push({
+            id: doc.id,
+            fileName: doc.fileName || file.name,
+            studyType: undefined,
+          })
+        }
+      } catch {
+        errors.push(`${file.name}: сеть`)
+      }
+    }
+
+    if (uploaded.length > 0) {
+      setAvailableDocuments((prev) => {
+        const ids = new Set(prev.map((d) => d.id))
+        const merged = [...prev]
+        for (const d of uploaded) {
+          if (!ids.has(d.id)) merged.unshift(d)
+        }
+        return merged
+      })
+      setSelectedDocuments((prev) => [...new Set([...prev, ...uploaded.map((d) => d.id)])])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `upload-${Date.now()}`,
+          role: 'assistant',
+          content: `Загружено файлов: ${uploaded.length}. Идёт OCR — задайте вопрос по документу (например: «разбери прикреплённый анализ»).${errors.length ? `\n\nНе загружено: ${errors.join('; ')}` : ''}`,
+          timestamp: new Date(),
+        },
+      ])
+    } else if (errors.length) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `upload-err-${Date.now()}`,
+          role: 'assistant',
+          content: `Не удалось загрузить: ${errors.join('; ')}`,
+          timestamp: new Date(),
+        },
+      ])
+    }
+
+    setIsUploadingFile(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [])
+
   const sendChatMessage = async (content: string, action?: AssistantAction) => {
     if (!content.trim() || isLoading) return
 
@@ -128,6 +206,8 @@ export function AIChat() {
       timestamp: new Date(),
       attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined
     }
+
+    const documentIdsForRequest = [...selectedDocuments]
 
     setMessages(prev => [...prev, userMessage])
     setInput('')
@@ -149,10 +229,14 @@ export function AIChat() {
         body: JSON.stringify({
           message: userMessage.content,
           history: messages,
-          documentIds: selectedDocuments, // опционально: уточнить источники
-          ragScope: selectedDocuments.length > 0 ? 'attached' : 'patient_data',
+          documentIds: documentIdsForRequest,
+          ragScope: documentIdsForRequest.length > 0 ? 'attached' : 'patient_data',
           action,
-          pendingBooking
+          pendingBooking,
+          patientId:
+            typeof window !== 'undefined'
+              ? window.localStorage.getItem('caretakerPatientId') || undefined
+              : undefined,
         })
       })
 
@@ -220,7 +304,7 @@ export function AIChat() {
       {
         id: '1',
         role: 'assistant',
-        content: 'Здравствуйте! 👋 Я ваш персональный медицинский ассистент по данным личного кабинета.\n\n• 📊 Разбор анализов, отклонений, динамики\n• 📓 Дневник, лекарства, план действий\n• 📅 Запись к врачу, напоминания\n\nПримеры: «выведи отклонения по анализам», «разбери последний анализ крови», «покажи мои анализы» (список), «запиши в дневник: боль 3, сон 8».',
+        content: 'Здравствуйте! Я ИИ-ассистент персонального медицинского кабинета (не врач). Помогаю с анализами, дневником, лекарствами, планом ухода, напоминаниями и записью к врачу — без диагнозов и назначений.\n\nКакая задача сегодня: посмотреть анализы, добавить запись в дневник, проверить лекарства или записаться к врачу?\n\nНапишите вопрос — при наличии данных укажу последние отклонения. Примеры: «покажи анализы за месяц», «запиши в дневник: головная боль, сон 6 ч», «выведи отклонения».',
         timestamp: new Date()
       }
     ])
@@ -655,8 +739,41 @@ export function AIChat() {
         )}
 
         {/* Селектор документов */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,image/*,.heic,.heif,.dcm,text/csv,text/plain,.doc,.docx,.xls,.xlsx"
+          multiple
+          onChange={(e) => {
+            if (e.target.files?.length) void uploadFilesToCabinet(e.target.files)
+          }}
+        />
+
         {showDocumentSelector && (
-          <div className="mb-2 p-2 border rounded-lg bg-muted/50 max-h-32 overflow-y-auto">
+          <div className="mb-2 p-2 border rounded-lg bg-muted/50 max-h-40 overflow-y-auto space-y-2">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="text-xs flex-1"
+                disabled={isLoading || isUploadingFile}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {isUploadingFile ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Загрузка…
+                  </>
+                ) : (
+                  <>📤 Загрузить PDF/фото</>
+                )}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground px-1">
+              Или выберите уже загруженные документы:
+            </p>
             {availableDocuments.length > 0 ? (
               <div className="space-y-1">
                 {availableDocuments.map(doc => (
@@ -681,7 +798,7 @@ export function AIChat() {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground text-center py-2">
-                Нет загруженных документов
+                Нет документов — нажмите «Загрузить PDF/фото» выше
               </p>
             )}
           </div>
@@ -778,8 +895,8 @@ export function AIChat() {
             variant="outline"
             size="icon"
             onClick={() => setShowDocumentSelector(!showDocumentSelector)}
-            disabled={isLoading}
-            title="Прикрепить документ"
+            disabled={isLoading || isUploadingFile}
+            title="Загрузить или прикрепить документ"
           >
             <Paperclip className={`h-4 w-4 ${selectedDocuments.length > 0 ? 'text-primary' : ''}`} />
           </Button>

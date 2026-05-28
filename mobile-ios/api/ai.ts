@@ -48,6 +48,7 @@ export type AIChatRequest = {
   ragScope?: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace' | 'all';
   action?: AssistantAction;
   pendingBooking?: PendingBooking | null;
+  patientId?: string;
 };
 
 export type AIChatResponse = {

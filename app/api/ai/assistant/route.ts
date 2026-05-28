@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
-import { classifyAssistantIntent, stripLeadingSmalltalk } from '@/lib/ai/assistant-router'
+import { classifyAssistantIntent, stripLeadingSmalltalk, type AssistantIntent } from '@/lib/ai/assistant-router'
+import type { CareCapability } from '@/lib/caretaker-access'
 import {
   isAnalysisDeepDiveRequest,
   isAnalysisListOnlyRequest,
@@ -16,6 +17,8 @@ import { toLegacyAssistantResponse } from '@/lib/ai/assistant-contract'
 import { makeAssistantRequestId, logAssistantEvent } from '@/lib/ai/assistant-audit'
 import { tryAssistantLlm } from '@/lib/ai/assistant-llm'
 import { getAssistantToolDefinition } from '@/lib/ai/assistant-tools'
+import { resolveAssistantPatientContext } from '@/lib/ai/assistant-patient-context'
+import { tryAssistantExtendedAction } from '@/lib/ai/assistant-extended-actions'
 import { parse as parseCookies } from 'cookie'
 
 // Использует headers/cookies, помечаем маршрут как динамический
@@ -136,7 +139,8 @@ export async function POST(request: NextRequest) {
       hasDoctorProfileModel: !!prisma?.doctorProfile,
     })
     
-    const { message, history, documentIds, ragScope, action, pendingBooking } = await request.json()
+    const { message, history, documentIds, ragScope, action, pendingBooking, patientId: bodyPatientId } =
+      await request.json()
     logAssistantEvent('request_metadata', {
       requestId,
       hasHistory: !!history,
@@ -190,7 +194,20 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = payload.userId
-    const intentDecision = classifyAssistantIntent(message)
+
+    const intentForCapability = classifyAssistantIntent(message)
+    const patientCtx = await resolveAssistantPatientContext({
+      payload,
+      message,
+      explicitPatientId: typeof bodyPatientId === 'string' ? bodyPatientId : null,
+      capability: capabilityForIntent(intentForCapability.intent, message),
+    })
+    if ('error' in patientCtx) {
+      return NextResponse.json({ error: patientCtx.error }, { status: patientCtx.status })
+    }
+    const effectivePatientId = patientCtx.patientId
+
+    const intentDecision = intentForCapability
     logAssistantEvent('intent_classified', {
       requestId,
       userId,
@@ -203,15 +220,25 @@ export async function POST(request: NextRequest) {
       Array.isArray(documentIds) ? documentIds.filter((x) => typeof x === 'string' && x.trim().length > 0) : []
 
     const bypassShortcut = shouldBypassProjectActionShortcut(intentDecision.intent, message)
+
     let projectAction = bypassShortcut
       ? null
-      : await handleProjectActionIntent({
+      : await tryAssistantExtendedAction({
           message,
-          userId,
-          action,
-          pendingBooking,
           intent: intentDecision.intent,
+          ctx: patientCtx,
         })
+
+    if (!projectAction && !bypassShortcut) {
+      projectAction = await handleProjectActionIntent({
+        message,
+        userId: effectivePatientId,
+        action,
+        pendingBooking,
+        intent: intentDecision.intent,
+        patientPrefix: patientCtx.prefix,
+      })
+    }
 
     // «Привет! покажи записи» — если intent всё же не операционный, повторяем без приветствия
     const strippedCore = stripLeadingSmalltalk(message)
@@ -223,17 +250,28 @@ export async function POST(request: NextRequest) {
         retryIntent.intent !== 'smalltalk' &&
         !shouldBypassProjectActionShortcut(retryIntent.intent, message)
       ) {
-        projectAction = await handleProjectActionIntent({
+        projectAction = await tryAssistantExtendedAction({
           message,
-          userId,
-          action,
-          pendingBooking,
           intent: retryIntent.intent,
+          ctx: patientCtx,
         })
+        if (!projectAction) {
+          projectAction = await handleProjectActionIntent({
+            message,
+            userId: effectivePatientId,
+            action,
+            pendingBooking,
+            intent: retryIntent.intent,
+            patientPrefix: patientCtx.prefix,
+          })
+        }
       }
     }
 
     if (projectAction) {
+      if (patientCtx.prefix && !projectAction.message.startsWith(patientCtx.prefix.trim())) {
+        projectAction.message = `${patientCtx.prefix}${projectAction.message}`
+      }
       const toolDefinition = getAssistantToolDefinition(projectAction.functionName)
       logAssistantEvent('tool_result', {
         requestId,
@@ -275,7 +313,7 @@ export async function POST(request: NextRequest) {
 
       // Если запрос похож на "сделай план действий" — генерируем план и создаём напоминания.
       if (effectiveRagScope === 'attached' && normalizedDocumentIds.length > 0 && isCarePlanIntent(message)) {
-        const planResult = await createCarePlanFromDocuments(userId, message, normalizedDocumentIds)
+        const planResult = await createCarePlanFromDocuments(effectivePatientId, message, normalizedDocumentIds)
         return NextResponse.json({
           response: planResult.message,
           functionResult: planResult.data,
@@ -286,7 +324,14 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      const aiResponse = await generateAIResponse(message, userId, history, normalizedDocumentIds, effectiveRagScope)
+      const aiResponse = await generateAIResponse(
+        message,
+        effectivePatientId,
+        history,
+        normalizedDocumentIds,
+        effectiveRagScope,
+        patientCtx
+      )
       return NextResponse.json({
         response: aiResponse.response,
         sources: aiResponse.sources,
@@ -298,12 +343,12 @@ export async function POST(request: NextRequest) {
 
     // Анализируем сообщение и определяем, какую функцию вызвать
     logAssistantEvent('legacy_router_check', { requestId, userId })
-    const functionCall = await analyzeMessageAndDetermineFunction(message, userId)
+    const functionCall = await analyzeMessageAndDetermineFunction(message, effectivePatientId)
     logAssistantEvent('legacy_router_result', { requestId, userId, functionName: functionCall?.name || null })
 
     if (functionCall) {
       // Выполняем функцию
-      const result = await executeFunction(functionCall, userId)
+      const result = await executeFunction(functionCall, effectivePatientId)
 
       return NextResponse.json({
         response: result.message,
@@ -316,7 +361,7 @@ export async function POST(request: NextRequest) {
 
     // Обычный AI ответ без функций
     logAssistantEvent('llm_response', { requestId, userId, effectiveRagScope: 'none' })
-    const aiResponse = await generateAIResponse(message, userId, history, [], 'none')
+    const aiResponse = await generateAIResponse(message, effectivePatientId, history, [], 'none', patientCtx)
 
     return NextResponse.json({
       response: aiResponse.response,
@@ -637,15 +682,35 @@ async function summarizeDiaryWeek(userId: string) {
   const mood = avg('mood')
   const pain = avg('painScore')
   const sleep = avg('sleepHours')
+  const headacheDays = entries.filter(
+    (e) =>
+      (e.painScore != null && e.painScore >= 4) ||
+      /головн/i.test(`${e.symptoms || ''} ${e.notes || ''}`)
+  ).length
+  const lowSleepDays = entries.filter((e) => e.sleepHours != null && e.sleepHours < 6).length
+
+  const insights: string[] = []
+  if (headacheDays >= 2 && sleep != null && sleep < 6.5) {
+    insights.push(
+      `На этой неделе головная боль/высокая боль отмечалась ${headacheDays} раз — часто на фоне недосыпа (ср. сон ${sleep} ч). Попробуйте ложиться на 30 мин раньше.`
+    )
+  } else if (headacheDays >= 2) {
+    insights.push(`Боль/дискомфорт отмечались ${headacheDays} раз за неделю — зафиксируйте триггеры в дневнике.`)
+  }
+  if (lowSleepDays >= 3) {
+    insights.push(`Недосып (${lowSleepDays} дн. < 6 ч) — может влиять на давление и самочувствие.`)
+  }
+
   const lines = [
-    `Записей за 7 дней: ${entries.length}.`,
-    mood != null ? `Среднее настроение: ${mood}/5.` : null,
-    pain != null ? `Средняя боль: ${pain}/10.` : null,
-    sleep != null ? `Средний сон: ${sleep} ч.` : null,
-    'Подробный AI-обзор можно сформировать в «Дневник → Записи».',
+    `**AI-обзор недели** (записей: ${entries.length})`,
+    mood != null ? `• Среднее настроение: ${mood}/5` : null,
+    pain != null ? `• Средняя боль: ${pain}/10` : null,
+    sleep != null ? `• Средний сон: ${sleep} ч` : null,
+    insights.length ? `\n${insights.join('\n')}` : null,
+    '\nНе диагноз. Хотите добавить задачу в план ухода (например, замер давления вечером)?',
   ].filter(Boolean)
 
-  return { text: lines.join(' '), entries }
+  return { text: lines.join('\n'), entries }
 }
 
 async function listPatientMedications(userId: string) {
@@ -1057,6 +1122,7 @@ async function handleProjectActionIntent(input: {
   action?: AssistantAction
   pendingBooking?: PendingBooking
   intent?: string
+  patientPrefix?: string
 }): Promise<{ message: string; data: any; functionName: string; cards?: any[]; actions?: any[]; safety?: any } | null> {
   const { message, userId, action, intent } = input
   const pendingBooking = isPendingBooking(input.pendingBooking) ? input.pendingBooking : null
@@ -2182,35 +2248,95 @@ type AiResponseWithSources = {
   latencyMs?: number
 }
 
+function capabilityForIntent(intent: AssistantIntent, message: string): CareCapability {
+  const t = (message || '').toLowerCase()
+  if (intent === 'reminders' && /(?:создай|удали|напомни|поставь|новое)\s/i.test(t)) return 'reminders_write'
+  if (intent === 'medications' && /(?:добав|удали|удалить|внеси)\s/i.test(t)) return 'medications_write'
+  if (intent === 'diary' && /(?:добав|запиш|внеси)\s/i.test(t)) return 'diary_write'
+  if (intent === 'reminders') return 'reminders_read'
+  if (intent === 'medications') return 'medications_read'
+  return 'diary_read'
+}
+
 function buildAssistantSystemPrompt() {
-  return `Ты — полнофункциональный AI-чат приложения «Персональный медицинский ассистент» (PMA).
+  return `Ты — ИИ-ассистент персонального медицинского кабинета PMA (пациент или куратор). Ты НЕ врач: не ставишь диагнозы и не назначаешь лекарства. Помогаешь управлять здоровьем в образовательных целях и направляешь к специалистам при необходимости.
 
-Ты отвечаешь на русском языке. У тебя есть доступ к данным личного кабинета пользователя (блоки SOURCE): анализы с показателями, документы, дневник, профиль. Ты можешь и должен разбирать их по запросу — не отказывайся от разбора анализов, отклонений и динамики, если данные есть в SOURCE.
+Отвечай на русском. Данные кабинета — в блоках SOURCE и «СВОДКА (server)»; база знаний — в RAG. Не выдумывай цифры, записи и факты.
 
-Разделы приложения:
-- «Документы»: загрузка медицинских документов и анализов.
-- «Анализы»: распознанные анализы, показатели, сравнение, динамика.
-- «Дневник»: самочувствие, лекарства, план задач.
-- «Напоминания», «Мои записи», «Маркетплейс».
+Доступ к данным (читай из SOURCE/RAG):
+- Профиль (аллергии, хроники, цели, возраст, пол)
+- Документы (PDF/фото, OCR, ручные правки)
+- Анализы (показатели, нормы, даты, комментарии)
+- Дневник (настроение, боль, сон, давление, пульс, симптомы, теги)
+- Лекарства (препараты, дозы, расписание)
+- План ухода (активные/отложенные/выполненные, сроки, повторения, согласование с врачом)
+- Напоминания (привязка к анализам, документам, лекарствам)
+- Записи к врачу (предстоящие, прошедшие)
+- Маркетплейс клиник (каталог, геолокация — если есть в SOURCE)
+- База знаний (референсы, описания показателей, методологии)
+- Режим куратора (действия «для пациента X», если указано в контексте)
 
-Правила безопасности:
-- Не ставь окончательные диагнозы и не назначай лечение (дозы, препараты).
-- При красных флагах — рекомендуй врача или неотложную помощь.
-- Не выдумывай анализы, цифры, записи или врачей — только SOURCE и профиль.
+ТВОИ ВОЗМОЖНОСТИ (что делаешь по запросу):
 
-Работа с данными:
-- Если пользователь просит «только отклонения» / «вне нормы» — перечисли только показатели с ⚠️ или явно вне референса, без полного списка всех анализов.
-- Если просит «разбор», «что значит», «интерпретацию» — дай структурированный разбор по SOURCE: вывод, возможные причины, что пересдать/обсудить с врачом.
-- Если SOURCE пуст — скажи, что данных нет, и подскажи загрузить документ в «Документы».
-- Не пиши «в чате нельзя» или «я не могу анализировать» — ты как раз для этого и предназначен.
-- Не начинай каждый ответ с приветствия. Здоровайся только один раз в самом начале диалога (если уместно). В остальных сообщениях отвечай сразу по сути.
-- Всегда сначала просмотри все блоки SOURCE. Если там есть «СВОДКА (server)», используй цифры из неё для подсчётов (количество анализов/документов/записей/отклонений) и не придумывай числа.
+1. Анализы — список/группировка, карточка, сравнение во времени (таблица или текст), тренды («возможно»), triage (норма / неделя / срочно к врачу), разбор отклонений, предложение напоминания пересдать. Создание анализа вручную — предложи загрузить документ или ввести в разделе «Анализы», если в чате нет автоматического создания.
 
-Формат:
-- По делу, с подзаголовками при длинном ответе.
-- Для навигации по приложению — конкретный путь (например «Анализы → Сравнить»).
-- Для медицины: вывод → детали по показателям → что проверить → когда к врачу.
-- Если пользователь просит «мои записи», «мои анализы», «напоминания» — отвечай данными из SOURCE, а не инструкцией «перейдите в раздел».`
+2. Дневник — добавление записи (настроение, боль 1–10, сон, АД/пульс, симптомы, теги), просмотр за период, еженедельный обзор, связь с анализами.
+
+3. Лекарства — показать список, общие рекомендации по приёму и взаимодействиям (без назначения доз рецептурных препаратов). Добавление/изменение — через «Дневник → Лекарства», если чат не выполнил действие автоматически.
+
+4. План ухода — список задач, добавление с повтором, выполнение/отложение, чек-ин «почему не сделано», задачи на согласовании с врачом.
+
+5. Напоминания — показать активные; создание/редактирование — предложи раздел «Напоминания» или сформулируй, что пользователь хочет (дата, канал push/email/SMS по настройкам). В режиме куратора — помечай «для пациента …».
+
+6. Записи к врачу — слоты 9:00–21:00 шаг 15 мин, запись с подтверждением, список предстоящих/прошедших, pre-visit анкета (задай вопросы и резюмируй ответы; сохранение — в разделе записи, если нет API).
+
+7. Маркетплейс — поиск клиники/лаборатории по городу (профиль или уточни город), карточка организации, запись при наличии интеграции.
+
+8. База знаний — объяснение показателей (СРБ, ТТГ, ферритин…), референсы (Минздрав РФ, US, EU — указывай источник), методология (натощак, время суток).
+
+9. Документы — загрузка через интерфейс чата/раздела; после OCR — показ и правки; привязка к анализу/напоминанию.
+
+10. Куратор — переключение контекста на пациента, список связанных, действия от его имени, запрос подтверждения при approval.
+
+11. Аналитика — KPI из СВОДКИ, тренды (сон, давление) текстом, ASCII-графиком или markdown-таблицей.
+
+12. Общее — свободные вопросы по RAG, вложения в чате, medical_report в markdown за период/анализ.
+
+Автоматизация в чате (сервер может выполнить без «перейдите в раздел»):
+списки записей, напоминаний, документов, анализов; дневник (добавить/недельный обзор); лекарства и план ухода (показать/добавить задачу/выполнить); запись к врачу (врачи, слоты, подтверждение). Если действие не выполнено сервером — дай пошаговую инструкцию в приложении, не отказывайся от сути запроса.
+
+БЕЗОПАСНОСТЬ — при опасных симптомах (боль в груди, одышка в покое, внезапная слабость руки/ноги, нарушение речи, потеря сознания, сильное кровотечение, судороги, анафилаксия):
+- Прерви обычный сценарий.
+- Выдели жирным: **ТРЕБУЕТСЯ ЭКСТРЕННАЯ ПОМОЩЬ. НЕМЕДЛЕННО ВЫЗОВИТЕ СКОРУЮ ПО ТЕЛЕФОНУ 103 (112).**
+- Краткая помощь до приезда врачей (покой, воротник, не есть/пить при подозрении на инсульт и т.п. — без самолечения).
+
+Запрещено: диагнозы («у вас грипп» → «симптомы могут быть похожи… обратитесь к врачу»); дозы рецептурных препаратов по названию; отмена/смена терапии, назначенной врачом; психиатрические кризисы (линия доверия); прерывание беременности.
+На просьбу диагноза/рецепта: «Я не врач и не могу ставить диагноз. Состояние должен оценить специалист очно».
+Всегда указывай источник («по базе знаний…», «согласно рекомендациям…»), если опираешься на справочник.
+
+Структура ответа:
+- Конкретное действие: (1) подтверди, (2) результат/данные, (3) «нужно ли ещё?».
+- Совет/разбор данных: (1) срочность/triage, (2) что видно по данным, (3) возможные причины («возможно»), (4) рекомендация (образ жизни, когда к врачу), (5) следующий шаг (план ухода, запись, график, напоминание).
+- Жалобы без экстренности: подзаголовки Срочность / Разбор / Действия до визита / Чего не делать / Уточняющий вопрос.
+
+Уточняющие вопросы при нехватке данных: симптом, когда началось, интенсивность 1–10, что помогает/ухудшает, температура, давление, хронические болезни.
+
+Контекст:
+- Мобильный пользователь — короче, уместны ⚠️ 📊 💊 📅.
+- Аллергии в профиле — не предлагай группы аллергенов.
+- Куратор — помечай действия «для пациента …».
+
+Начало диалога (один раз, если пользователь ещё не задал задачу):
+Кратко поприветствуй. Если в «СВОДКА (server)» есть latestSignificantDeviation или abnormalIndicators в SOURCE — назови последнее значимое отклонение с датой. Иначе — без выдуманных отклонений.
+Предложи меню: «Какая задача сегодня: анализы, дневник, лекарства, план ухода, напоминания, запись к врачу?»
+
+Работа с SOURCE:
+- «Только отклонения» — только вне нормы.
+- «Разбор анализа» — структурно по SOURCE.
+- Пустой SOURCE — скажи честно, предложи загрузку.
+- Счётчики — только из «СВОДКА (server)».
+- На «мои записи/анализы/напоминания» — данные из SOURCE, не отсылка «перейдите в раздел».
+- Не здоровайся в каждом ответе.`
 }
 
 function stripAssistantGreeting(text: string): string {
@@ -2227,7 +2353,7 @@ function stripAssistantGreeting(text: string): string {
 }
 
 async function buildUserCabinetSnapshot(userId: string): Promise<string> {
-  const [analysesCount, documentsCount, upcomingAppointments, latestAnalysis] = await Promise.all([
+  const [analysesCount, documentsCount, upcomingAppointments, latestAnalysis, abnormalRows] = await Promise.all([
     prisma.analysis.count({ where: { userId } }),
     prisma.document.count({ where: { userId } }),
     prisma.appointment.count({
@@ -2244,6 +2370,7 @@ async function buildUserCabinetSnapshot(userId: string): Promise<string> {
         select: { id: true, title: true, date: true, results: true },
       })
       .catch(() => null),
+    collectUserAbnormalIndicators(userId, 3).catch(() => []),
   ])
 
   let latestAbnormal = 0
@@ -2264,6 +2391,17 @@ async function buildUserCabinetSnapshot(userId: string): Promise<string> {
         ? new Date(String(latestAnalysis.date)).toISOString().slice(0, 10)
         : null
 
+  const topAbnormal = abnormalRows[0]
+  const latestSignificantDeviation = topAbnormal
+    ? {
+        indicatorName: topAbnormal.indicatorName,
+        value: topAbnormal.value,
+        unit: topAbnormal.unit ?? null,
+        analysisTitle: topAbnormal.analysisTitle,
+        analysisDate: new Date(topAbnormal.analysisDate).toISOString().slice(0, 10),
+      }
+    : null
+
   const payload = {
     analysesCount,
     documentsCount,
@@ -2276,8 +2414,10 @@ async function buildUserCabinetSnapshot(userId: string): Promise<string> {
           abnormalIndicators: latestAbnormal,
         }
       : null,
+    latestSignificantDeviation,
+    recentAbnormalCount: abnormalRows.length,
     note:
-      'Эта сводка рассчитана на сервере. Для подсчётов используй эти цифры и не пытайся пересчитывать вручную по тексту.',
+      'Эта сводка рассчитана на сервере. Для подсчётов и приветствия используй эти поля; не выдумывай отклонения.',
   }
 
   return `СВОДКА (server):\n${JSON.stringify(payload, null, 2)}`
@@ -2730,7 +2870,8 @@ async function generateAIResponse(
   userId: string,
   history: any[],
   documentIds: string[],
-  ragScope: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace'
+  ragScope: 'none' | 'attached' | 'patient_data' | 'app_knowledge' | 'marketplace',
+  patientCtx?: { prefix: string; isCaretakerMode: boolean; patientName: string | null }
 ): Promise<AiResponseWithSources> {
   const patientProfile = await prisma.patientProfile.findUnique({ where: { userId } }).catch(() => null)
   const hasDocs = Array.isArray(documentIds) && documentIds.length > 0
@@ -2751,10 +2892,14 @@ async function generateAIResponse(
         .map((m: any) => `${m?.role === 'assistant' ? 'Ассистент' : 'Пользователь'}: ${String(m?.content || '').slice(0, 700)}`)
         .join('\n')}`
     : ''
+  const caretakerNote =
+    patientCtx?.isCaretakerMode && patientCtx.patientName
+      ? `\n\nРЕЖИМ КУРАТОРА: действия и данные для пациента «${patientCtx.patientName}» (id: ${userId}).\n`
+      : ''
   const userBlock =
     rag.contextText && rag.contextText.trim().length > 0
-      ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
-      : `${profileBlock}${historyBlock}\n\nВопрос пользователя: ${message}`
+      ? `ДАННЫЕ (RAG):\n${rag.contextText}${profileBlock}${caretakerNote}${historyBlock}\n\nВопрос пользователя: ${message}`
+      : `${profileBlock}${caretakerNote}${historyBlock}\n\nВопрос пользователя: ${message}`
 
   const llm = await tryAssistantLlm({
     system: systemPrompt,
@@ -2794,9 +2939,23 @@ async function generateAIResponse(
   }
 
   if (lowerMessage.match(/привет|здравствуй|добрый день/)) {
+    const snapshotRaw = await buildUserCabinetSnapshot(userId).catch(() => '')
+    let deviationLine = ''
+    try {
+      const m = snapshotRaw.match(/"latestSignificantDeviation":\s*(\{[\s\S]*?\}|null)/)
+      if (m && m[1] && m[1] !== 'null') {
+        const d = JSON.parse(m[1])
+        if (d?.indicatorName) {
+          const unit = d.unit ? ` ${d.unit}` : ''
+          deviationLine = `\n\nПо последнему анализу (${d.analysisDate || '—'}) отмечено: ${d.indicatorName} ${d.value}${unit} (вне нормы).`
+        }
+      }
+    } catch {
+      /* ignore parse errors */
+    }
     return {
       response:
-        'Здравствуйте! Я ваш персональный медицинский ассистент.\n\nЯ могу помочь вам:\n\n• Записаться на прием к врачу\n• Показать результаты анализов\n• Дать персональные рекомендации\n• Найти подходящего врача\n\nЧто вас интересует?',
+        `Здравствуйте! Я ИИ-ассистент персонального медицинского кабинета (не врач).${deviationLine}\n\nКакая задача сегодня: посмотреть анализы, добавить запись в дневник, проверить лекарства, план ухода, напоминания или записаться к врачу?`,
       sources: rag.sources
     }
   }
@@ -2804,7 +2963,18 @@ async function generateAIResponse(
   if (lowerMessage.match(/помощь|что ты умеешь|возможности/)) {
     return {
       response:
-        'Я умею:\n\n• Запись на прием: "Запиши меня на прием к терапевту завтра в 10:00"\n• Результаты анализов: "Покажи мои последние анализы крови"\n• Рекомендации: "Дай мне рекомендации по питанию"\n• Поиск врачей: "Найди кардиолога"\n• Мои записи: "Покажи мои предстоящие приемы"\n\nЕсли вы прикрепите документы в чате — я смогу отвечать по ним (с источниками).',
+        'Я помогаю с кабинетом (не ставлю диагнозы и не назначаю лекарства):\n\n' +
+        '• **Анализы:** список, отклонения, карточка, сравнение, triage, создание, напоминание пересдать\n' +
+        '• **Дневник:** запись, фильтр по периоду/тегам, AI-обзор недели, связь с анализами\n' +
+        '• **Лекарства:** список, добавить/удалить, взаимодействия (справочно), план приёма\n' +
+        '• **План ухода:** задачи, выполнить/отложить, согласование с врачом\n' +
+        '• **Напоминания:** создать, удалить, список (push/email/SMS по настройкам)\n' +
+        '• **Записи:** слоты 9:00–21:00, запись, отмена, анкета перед визитом\n' +
+        '• **Маркетплейс:** поиск клиник/лабораторий\n' +
+        '• **База знаний:** что означает показатель, референсы\n' +
+        '• **KPI / отчёт:** дашборд, medical_report в markdown\n' +
+        '• **Куратор:** список пациентов, действия для подопечного\n\n' +
+        'Примеры: «сравни глюкозу», «создай напоминание через 3 месяца», «отмени запись», «медицинский отчёт за 3 месяца».',
       sources: rag.sources
     }
   }

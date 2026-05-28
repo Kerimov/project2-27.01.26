@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -12,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { sendAIMessage, type AIMessage, type AIChatRequest, type AssistantAction, type PendingBooking } from '../api/ai';
-import { getDocuments, type DocumentSummary } from '../api/documents';
+import { getDocuments, uploadDocument, type DocumentSummary } from '../api/documents';
 import { useAuthStore } from '../state/authStore';
 import { setAuthToken } from '../api/client';
 import { useAppTheme } from '@/design/tokens';
@@ -50,7 +51,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
       id: '1',
       role: 'assistant',
       content:
-        'Здравствуйте. Разбор анализов и отклонений по вашим данным, дневник, запись к врачу. Примеры: «выведи отклонения», «разбери анализ крови», «покажи мои анализы», «запиши в дневник: боль 3, сон 8».',
+        'Здравствуйте! Я ИИ-ассистент кабинета (не врач). 📊 анализы · 📝 дневник · 💊 лекарства · 📅 записи\n\nКакая задача сегодня? Напишите — подскажу отклонения по вашим данным.\n\nПримеры: «анализы за месяц», «дневник: давление 145/90», «запиши к терапевту».',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -61,6 +62,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const closeChat = useCallback(() => setIsOpen(false), []);
 
@@ -110,6 +112,81 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
     setSelectedDocuments((prev) => prev.filter((id) => id !== documentId));
   };
 
+  const uploadAndAttach = useCallback(
+    async (uri: string, fileName: string, mimeType: string) => {
+      if (!token) return;
+      setIsUploadingFile(true);
+      setShowDocumentSelector(true);
+      try {
+        setAuthToken(token);
+        const result = await uploadDocument(uri, fileName, mimeType, token);
+        const doc = result.document;
+        const attached: AttachedDocument = {
+          id: doc.id,
+          fileName: doc.fileName,
+          studyType: undefined,
+        };
+        setAvailableDocuments((prev) => {
+          if (prev.some((d) => d.id === attached.id)) return prev;
+          return [attached, ...prev];
+        });
+        setSelectedDocuments((prev) => (prev.includes(attached.id) ? prev : [...prev, attached.id]));
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `upload-${Date.now()}`,
+            role: 'assistant',
+            content: `Файл «${doc.fileName}» загружен. Идёт OCR — задайте вопрос по документу.`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Не удалось загрузить';
+        Alert.alert('Ошибка загрузки', msg);
+      } finally {
+        setIsUploadingFile(false);
+      }
+    },
+    [token]
+  );
+
+  const handleChatPickImage = useCallback(async () => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Нужно разрешение', 'Разрешите доступ к галерее в настройках');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const a = result.assets[0];
+        await uploadAndAttach(a.uri, a.fileName || 'image.jpg', a.mimeType || 'image/jpeg');
+      }
+    } catch (e: unknown) {
+      Alert.alert('Ошибка', e instanceof Error ? e.message : 'Не удалось выбрать фото');
+    }
+  }, [uploadAndAttach]);
+
+  const handleChatPickFile = useCallback(async () => {
+    try {
+      const DocumentPicker = await import('expo-document-picker');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const a = result.assets[0];
+        await uploadAndAttach(a.uri, a.name || 'document.pdf', a.mimeType || 'application/pdf');
+      }
+    } catch (e: unknown) {
+      Alert.alert('Ошибка', e instanceof Error ? e.message : 'Не удалось выбрать файл');
+    }
+  }, [uploadAndAttach]);
+
   const sendChatMessage = useCallback(async (content: string, action?: AssistantAction) => {
     if (!content.trim() || isLoading || !token) return;
 
@@ -125,6 +202,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
       attachedDocuments: attachedDocs.length > 0 ? attachedDocs : undefined,
     };
 
+    const documentIdsForRequest = [...selectedDocuments];
+
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setSelectedDocuments([]);
@@ -137,8 +216,8 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
       const request: AIChatRequest = {
         message: userMessage.content,
         history: messages.slice(-10), // Последние 10 сообщений для контекста
-        documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
-        ragScope: selectedDocuments.length > 0 ? 'attached' : 'patient_data',
+        documentIds: documentIdsForRequest.length > 0 ? documentIdsForRequest : undefined,
+        ragScope: documentIdsForRequest.length > 0 ? 'attached' : 'patient_data',
         action,
         pendingBooking,
       };
@@ -195,7 +274,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
         id: '1',
         role: 'assistant',
         content:
-          'Здравствуйте. Разбор анализов и отклонений по вашим данным, дневник, запись к врачу. Примеры: «выведи отклонения», «разбери анализ крови», «покажи мои анализы», «запиши в дневник: боль 3, сон 8».',
+          'Здравствуйте! Я ИИ-ассистент кабинета (не врач). 📊 анализы · 📝 дневник · 💊 лекарства · 📅 записи\n\nКакая задача сегодня? Напишите — подскажу отклонения по вашим данным.\n\nПримеры: «анализы за месяц», «дневник: давление 145/90», «запиши к терапевту».',
         timestamp: new Date().toISOString(),
       },
     ]);
@@ -694,7 +773,30 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
           )}
 
           {showDocumentSelector && (
-            <AppCard variant="glass" style={{ maxHeight: 170 }}>
+            <AppCard variant="glass" style={{ maxHeight: 220 }}>
+              <View style={{ flexDirection: 'row', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+                <AppButton
+                  title={isUploadingFile ? 'Загрузка…' : 'Фото'}
+                  icon="photo"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isLoading || isUploadingFile}
+                  onPress={handleChatPickImage}
+                  style={{ flex: 1 }}
+                />
+                <AppButton
+                  title="PDF"
+                  icon="doc.text"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isLoading || isUploadingFile}
+                  onPress={handleChatPickFile}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              <AppText variant="caption" color="mutedText" style={{ marginBottom: theme.spacing.xs }}>
+                Или выберите из кабинета:
+              </AppText>
               <FlatList
                 data={availableDocuments}
                 keyExtractor={(item) => item.id}
@@ -719,7 +821,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                 )}
                 ListEmptyComponent={
                   <AppText variant="caption" color="mutedText" style={{ textAlign: 'center', padding: theme.spacing.md }}>
-                    Нет загруженных документов
+                    Нет документов — загрузите фото или PDF выше
                   </AppText>
                 }
               />
@@ -838,7 +940,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
             }}>
             <Pressable
               onPress={() => setShowDocumentSelector(!showDocumentSelector)}
-              disabled={isLoading}
+              disabled={isLoading || isUploadingFile}
               style={{
                 width: 42,
                 height: 42,

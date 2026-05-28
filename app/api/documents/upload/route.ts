@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { DocumentCategory } from '@/lib/documents'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { isResolvePatientErr, resolvePatientId } from '@/lib/caretaker-access'
 import { callOllamaChat, callOllamaJson, isOllamaConfigured } from '@/lib/ollama'
 import { parse as parseCookies } from 'cookie'
 import { waitUntil } from '@vercel/functions'
@@ -102,17 +103,28 @@ export async function POST(request: NextRequest) {
 
     // Определяем пользователя-владельца документа
     let ownerUserId = payload.userId
-    if (targetPatientId && (payload as any).role === 'DOCTOR') {
-      // Врач может загрузить для пациента, только если пациент прикреплен или есть прием
-      const doctor = await prisma.doctorProfile.findUnique({ where: { userId: payload.userId } })
-      if (doctor) {
-        const [hasRecord, hasAppointment] = await Promise.all([
-          prisma.patientRecord.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } }),
-          prisma.appointment.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } })
-        ])
-        if (hasRecord || hasAppointment) {
-          ownerUserId = targetPatientId
+    if (targetPatientId && targetPatientId !== payload.userId) {
+      if ((payload as any).role === 'DOCTOR') {
+        const doctor = await prisma.doctorProfile.findUnique({ where: { userId: payload.userId } })
+        if (doctor) {
+          const [hasRecord, hasAppointment] = await Promise.all([
+            prisma.patientRecord.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } }),
+            prisma.appointment.findFirst({ where: { doctorId: doctor.id, patientId: targetPatientId }, select: { id: true } }),
+          ])
+          if (hasRecord || hasAppointment) {
+            ownerUserId = targetPatientId
+          }
         }
+      } else {
+        const resolved = await resolvePatientId({
+          payload,
+          requestedPatientId: targetPatientId,
+          capability: 'diary_write',
+        })
+        if (isResolvePatientErr(resolved)) {
+          return NextResponse.json({ error: resolved.error }, { status: resolved.status })
+        }
+        ownerUserId = resolved.patientId
       }
     }
 

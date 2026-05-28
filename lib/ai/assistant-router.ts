@@ -15,6 +15,9 @@ export type AssistantIntent =
   | 'settings'
   | 'app_help'
   | 'medical_question'
+  | 'analytics'
+  | 'caretaker'
+  | 'knowledge'
   | 'smalltalk'
   | 'unknown'
 
@@ -97,6 +100,42 @@ function classifyCoreIntent(t: string): AssistantIntentDecision | null {
 
   if (/маркетплейс|клиник|лаборатор|аптек|найди.*клиник|поиск.*клиник/i.test(t)) {
     return { intent: 'marketplace', confidence: 0.8, reason: 'marketplace' }
+  }
+
+  if (/kpi|дашборд|аналитик|статистик\s+кабинет|сколько\s+у\s+меня\s+анализ/i.test(t)) {
+    return { intent: 'analytics', confidence: 0.9, reason: 'dashboard analytics' }
+  }
+
+  if (/куратор|подопечн|связанн.*пациент|для\s+пациента|переключ.*на/i.test(t)) {
+    return { intent: 'caretaker', confidence: 0.88, reason: 'caretaker mode' }
+  }
+
+  if (/что\s+такое|что\s+означает|референс|натощак|методолог|база\s+знаний/i.test(t) && /ттг|лпнп|срб|ферритин|показател|анализ/i.test(t)) {
+    return { intent: 'knowledge', confidence: 0.85, reason: 'knowledge base' }
+  }
+
+  if (/медицинск.*отч[её]т|medical_report|сводк.*за\s+период/i.test(t)) {
+    return { intent: 'medical_question', confidence: 0.9, reason: 'medical report' }
+  }
+
+  if (/сравни.*анализ|triage|срочност.*анализ|создай.*анализ|по\s+категор/i.test(t)) {
+    return { intent: 'analyses', confidence: 0.88, reason: 'analyses extended' }
+  }
+
+  if (/(?:создай|удали|отмени).*(?:напоминан)|напомни\s+мне/i.test(t)) {
+    return { intent: 'reminders', confidence: 0.92, reason: 'reminders write' }
+  }
+
+  if (/(?:добав|удали|взаимодейств).*(?:лекарств|препарат)|план\s+при[её]ма/i.test(t)) {
+    return { intent: 'medications', confidence: 0.9, reason: 'medications write' }
+  }
+
+  if (/(?:отлож|не\s+сделал).*(?:задач)|согласован.*врач/i.test(t)) {
+    return { intent: 'care_plan', confidence: 0.88, reason: 'care plan extended' }
+  }
+
+  if (/отмени.*(?:запись|при[её]м)|анкет.*(?:визит|при[её]м)|pre-?visit/i.test(t)) {
+    return { intent: 'appointments', confidence: 0.9, reason: 'appointments extended' }
   }
 
   if (/профил|личн.*данн|мой аккаунт/i.test(t)) {
