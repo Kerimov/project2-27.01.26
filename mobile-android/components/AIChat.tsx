@@ -289,6 +289,7 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
             }}>
             <AppText
               variant="body"
+              selectable
               style={{
                 color: isUser ? '#fff' : theme.colors.text,
               }}>
@@ -304,11 +305,11 @@ export function AIChat({ initialDocumentIds, autoOpen, aboveTabBar = true }: AIC
                   borderRadius: theme.radius.md,
                   gap: 4,
                 }}>
-                <AppText variant="caption" style={{ color: isUser ? '#fff' : theme.colors.success }}>
+                <AppText variant="caption" selectable style={{ color: isUser ? '#fff' : theme.colors.success }}>
                   {getFunctionLabel(item.functionName)}
                 </AppText>
                 {item.functionName === 'book_appointment' && (
-                  <AppText variant="caption" style={{ color: isUser ? '#fff' : theme.colors.text }}>
+                  <AppText variant="caption" selectable style={{ color: isUser ? '#fff' : theme.colors.text }}>
                     Запись успешно создана! Проверьте раздел "Записи".
                   </AppText>
                 )}
