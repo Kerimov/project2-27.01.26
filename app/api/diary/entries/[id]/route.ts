@@ -33,24 +33,37 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  const data: Record<string, unknown> = {}
+  if (entryDate !== undefined) data.entryDate = entryDate ? new Date(entryDate) : new Date()
+  if (mood !== undefined) data.mood = mood
+  if (painScore !== undefined) data.painScore = painScore
+  if (sleepHours !== undefined) data.sleepHours = sleepHours
+  if (steps !== undefined) data.steps = steps
+  if (temperature !== undefined) data.temperature = temperature
+  if (weight !== undefined) data.weight = weight
+  if (systolic !== undefined) data.systolic = systolic
+  if (diastolic !== undefined) data.diastolic = diastolic
+  if (pulse !== undefined) data.pulse = pulse
+  if (symptoms !== undefined) data.symptoms = symptoms
+  if (notes !== undefined) data.notes = notes
+  if (Array.isArray(tags)) {
+    data.tags = {
+      deleteMany: {},
+      create: tags.map((name: string) => ({
+        tag: {
+          connectOrCreate: {
+            where: { userId_name: { userId: resolved.patientId, name } },
+            create: { userId: resolved.patientId, name },
+          },
+        },
+      })),
+    }
+  }
+
   const updated = await prisma.healthDiaryEntry.update({
     where: { id: params.id },
-    data: {
-      entryDate: entryDate ? new Date(entryDate) : undefined,
-      mood, painScore, sleepHours, steps, temperature, weight, systolic, diastolic, pulse, symptoms, notes,
-      ...(tags ? { tags: {
-        deleteMany: {},
-        create: tags.map((name: string) => ({
-          tag: {
-            connectOrCreate: {
-              where: { userId_name: { userId: resolved.patientId, name } },
-              create: { userId: resolved.patientId, name }
-            }
-          }
-        }))
-      } } : {})
-    },
-    include: { tags: { include: { tag: true } } }
+    data,
+    include: { tags: { include: { tag: true } } },
   })
   return NextResponse.json(updated)
 }

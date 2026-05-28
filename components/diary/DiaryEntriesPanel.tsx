@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,7 +23,23 @@ type Entry = {
   pulse?: number
   symptoms?: string
   notes?: string
-  tags: { tag: { id: string; name: string; color?: string } }[]
+  tags?: { tag: { id: string; name: string; color?: string } }[]
+}
+
+type DiaryEntryForm = {
+  entryDate: string
+  mood: number | ''
+  painScore: number | ''
+  sleepHours: number | ''
+  steps: number | ''
+  temperature: number | ''
+  weight: number | ''
+  systolic: number | ''
+  diastolic: number | ''
+  pulse: number | ''
+  symptoms: string
+  notes: string
+  tags: string
 }
 
 type WeeklyReview = {
@@ -64,30 +79,31 @@ type IndicatorLinkResult = {
   dataQuality?: string[]
 }
 
-export function DiaryEntriesPanel() {
-  const { token, user } = useAuth()
-  const router = useRouter()
-  const [entries, setEntries] = useState<Entry[]>([])
-  const [loading, setLoading] = useState(false)
-  const defaultForm = () => ({
-    entryDate: new Date().toISOString().slice(0, 16),
-    mood: 3,
-    painScore: 0,
-    sleepHours: 8,
-  })
+const defaultForm = (): DiaryEntryForm => ({
+  entryDate: new Date().toISOString().slice(0, 16),
+  mood: 3,
+  painScore: 0,
+  sleepHours: 8,
+  steps: '',
+  temperature: '',
+  weight: '',
+  systolic: '',
+  diastolic: '',
+  pulse: '',
+  symptoms: '',
+  notes: '',
+  tags: '',
+})
 
-  const [form, setForm] = useState<any>(defaultForm())
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
-  const formSectionRef = useRef<HTMLDivElement>(null)
+function toDatetimeLocalValue(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 16)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
-  const toDatetimeLocalValue = (iso: string) => {
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 16)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-
-  const entryToForm = (entry: Entry) => ({
+function entryToForm(entry: Entry): DiaryEntryForm {
+  return {
     entryDate: toDatetimeLocalValue(entry.entryDate),
     mood: entry.mood ?? '',
     painScore: entry.painScore ?? '',
@@ -100,8 +116,18 @@ export function DiaryEntriesPanel() {
     pulse: entry.pulse ?? '',
     symptoms: entry.symptoms ?? '',
     notes: entry.notes ?? '',
-    tags: entry.tags?.map((t) => t.tag.name).join(', ') ?? '',
-  })
+    tags: (entry.tags || []).map((t) => t.tag?.name).filter(Boolean).join(', '),
+  }
+}
+
+export function DiaryEntriesPanel() {
+  const { token, user } = useAuth()
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState<DiaryEntryForm>(defaultForm)
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
+  const [editForm, setEditForm] = useState<DiaryEntryForm>(defaultForm)
+  const [editSaving, setEditSaving] = useState(false)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [order, setOrder] = useState<'desc'|'asc'>('desc')
@@ -135,7 +161,10 @@ export function DiaryEntriesPanel() {
     else window.localStorage.removeItem('caretakerPatientId')
   }
 
-  const uniqueTags = useMemo(() => Array.from(new Set(entries.flatMap(e => e.tags.map(t => t.tag.name)))), [entries])
+  const uniqueTags = useMemo(
+    () => Array.from(new Set(entries.flatMap((e) => (e.tags || []).map((t) => t.tag?.name).filter(Boolean)))),
+    [entries]
+  )
 
   const fetchEntries = useCallback(async () => {
     if (!token) return
@@ -147,8 +176,16 @@ export function DiaryEntriesPanel() {
     if (tag) params.set('tag', tag)
     const res = await fetch(`/api/diary/entries?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json()
-    // Сортируем по дате (новые сверху)
-    setEntries((data as Entry[]).slice().sort((a: Entry, b: Entry) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()))
+    if (!res.ok || !Array.isArray(data)) {
+      setEntries([])
+      setLoading(false)
+      return
+    }
+    setEntries(
+      (data as Entry[])
+        .slice()
+        .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+    )
     setLoading(false)
   }, [from, patientId, tag, to, token])
 
@@ -175,67 +212,74 @@ export function DiaryEntriesPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  function buildEntryPayload() {
-    const num = (v: unknown) => (v === '' || v == null ? undefined : Number(v))
+  function buildEntryPayload(source: DiaryEntryForm) {
+    const num = (v: number | '' | undefined) => {
+      if (v === '' || v == null) return undefined
+      const n = Number(v)
+      return Number.isNaN(n) ? undefined : n
+    }
     return {
       patientId,
-      entryDate: form.entryDate,
-      mood: num(form.mood),
-      painScore: num(form.painScore),
-      sleepHours: num(form.sleepHours),
-      steps: num(form.steps),
-      temperature: num(form.temperature),
-      weight: num(form.weight),
-      systolic: num(form.systolic),
-      diastolic: num(form.diastolic),
-      pulse: num(form.pulse),
-      symptoms: form.symptoms || undefined,
-      notes: form.notes || undefined,
-      tags: form.tags?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? [],
+      entryDate: source.entryDate,
+      mood: num(source.mood),
+      painScore: num(source.painScore),
+      sleepHours: num(source.sleepHours),
+      steps: num(source.steps),
+      temperature: num(source.temperature),
+      weight: num(source.weight),
+      systolic: num(source.systolic),
+      diastolic: num(source.diastolic),
+      pulse: num(source.pulse),
+      symptoms: source.symptoms.trim() || null,
+      notes: source.notes.trim() || null,
+      tags: source.tags.split(',').map((s) => s.trim()).filter(Boolean),
     }
   }
 
-  function cancelEdit() {
-    setEditingEntryId(null)
-    setForm(defaultForm())
+  function openEditModal(entry: Entry) {
+    setEditingEntry(entry)
+    setEditForm(entryToForm(entry))
   }
 
-  function startEdit(entry: Entry) {
-    setEditingEntryId(entry.id)
-    setForm(entryToForm(entry))
-    setTimeout(() => formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  function closeEditModal() {
+    setEditingEntry(null)
+    setEditForm(defaultForm())
+    setEditSaving(false)
   }
 
-  async function saveEntry() {
-    if (!token) return
-    const payload = buildEntryPayload()
-
-    if (editingEntryId) {
-      const res = await fetch(`/api/diary/entries/${editingEntryId}`, {
+  async function saveEdit() {
+    if (!token || !editingEntry) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/diary/entries/${editingEntry.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildEntryPayload(editForm)),
       })
-      if (res.ok) {
-        cancelEdit()
-        fetchEntries()
-      } else {
-        const data = await res.json().catch(() => ({}))
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
         alert(data?.error || 'Не удалось сохранить запись')
+        return
       }
-      return
+      closeEditModal()
+      await fetchEntries()
+    } finally {
+      setEditSaving(false)
     }
+  }
 
+  async function createEntry() {
+    if (!token) return
     const res = await fetch('/api/diary/entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildEntryPayload(form)),
     })
+    const data = await res.json().catch(() => ({}))
     if (res.ok) {
       setForm(defaultForm())
       fetchEntries()
     } else {
-      const data = await res.json().catch(() => ({}))
       alert(data?.error || 'Не удалось создать запись')
     }
   }
@@ -577,9 +621,9 @@ export function DiaryEntriesPanel() {
         </CardContent>
       </Card>
 
-      <Card className="bg-white/60" ref={formSectionRef}>
+      <Card className="bg-white/60">
         <CardHeader>
-          <CardTitle>{editingEntryId ? 'Редактирование записи' : 'Новая запись'}</CardTitle>
+          <CardTitle>Новая запись</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -633,13 +677,8 @@ export function DiaryEntriesPanel() {
             <Label>Теги (через запятую)</Label>
             <Input value={form.tags ?? ''} onChange={e => setForm({ ...form, tags: e.target.value })} />
           </div>
-          <div className="col-span-2 md:col-span-4 flex flex-wrap gap-2">
-            <Button onClick={saveEntry}>{editingEntryId ? 'Сохранить' : 'Записать'}</Button>
-            {editingEntryId && (
-              <Button type="button" variant="outline" onClick={cancelEdit}>
-                Отмена
-              </Button>
-            )}
+          <div className="col-span-2 md:col-span-4">
+            <Button type="button" onClick={createEntry}>Записать</Button>
           </div>
         </CardContent>
       </Card>
@@ -703,11 +742,11 @@ export function DiaryEntriesPanel() {
                   </div>
                 )}
                 <div className="ml-auto flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => startEdit(e)}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => openEditModal(e)}>
                     <Pencil className="h-4 w-4 mr-1" />
                     Редактировать
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => deleteEntry(e.id)}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => deleteEntry(e.id)}>
                     Удалить
                   </Button>
                 </div>
@@ -719,6 +758,141 @@ export function DiaryEntriesPanel() {
           </div>
         </CardContent>
       </Card>
+
+      {editingEntry && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="diary-edit-title"
+          onClick={closeEditModal}
+        >
+          <Card
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader>
+              <CardTitle id="diary-edit-title">Редактирование записи</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {new Date(editingEntry.entryDate).toLocaleString('ru-RU')}
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="col-span-2 md:col-span-4">
+                <Label>Дата и время</Label>
+                <Input
+                  type="datetime-local"
+                  value={editForm.entryDate}
+                  onChange={(e) => setEditForm({ ...editForm, entryDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Настроение (1-5)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={editForm.mood}
+                  onChange={(e) => setEditForm({ ...editForm, mood: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Боль (0-10)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={10}
+                  value={editForm.painScore}
+                  onChange={(e) => setEditForm({ ...editForm, painScore: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Сон (часов)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={editForm.sleepHours}
+                  onChange={(e) => setEditForm({ ...editForm, sleepHours: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Шаги</Label>
+                <Input
+                  type="number"
+                  value={editForm.steps}
+                  onChange={(e) => setEditForm({ ...editForm, steps: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Температура</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={editForm.temperature}
+                  onChange={(e) => setEditForm({ ...editForm, temperature: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Вес</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={editForm.weight}
+                  onChange={(e) => setEditForm({ ...editForm, weight: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>АД (сист./диаст.)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Сист."
+                    value={editForm.systolic}
+                    onChange={(e) => setEditForm({ ...editForm, systolic: e.target.value === '' ? '' : Number(e.target.value) })}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Диаст."
+                    value={editForm.diastolic}
+                    onChange={(e) => setEditForm({ ...editForm, diastolic: e.target.value === '' ? '' : Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Пульс</Label>
+                <Input
+                  type="number"
+                  value={editForm.pulse}
+                  onChange={(e) => setEditForm({ ...editForm, pulse: e.target.value === '' ? '' : Number(e.target.value) })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Симптомы</Label>
+                <Input
+                  value={editForm.symptoms}
+                  onChange={(e) => setEditForm({ ...editForm, symptoms: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Заметки</Label>
+                <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <Label>Теги (через запятую)</Label>
+                <Input value={editForm.tags} onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })} />
+              </div>
+              <div className="col-span-2 md:col-span-4 flex flex-wrap gap-2 pt-2">
+                <Button type="button" onClick={saveEdit} disabled={editSaving}>
+                  {editSaving ? 'Сохранение…' : 'Сохранить'}
+                </Button>
+                <Button type="button" variant="outline" onClick={closeEditModal} disabled={editSaving}>
+                  Отмена
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
