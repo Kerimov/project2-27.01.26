@@ -3,7 +3,7 @@ import Script from 'next/script'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { Header } from '@/components/Header'
+import { AppShell } from '@/components/layout/AppShell'
 import { GlobalAIChat } from '@/components/GlobalAIChat'
 import { WebThemeBootstrap } from '@/components/WebThemeBootstrap'
 
@@ -31,13 +31,8 @@ export default function RootLayout({
         />
         <WebThemeBootstrap />
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-1">
-              {children}
-            </main>
-            <GlobalAIChat />
-          </div>
+          <AppShell>{children}</AppShell>
+          <GlobalAIChat />
         </AuthProvider>
       </body>
     </html>

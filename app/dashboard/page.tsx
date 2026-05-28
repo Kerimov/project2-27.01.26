@@ -13,8 +13,6 @@ import {
   Heart, 
   Pill,
   TrendingUp,
-  Building2,
-  User,
   Clock,
   ChevronRight,
   ShieldAlert
@@ -134,16 +132,6 @@ export default function DashboardPage() {
     return null
   }
 
-  const quickActions = [
-    { icon: Bell, label: 'Напоминания', href: '/reminders', color: 'text-blue-600' },
-    { icon: TrendingUp, label: 'Анализы', href: '/analyses', color: 'text-green-600' },
-    { icon: Calendar, label: 'Записи', href: '/my-appointments', color: 'text-orange-600' },
-    { icon: FileText, label: 'Документы', href: '/documents', color: 'text-purple-600' },
-    { icon: Heart, label: 'Дневник', href: '/diary', color: 'text-red-600' },
-    { icon: TrendingUp, label: 'Аналитика', href: '/analytics', color: 'text-indigo-600' },
-    { icon: Building2, label: 'Маркетплейс', href: '/marketplace', color: 'text-blue-600' }
-  ]
-
   return (
     <div className="web-page">
       <main className="web-container">
@@ -151,9 +139,11 @@ export default function DashboardPage() {
         <div className="web-hero mb-8">
           <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="web-kicker mb-4">Личный кабинет</div>
-              <h1 className="web-page-title">Панель управления</h1>
-              <p className="web-page-subtitle">Добро пожаловать, {displayFirstName || user?.name}. Здесь собраны ближайшие действия, документы и показатели.</p>
+              <div className="web-kicker mb-4">Обзор</div>
+              <h1 className="web-page-title">Добро пожаловать{displayFirstName ? `, ${displayFirstName}` : ''}</h1>
+              <p className="web-page-subtitle">
+                Краткая сводка: ближайшие приёмы, последний анализ и показатели. Разделы — в меню слева.
+              </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/documents">
@@ -324,30 +314,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Быстрые действия */}
-          <Card className="web-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Быстрые действия</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {quickActions.map((action) => {
-                  const Icon = action.icon
-                  return (
-                    <Link key={action.href} href={action.href}>
-                      <div className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-muted cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                          <Icon className={`h-4 w-4 ${action.color}`} />
-                          <span className="text-sm">{action.label}</span>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Admin Section */}
